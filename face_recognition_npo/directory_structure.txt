@@ -1,0 +1,25 @@
+face_recognition_npo/
+├── src/
+│   ├── detection/
+│   │   └── __init__.py
+│   ├── embedding/
+│   │   └── __init__.py
+│   ├── comparison/
+│   │   └── __init__.py
+│   ├── reference/
+│   │   └── __init__.py
+│   └── __init__.py
+├── tests/
+│   ├── test_detection.py
+│   ├── test_embedding.py
+│   ├── test_comparison.py
+│   └── test_reference.py
+├── utils/
+│   ├── webcam.py
+│   └── __init__.py
+├── examples/
+│   ├── basic_usage.py
+│   └── webcam_demo.py
+├── requirements.txt
+├── README.md
+└── LICENSE

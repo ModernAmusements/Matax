@@ -1,0 +1,14 @@
+README.md
+setup.py
+face_recognition_npo.egg-info/PKG-INFO
+face_recognition_npo.egg-info/SOURCES.txt
+face_recognition_npo.egg-info/dependency_links.txt
+face_recognition_npo.egg-info/entry_points.txt
+face_recognition_npo.egg-info/not-zip-safe
+face_recognition_npo.egg-info/requires.txt
+face_recognition_npo.egg-info/top_level.txt
+tests/test_comparison.py
+tests/test_detection.py
+tests/test_embedding.py
+tests/test_reference.py
+tests/test_review.py
