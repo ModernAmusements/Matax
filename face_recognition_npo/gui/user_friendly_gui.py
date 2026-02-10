@@ -259,7 +259,7 @@ class VisualizationPanel(tk.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, bg=Colors.BG_PRIMARY, **kwargs)
 
-        tk.Label(self, text="◈ AI Analysis Visualizations",
+        tk.Label(self, text="AI Analysis Visualizations",
                 font=("Helvetica Neue", 14, "bold"),
                 fg=Colors.ACCENT_PURPLE,
                 bg=Colors.BG_PRIMARY).pack(anchor="w", pady=(0, 8))
@@ -277,12 +277,20 @@ class VisualizationPanel(tk.Frame):
 
     def _create_viz_tabs(self):
         viz_types = [
-            ("detection", "Face Detection", "Bounding boxes around detected faces"),
-            ("extraction", "Face Extraction", "Cropped face for analysis"),
-            ("landmarks", "Face Landmarks", "Key facial points detected"),
-            ("features", "Feature Map", "Neural network activation patterns"),
-            ("embedding", "Embedding", "128-dimensional face signature"),
-            ("heatmap", "Attention Heatmap", "Areas AI focuses on"),
+            ("detection", "Detection", "Bounding boxes with confidence scores"),
+            ("extraction", "Extraction", "Cropped 160x160 face for recognition"),
+            ("landmarks", "Landmarks", "Facial keypoint detection"),
+            ("mesh3d", "3D Mesh", "3D facial mesh estimation"),
+            ("alignment", "Alignment", "Pose estimation: yaw/pitch"),
+            ("saliency", "Attention", "Saliency/attention regions"),
+            ("activations", "Activations", "Neural network layer activations"),
+            ("features", "Features", "Feature importance map"),
+            ("multiscale", "Multi-Scale", "Multi-resolution analysis"),
+            ("confidence", "Confidence", "Detection confidence heatmap"),
+            ("embedding", "Embedding", "128-dim face signature"),
+            ("similarity", "Similarity", "Reference comparison matrix"),
+            ("robustness", "Robustness", "Noise tolerance testing"),
+            ("biometric", "Biometric", "Biometric quality assessment"),
         ]
 
         for viz_id, title, desc in viz_types:
@@ -508,8 +516,8 @@ class UserFriendlyGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Face Analysis - Step by Step Guide")
-        self.root.geometry("1100x950")
-        self.root.minsize(800, 700)
+        self.root.geometry("1100x1050")
+        self.root.minsize(800, 800)
         self.root.configure(bg=Colors.BG_PRIMARY)
 
         self.detector = None
@@ -519,6 +527,9 @@ class UserFriendlyGUI:
         self.current_faces = []
         self.current_embedding = None
         self.current_face_image = None
+        self.current_landmarks = None
+        self.current_alignment = None
+        self.current_quality = None
         self.references = []
 
         self._init_models()
@@ -711,6 +722,10 @@ class UserFriendlyGUI:
                 self.current_image = img
                 self.current_faces = []
                 self.current_embedding = None
+                self.current_face_image = None
+                self.current_landmarks = None
+                self.current_alignment = None
+                self.current_quality = None
 
                 self.preview_1.set_image(img)
                 self.status_1.config(text=f"Selected: {os.path.basename(path)}")
@@ -721,12 +736,8 @@ class UserFriendlyGUI:
                 self.gallery_2.clear()
                 self.compare_4.set_comparison(img, None, 0, "")
 
-                self.viz_panel.set_visualization("detection", None)
-                self.viz_panel.set_visualization("extraction", None)
-                self.viz_panel.set_visualization("landmarks", None)
-                self.viz_panel.set_visualization("features", None)
-                self.viz_panel.set_visualization("embedding", None)
-                self.viz_panel.set_visualization("heatmap", None)
+                for viz_id in self.viz_panel.viz_panels:
+                    self.viz_panel.set_visualization(viz_id, None)
 
     def _on_detect(self):
         if self.current_image is None:
@@ -759,75 +770,55 @@ class UserFriendlyGUI:
             if len(faces) > 0:
                 x, y, w, h = faces[0]
                 face_img = self.current_image[y:y+h, x:x+w]
-                self.viz_panel.set_visualization("extraction", face_img)
-                self._create_landmarks_viz(face_img)
-                self._create_feature_map_viz(face_img)
-                self._create_embedding_viz(None)
-                self._create_heatmap_viz(self.current_image, faces)
-        else:
-            self.status_2.config(text="No faces detected")
-            messagebox.showwarning("No Faces", "Try a different photo with clearer faces.")
+                self.current_face_image = face_img
 
-    def _create_landmarks_viz(self, face_img):
-        viz = face_img.copy()
-        h, w = viz.shape[:2]
+                self.viz_panel.set_visualization("extraction",
+                    self.detector.visualize_extraction(self.current_image, faces))
 
-        num_landmarks = min(68, w // 10)
-        step = max(1, w // num_landmarks)
+                self.current_landmarks = self.detector.estimate_landmarks(face_img, (0, 0, w, h))
+                self.viz_panel.set_visualization("landmarks",
+                    self.detector.visualize_landmarks(face_img, self.current_landmarks))
 
-        colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0)]
-        for i in range(min(5, num_landmarks)):
-            x = int((i + 0.5) * step)
-            y = int(h * 0.3 + (i % 3) * int(h * 0.2))
-            cv2.circle(viz, (x, y), 3, colors[i % len(colors)], -1)
+                self.viz_panel.set_visualization("mesh3d",
+                    self.detector.visualize_3d_mesh(face_img))
 
-        self.viz_panel.set_visualization("landmarks", viz)
+                self.current_alignment = self.detector.compute_alignment(face_img, self.current_landmarks)
+                self.viz_panel.set_visualization("alignment",
+                    self.detector.visualize_alignment(face_img, self.current_landmarks, self.current_alignment))
 
-    def _create_feature_map_viz(self, face_img):
-        viz = np.zeros((64, 128, 3), dtype=np.uint8)
-        np.random.seed(42)
-        for i in range(8):
-            for j in range(16):
-                val = int(np.random.randint(50, 255))
-                cv2.rectangle(viz, (j*8, i*8), (j*8+7, i*8+7), (val, val//2, 255-val), -1)
-        self.viz_panel.set_visualization("features", viz)
+                self.viz_panel.set_visualization("saliency",
+                    self.detector.visualize_saliency(face_img))
 
-    def _create_embedding_viz(self, embedding):
-        viz = np.zeros((100, 256, 3), dtype=np.uint8)
-        if embedding is not None:
-            np.random.seed(hash(str(embedding[:10].tolist())) & 0xFFFFFFFF)
-        for i in range(32):
-            x = int(np.random.randint(0, 250))
-            y = int(np.random.randint(0, 95))
-            size = int(np.random.randint(3, 10))
-            intensity = 200 if embedding is not None else int(np.random.randint(50, 150))
-            cv2.circle(viz, (x, y), size, (intensity, intensity//2, 255-intensity), -1)
-        self.viz_panel.set_visualization("embedding", viz)
+                self.viz_panel.set_visualization("activations",
+                    self.extractor.visualize_activations(face_img))
 
-    def _create_heatmap_viz(self, image, faces):
-        viz = image.copy()
-        heatmap = np.zeros(image.shape[:2], dtype=np.float32)
+                self.viz_panel.set_visualization("features",
+                    self.extractor.visualize_feature_maps(face_img))
 
-        for (x, y, w, h) in faces:
-            center_x, center_y = x + w//2, y + h//2
-            for i in range(y, y+h):
-                for j in range(x, x+w):
-                    dist = np.sqrt((i - center_y)**2 + (j - center_x)**2)
-                    factor = max(0, 1 - dist / (max(w, h) / 2))
-                    heatmap[i, j] = max(heatmap[i, j], factor)
+                self.viz_panel.set_visualization("multiscale",
+                    self.detector.visualize_multiscale(face_img))
 
-        heatmap = cv2.GaussianBlur(heatmap, (51, 51), 0)
-        heatmap = (heatmap / max(0.001, heatmap.max()) * 255).astype(np.uint8)
-        heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-        heatmap_color = cv2.cvtColor(heatmap_color, cv2.COLOR_BGR2RGB)
+                self.current_quality = self.detector.compute_quality_metrics(self.current_image, faces[0])
 
-        alpha = 0.4
-        viz = cv2.addWeighted(viz, 1-alpha, heatmap_color, alpha, 0)
+                conf_img = self.current_image.copy()
+                heatmap = np.zeros(self.current_image.shape[:2], dtype=np.float32)
+                for (fx, fy, fw, fh) in faces:
+                    cx, cy = fx + fw//2, fy + fh//2
+                    for i in range(fy, fy+fh):
+                        for j in range(fx, fx+fw):
+                            dist = np.sqrt((i - cy)**2 + (j - cx)**2)
+                            factor = max(0, 1 - dist / (max(fw, fh) / 2))
+                            heatmap[i, j] = max(heatmap[i, j], factor)
+                heatmap = cv2.GaussianBlur(heatmap, (31, 31), 0)
+                heatmap = (heatmap / max(0.001, heatmap.max()) * 255).astype(np.uint8)
+                heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_VIRIDIS)
+                conf_img = cv2.addWeighted(conf_img, 0.5, heatmap_color, 0.5, 0)
+                for (fx, fy, fw, fh) in faces:
+                    cv2.rectangle(conf_img, (fx, fy), (fx+fw, fy+fh), (0, 255, 0), 2)
+                self.viz_panel.set_visualization("confidence", conf_img)
 
-        for (x, y, w, h) in faces:
-            cv2.rectangle(viz, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-        self.viz_panel.set_visualization("heatmap", viz)
+                self.viz_panel.set_visualization("biometric",
+                    self.detector.visualize_biometric_capture(self.current_image, faces))
 
     def _on_extract(self):
         if not self.current_faces:
@@ -847,7 +838,22 @@ class UserFriendlyGUI:
             self.current_embedding = embedding
             self.status_3.config(text="Features extracted successfully!")
             self.status_4.config(text="Ready to compare")
-            self._create_embedding_viz(embedding)
+
+            self.viz_panel.set_visualization("embedding",
+                self.extractor.visualize_embedding(embedding))
+
+            ref_embs = [r.get("embedding") for r in self.ref_gallery_4.ref_data.values() if r.get("embedding") is not None]
+            ref_names = [r.get("name") for r in self.ref_gallery_4.ref_data.values() if r.get("embedding") is not None]
+
+            if ref_embs:
+                self.viz_panel.set_visualization("similarity",
+                    self.extractor.visualize_similarity_matrix(embedding, ref_embs, ref_names))
+            elif self.current_embedding is not None:
+                self.viz_panel.set_visualization("similarity",
+                    self.extractor.visualize_similarity_matrix(embedding, [self.current_embedding], ["Current"]))
+
+            robust_img, _ = self.extractor.test_robustness(face_img)
+            self.viz_panel.set_visualization("robustness", robust_img)
         else:
             self.status_3.config(text="Extraction failed")
             messagebox.showerror("Error", "Could not extract features from face.")
@@ -907,6 +913,12 @@ class UserFriendlyGUI:
                 self.ref_gallery_4.add(face_img, name, embedding)
                 self.references.append({"name": name, "image": face_img, "embedding": embedding})
                 self.status_4.config(text=f"Reference added: {name}")
+
+                if self.current_embedding is not None:
+                    sim = self.comparator.cosine_similarity(self.current_embedding, embedding)
+                    conf = self.comparator.get_confidence_band(sim)
+                    self.compare_4.set_comparison(self.current_face_image, face_img, sim, conf)
+                    self.status_4.config(text=f"Added: {name} ({int(sim*100)}% match)")
             else:
                 messagebox.showwarning("No Faces", "No faces detected in reference image")
 
