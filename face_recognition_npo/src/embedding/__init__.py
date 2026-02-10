@@ -233,22 +233,60 @@ class FaceNetEmbeddingExtractor:
         matrix_colored = cv2.applyColorMap(matrix, colormap)
         matrix_colored = cv2.resize(matrix_colored, (n * cell_size, n * cell_size))
 
-        output[:n * cell_size, :n * cell_size] = matrix_colored
-
         for i in range(n):
             for j in range(n):
                 x = j * cell_size + cell_size // 2
                 y = i * cell_size + cell_size // 2
-                val = matrix[i, j] / 255.0
-                color = (0, 0, 0) if val > 0.5 else (255, 255, 255)
-                sim_text = f"{val:.2f}"
-                cv2.putText(output, sim_text, (x - 15, y + 5),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, color, 1)
+                sim = matrix[i, j]
+                text_color = (255, 255, 255) if sim > 127 else (0, 0, 0)
+                cv2.putText(matrix_colored, f"{sim:.1%}", (x - 20, y + 5),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, text_color, 1)
 
-        cv2.putText(output, "Q", (5, cell_size // 2 + 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-        cv2.putText(output, "Refs", (n * cell_size + 5, cell_size // 2 + 5),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        output[:n * cell_size, :n * cell_size] = matrix_colored
 
+        for i, name in enumerate(['Query'] + reference_names):
+            cv2.putText(output, name[:10], (5, i * cell_size + cell_size // 2 + 5),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
+
+        return output
+
+    def visualize_similarity_result(self, query_embedding: np.ndarray, ref_embedding: np.ndarray, 
+                                   similarity: float, query_name: str = "Query", 
+                                   ref_name: str = "Reference") -> np.ndarray:
+        """Visualize a single similarity comparison result."""
+        output = np.zeros((200, 400, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Similarity Analysis", (120, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
+        
+        center_x = 200
+        gauge_y = 80
+        gauge_radius = 60
+        
+        cv2.circle(output, (center_x, gauge_y), gauge_radius, (200, 200, 200), 20)
+        
+        angle = np.pi - (similarity * np.pi)
+        end_x = int(center_x + gauge_radius * np.cos(angle))
+        end_y = int(gauge_y - gauge_radius * np.sin(angle))
+        cv2.line(output, (center_x, gauge_y), (end_x, end_y), (76, 175, 80), 4)
+        
+        cv2.putText(output, f"{similarity:.1%}", (center_x - 30, gauge_y + 100),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (76, 175, 80), 2)
+        
+        from src.embedding import SimilarityComparator
+        comp = SimilarityComparator()
+        band = comp.get_confidence_band(similarity)
+        cv2.putText(output, band, (center_x - 50, gauge_y + 130),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 1)
+        
+        cv2.putText(output, query_name, (50, gauge_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
+        cv2.putText(output, ref_name, (280, gauge_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
+        
+        threshold = 0.6
+        cv2.putText(output, f"Threshold: {threshold:.0%}", (120, 175),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+        
         return output
 
     def test_robustness(self, face_image: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:

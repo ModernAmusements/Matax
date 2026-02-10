@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Recognition</title>
+    <link rel="stylesheet" href="styles/design-system.css">
+    <style>
+        /* Page-specific styles can go here */
+        .page {
+            display: none;
+            padding: var(--space-6);
+            max-width: var(--content-max-width);
+            margin: 0 auto;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-5) var(--space-6);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .header-title {
+            font-size: var(--text-2xl);
+            font-weight: var(--font-bold);
+            color: var(--color-primary);
+        }
+
+        /* Main Layout */
+        .main {
+            padding: var(--space-6);
+        }
+
+        /* Step Cards */
+        .step-card {
+            margin-bottom: var(--space-6);
+            padding: var(--space-6);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-light);
+            box-shadow: 0 2px 8px var(--shadow-sm);
+        }
+
+        .step-card-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-4);
+            margin-bottom: var(--space-4);
+        }
+
+        .step-card-icon {
+            font-size: 28px;
+        }
+
+        .step-card-title {
+            font-size: var(--text-xl);
+            font-weight: var(--font-bold);
+            color: var(--text-primary);
+        }
+
+        .step-card-description {
+            color: var(--text-secondary);
+            margin-bottom: var(--space-4);
+        }
+
+        /* Status Messages */
+        .status {
+            padding: var(--space-3) var(--space-4);
+            margin: var(--space-3) 0;
+            border-radius: var(--radius-md);
+            font-size: var(--text-sm);
+        }
+
+        .status-info {
+            background: rgba(88, 86, 214, 0.1);
+            color: var(--color-info);
+        }
+
+        .status-success {
+            background: rgba(48, 209, 88, 0.1);
+            color: var(--color-accent-green);
+        }
+
+        .status-warning {
+            background: rgba(255, 214, 10, 0.1);
+            color: var(--color-accent-orange);
+        }
+
+        .status-error {
+            background: rgba(255, 69, 58, 0.1);
+            color: var(--color-error);
+        }
+
+        /* Image Preview */
+        .preview-container {
+            display: flex;
+            gap: var(--space-4);
+            flex-wrap: wrap;
+        }
+
+        .preview-box {
+            flex: 1;
+            min-width: 200px;
+            max-width: 400px;
+            padding: var(--space-4);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            text-align: center;
+        }
+
+        .preview-box img {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: var(--radius-sm);
+        }
+
+        .preview-label {
+            margin-top: var(--space-2);
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+
+        /* Reference List */
+        .reference-list {
+            display: flex;
+            gap: var(--space-3);
+            flex-wrap: wrap;
+            margin-top: var(--space-4);
+        }
+
+        .reference-item {
+            width: 100px;
+            padding: var(--space-3);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .reference-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px var(--shadow-md);
+        }
+
+        .reference-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+        }
+
+        .reference-item span {
+            display: block;
+            margin-top: var(--space-2);
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: var(--space-3);
+            margin-top: var(--space-4);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(245, 245, 247, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.active {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border-default);
+            border-top-color: var(--color-primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto var(--space-4);
+        }
+
+        .loading-text {
+            font-size: var(--text-lg);
+            color: var(--text-secondary);
+        }
+
+        /* Terminal-style Log */
+        .terminal-log {
+            margin-top: var(--space-6);
+            padding: var(--space-4);
+            background: #1e1e1e;
+            border-radius: var(--radius-md);
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: var(--text-xs);
+            color: #00ff00;
+            text-align: left;
+            min-height: 120px;
+            max-height: 200px;
+            overflow-y: auto;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .terminal-line {
+            margin: 2px 0;
+            opacity: 0.9;
+        }
+
+        .terminal-line.command {
+            color: #00ffff;
+        }
+
+        .terminal-line.success {
+            color: #00ff00;
+        }
+
+        .terminal-line.info {
+            color: #ffff00;
+        }
+
+        .terminal-line.error {
+            color: #ff4444;
+        }
+
+        .terminal-line .timestamp {
+            color: #666;
+            margin-right: var(--space-2);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1 class="header-title">◈ Face Recognition</h1>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Step 1: Select Image -->
+        <div class="step-card">
+            <div class="step-card-header">
+                <span class="step-card-icon">📷</span>
+                <div>
+                    <h2 class="step-card-title">Choose Your Photo</h2>
+                    <p class="step-card-description">Select a photo containing faces you want to analyze.</p>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-lg" onclick="selectImage()">
+                Choose Photo
+            </button>
+            <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
+
+            <div class="preview-container" id="previewContainer" style="display: none;">
+                <div class="preview-box">
+                    <img id="selectedImage" src="" alt="Selected image">
+                    <p class="preview-label">Selected Image</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Detect Faces -->
+        <div class="step-card" id="detectCard">
+            <div class="step-card-header">
+                <span class="step-card-icon">🔍</span>
+                <div>
+                    <h2 class="step-card-title">Find Faces</h2>
+                    <p class="step-card-description">The AI will automatically detect all faces in your photo.</p>
+                </div>
+            </div>
+            <div class="status status-info" id="detectStatus">Waiting for image...</div>
+            <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>
+                Find Faces
+            </button>
+
+            <div id="facesContainer" style="display: none;">
+                <h3 style="margin-top: var(--space-4); font-size: var(--text-lg);">Detected Faces</h3>
+                <div class="gallery" id="facesGallery"></div>
+            </div>
+        </div>
+
+        <!-- Step 3: Extract Features -->
+        <div class="step-card" id="extractCard">
+            <div class="step-card-header">
+                <span class="step-card-icon">◈</span>
+                <div>
+                    <h2 class="step-card-title">Create Signature</h2>
+                    <p class="step-card-description">Convert each face into a unique mathematical signature.</p>
+                </div>
+            </div>
+            <div class="status status-info" id="extractStatus">Waiting for detection...</div>
+            <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>
+                Create Signature
+            </button>
+        </div>
+
+        <!-- Step 4: Compare -->
+        <div class="step-card" id="compareCard">
+            <div class="step-card-header">
+                <span class="step-card-icon">⇄</span>
+                <div>
+                    <h2 class="step-card-title">Compare</h2>
+                    <p class="step-card-description">Match extracted features against your reference database.</p>
+                </div>
+            </div>
+
+            <!-- References -->
+            <h3 style="margin-bottom: var(--space-2);">Your References</h3>
+            <button class="btn btn-success" onclick="addReference()">
+                + Add Reference
+            </button>
+            <input type="file" id="refInput" accept="image/*" style="display: none;" onchange="handleReferenceSelect(event)">
+
+            <div class="reference-list" id="referenceList"></div>
+
+            <div class="status status-info" id="compareStatus">Waiting for features...</div>
+            <button class="btn btn-primary" onclick="compareFaces()" id="compareBtn" disabled>
+                Compare
+            </button>
+
+            <!-- Comparison Result -->
+            <div id="comparisonResult" style="display: none;">
+                <h3 style="margin-top: var(--space-4); margin-bottom: var(--space-3);">Comparison Result</h3>
+                <div class="comparison-panel">
+                    <div class="comparison-side">
+                        <img id="queryImage" src="" alt="Query face">
+                        <p class="preview-label">Your Image</p>
+                    </div>
+                    <div class="comparison-center">
+                        <div class="comparison-score" id="matchScore">--%</div>
+                        <p class="comparison-label">Match</p>
+                        <span class="badge badge-success" id="confidenceBadge">High confidence</span>
+                    </div>
+                    <div class="comparison-side">
+                        <img id="refImage" src="" alt="Reference">
+                        <p class="preview-label" id="refLabel">Reference</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visualizations -->
+        <div class="card" style="margin-top: var(--space-6);">
+            <div class="card-header">
+                <h2 style="font-size: var(--text-xl);">AI Analysis Visualizations</h2>
+                <p style="color: var(--text-secondary); margin-top: var(--space-1);">See how the AI analyzes faces in your images</p>
+            </div>
+            <div class="card-body">
+                <div class="viz-tabs" id="vizTabs">
+                    <button class="viz-tab active" data-viz="detection">Detection</button>
+                    <button class="viz-tab" data-viz="extraction">Extraction</button>
+                    <button class="viz-tab" data-viz="landmarks">Landmarks</button>
+                    <button class="viz-tab" data-viz="mesh3d">3D Mesh</button>
+                    <button class="viz-tab" data-viz="alignment">Alignment</button>
+                    <button class="viz-tab" data-viz="saliency">Attention</button>
+                    <button class="viz-tab" data-viz="activations">Activations</button>
+                    <button class="viz-tab" data-viz="features">Features</button>
+                    <button class="viz-tab" data-viz="multiscale">Multi-Scale</button>
+                    <button class="viz-tab" data-viz="confidence">Confidence</button>
+                    <button class="viz-tab" data-viz="embedding">Embedding</button>
+                    <button class="viz-tab" data-viz="similarity">Similarity</button>
+                    <button class="viz-tab" data-viz="robustness">Robustness</button>
+                    <button class="viz-tab" data-viz="biometric">Biometric</button>
+                </div>
+                <div class="viz-content" id="vizContent">
+                    <div class="viz-placeholder">
+                        <p>Run analysis to see visualizations</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text" id="loadingText">Processing...</p>
+            <div class="terminal-log" id="terminalLog"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="renderer/app.js"></script>
+</body>
+</html>

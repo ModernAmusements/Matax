@@ -1,0 +1,645 @@
+/* ==========================================================================
+   FACE RECOGNITION UI - DESIGN SYSTEM
+   ========================================================================== */
+
+/* ==========================================================================
+   1. COLOR PALETTE
+   ========================================================================== */
+:root {
+    /* Primary Colors */
+    --color-primary: #007AFF;
+    --color-primary-hover: #0066CC;
+    --color-primary-active: #0055BB;
+    --color-primary-light: #E5F1FF;
+
+    /* Secondary Colors */
+    --color-secondary: #5856D6;
+    --color-secondary-hover: #4745B5;
+
+    /* Accent Colors */
+    --color-accent-green: #34C759;
+    --color-accent-red: #FF3B30;
+    --color-accent-orange: #FF9500;
+    --color-accent-purple: #AF52DE;
+    --color-accent-blue: #007AFF;
+
+    /* Semantic Colors */
+    --color-success: #30D158;
+    --color-warning: #FFD60A;
+    --color-error: #FF453A;
+    --color-info: #5856D6;
+
+    /* Background Colors */
+    --bg-primary: #F5F5F7;
+    --bg-secondary: #FFFFFF;
+    --bg-tertiary: #F0F0F2;
+    --bg-card: #FFFFFF;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+
+    /* Text Colors */
+    --text-primary: #1D1D1F;
+    --text-secondary: #86868B;
+    --text-tertiary: #AEAEB2;
+    --text-inverse: #FFFFFF;
+    --text-link: #007AFF;
+
+    /* Border Colors */
+    --border-light: #E5E5EA;
+    --border-default: #D2D2D7;
+    --border-dark: #C6C6C8;
+
+    /* Shadow Colors */
+    --shadow-sm: rgba(0, 0, 0, 0.05);
+    --shadow-md: rgba(0, 0, 0, 0.1);
+    --shadow-lg: rgba(0, 0, 0, 0.15);
+    --shadow-xl: rgba(0, 0, 0, 0.2);
+
+    /* Gradient Colors */
+    --gradient-primary: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+    --gradient-success: linear-gradient(135deg, #34C759 0%, #30D158 100%);
+    --gradient-warning: linear-gradient(135deg, #FF9500 0%, #FFD60A 100%);
+    --gradient-error: linear-gradient(135deg, #FF3B30 0%, #FF453A 100%);
+}
+
+/* ==========================================================================
+   2. TYPOGRAPHY
+   ========================================================================== */
+:root {
+    /* Font Family */
+    --font-primary: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    --font-mono: 'SF Mono', 'Monaco', 'Menlo', monospace;
+
+    /* Font Size - Scale */
+    --text-xs: 11px;
+    --text-sm: 12px;
+    --text-base: 14px;
+    --text-lg: 16px;
+    --text-xl: 18px;
+    --text-2xl: 20px;
+    --text-3xl: 24px;
+    --text-4xl: 28px;
+    --text-5xl: 32px;
+
+    /* Font Weight */
+    --font-normal: 400;
+    --font-medium: 500;
+    --font-semibold: 600;
+    --font-bold: 700;
+
+    /* Line Height */
+    --leading-tight: 1.2;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.75;
+
+    /* Letter Spacing */
+    --tracking-tight: -0.02em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.02em;
+}
+
+/* ==========================================================================
+   3. SPACING SYSTEM
+   ========================================================================== */
+:root {
+    --space-0: 0;
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+    --space-10: 40px;
+    --space-12: 48px;
+    --space-16: 64px;
+    --space-20: 80px;
+
+    /* Layout */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 20px;
+    --radius-full: 9999px;
+}
+
+/* ==========================================================================
+   4. LAYOUT DIMENSIONS
+   ========================================================================== */
+:root {
+    --sidebar-width: 280px;
+    --header-height: 60px;
+    --panel-width: 400px;
+    --content-max-width: 1200px;
+
+    /* Transitions */
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+    --transition-slow: 400ms ease;
+    --transition-spring: 500ms cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* ==========================================================================
+   5. BUTTON STYLES
+   ========================================================================== */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    font-family: var(--font-primary);
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
+    line-height: var(--leading-normal);
+    text-decoration: none;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    outline: none;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--gradient-primary);
+    color: var(--text-inverse);
+    box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 122, 255, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    border-color: var(--border-dark);
+}
+
+.btn-success {
+    background: var(--gradient-success);
+    color: var(--text-inverse);
+    box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3);
+}
+
+.btn-danger {
+    background: var(--gradient-error);
+    color: var(--text-inverse);
+    box-shadow: 0 4px 12px rgba(255, 59, 48, 0.3);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.btn-lg {
+    padding: var(--space-4) var(--space-8);
+    font-size: var(--text-lg);
+    border-radius: var(--radius-xl);
+}
+
+.btn-sm {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    border-radius: var(--radius-md);
+}
+
+/* ==========================================================================
+   6. CARD STYLES
+   ========================================================================== */
+.card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    box-shadow: 0 2px 8px var(--shadow-sm);
+    overflow: hidden;
+    transition: all var(--transition-normal);
+}
+
+.card:hover {
+    box-shadow: 0 4px 16px var(--shadow-md);
+}
+
+.card-header {
+    padding: var(--space-5) var(--space-6);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.card-body {
+    padding: var(--space-6);
+}
+
+.card-footer {
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-tertiary);
+}
+
+/* ==========================================================================
+   7. INPUT STYLES
+   ========================================================================== */
+.input {
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-primary);
+    font-size: var(--text-base);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: all var(--transition-fast);
+}
+
+.input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.input::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* ==========================================================================
+   8. PROGRESS & LOADING
+   ========================================================================== */
+.progress {
+    width: 100%;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-full);
+    transition: width var(--transition-normal);
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-default);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   9. BADGE STYLES
+   ========================================================================== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+    border-radius: var(--radius-full);
+}
+
+.badge-primary {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+}
+
+.badge-success {
+    background: rgba(48, 209, 88, 0.15);
+    color: var(--color-accent-green);
+}
+
+.badge-warning {
+    background: rgba(255, 214, 10, 0.15);
+    color: var(--color-accent-orange);
+}
+
+.badge-error {
+    background: rgba(255, 69, 58, 0.15);
+    color: var(--color-error);
+}
+
+/* ==========================================================================
+   10. VISUALIZATION STYLES
+   ========================================================================== */
+.viz-container {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.viz-tabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-light);
+    overflow-x: auto;
+}
+
+.viz-tab {
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.viz-tab:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.viz-tab.active {
+    background: var(--bg-card);
+    color: var(--color-primary);
+    box-shadow: 0 1px 3px var(--shadow-sm);
+}
+
+.viz-content {
+    padding: var(--space-4);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.viz-placeholder {
+    color: var(--text-tertiary);
+    font-size: var(--text-base);
+    text-align: center;
+}
+
+/* ==========================================================================
+   11. STEP INDICATOR
+   ========================================================================== */
+.step-indicator {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+}
+
+.step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    text-align: center;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border-radius: 50%;
+    transition: all var(--transition-normal);
+}
+
+.step.active .step-number {
+    background: var(--gradient-primary);
+    color: var(--text-inverse);
+}
+
+.step.completed .step-number {
+    background: var(--color-accent-green);
+    color: var(--text-inverse);
+}
+
+.step-title {
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+}
+
+.step-description {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   12. GALLERY STYLES
+   ========================================================================== */
+.gallery {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+}
+
+.gallery-item {
+    flex-shrink: 0;
+    width: 80px;
+    padding: var(--space-2);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.gallery-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-md);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}
+
+.gallery-item span {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   13. COMPARISON PANEL
+   ========================================================================== */
+.comparison-panel {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+}
+
+.comparison-side {
+    text-align: center;
+}
+
+.comparison-side img {
+    width: 100%;
+    max-width: 200px;
+    height: 200px;
+    object-fit: cover;
+    border-radius: var(--radius-md);
+    box-shadow: 0 2px 8px var(--shadow-md);
+}
+
+.comparison-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+}
+
+.comparison-score {
+    font-size: var(--text-4xl);
+    font-weight: var(--font-bold);
+    color: var(--color-primary);
+}
+
+.comparison-label {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-1);
+}
+
+/* ==========================================================================
+   14. RESPONSIVE BREAKPOINTS
+   ========================================================================== */
+@media (max-width: 1200px) {
+    :root {
+        --sidebar-width: 240px;
+    }
+}
+
+@media (max-width: 992px) {
+    .comparison-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .comparison-center {
+        order: -1;
+        flex-direction: row;
+        gap: var(--space-4);
+    }
+}
+
+@media (max-width: 768px) {
+    :root {
+        --header-height: 50px;
+    }
+
+    .step-indicator {
+        flex-wrap: wrap;
+    }
+
+    .step {
+        flex: 0 0 50%;
+    }
+}
+
+@media (max-width: 480px) {
+    .step {
+        flex: 0 0 100%;
+    }
+}
+
+/* ==========================================================================
+   15. ANIMATIONS
+   ========================================================================== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-fade-in {
+    animation: fadeIn var(--transition-normal) ease;
+}
+
+.animate-slide-up {
+    animation: slideUp var(--transition-spring) ease;
+}
+
+.animate-slide-down {
+    animation: slideDown var(--transition-spring) ease;
+}
+
+.animate-scale-in {
+    animation: scaleIn var(--transition-spring) ease;
+}
