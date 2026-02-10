@@ -21,15 +21,27 @@ python api_server.py
 
 ## Features
 
-- **Electron Desktop UI**: Full-featured desktop application with dark/light theme
+- **Electron Desktop UI**: Ultra minimal design - black text on white, no icons
+- **Sticky Terminal Footer**: Always-visible logs, click to expand/collapse
 - **Face Detection**: Detect human faces in images using OpenCV's DNN module
 - **Embedding Extraction**: Convert faces into non-reversible 128-dimensional embeddings
 - **Similarity Comparison**: Compare embeddings using cosine similarity with confidence bands
 - **Reference Management**: Manage reference images with metadata and consent information
-- **14 AI Visualizations**: See how the AI analyzes faces:
-  - Detection, Extraction, Landmarks, 3D Mesh, Alignment
-  - Attention (Saliency), Activations, Features, Multi-Scale
-  - Confidence Metrics, Embedding Space, Similarity Matrix, Robustness, Biometric Capture
+- **14 AI Visualizations**: See how the AI analyzes faces
+
+## UI Design
+
+**Ultra Minimal:**
+- Sans serif font (system stack)
+- Black text on white background
+- White buttons with black borders
+- Step indicators (Step 1, 2, 3, 4)
+
+**Terminal Footer:**
+- Fixed at bottom, always visible
+- Shows live processing logs
+- Compact (5 lines) or expanded (click to toggle)
+- Black background, green monospace text
 
 ## Architecture
 
@@ -39,13 +51,12 @@ face_recognition_npo/
 ├── src/
 │   ├── detection/          # Face detection module
 │   └── embedding/          # Embedding extraction & comparison
-├── electron-ui/            # Electron desktop application
+├── electron-ui/           # Electron desktop application
 │   ├── main.js             # Electron main process
 │   ├── renderer/app.js     # Frontend JavaScript
-│   ├── index.html          # UI structure
-│   └── styles/design-system.css  # Complete design system
-├── tests/                  # Unit tests
-└── examples/               # Usage examples
+│   └── index.html          # Ultra minimal UI
+├── tests/                   # Unit tests
+└── examples/              # Usage examples
 
 ## Core Components
 

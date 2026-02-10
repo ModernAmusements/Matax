@@ -4,186 +4,354 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Recognition</title>
-    <link rel="stylesheet" href="styles/design-system.css">
     <style>
-        /* Page-specific styles can go here */
-        .page {
-            display: none;
-            padding: var(--space-6);
-            max-width: var(--content-max-width);
+        :root {
+            --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            --color-text: #000;
+            --color-muted: #666;
+            --color-border: #000;
+            --color-primary: #0066cc;
+            --color-success: #00aa00;
+            --color-warning: #aa6600;
+            --color-error: #cc0000;
+            --bg: #fff;
+            --bg-secondary: #f5f5f5;
+            --border: 1px solid var(--color-border);
+            --radius: 4px;
+            --padding: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            color: var(--color-text);
+            background: var(--bg);
+            margin: 0;
+            padding: 0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 24px;
+            padding-bottom: 160px;
         }
 
-        .page.active {
-            display: block;
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0 0 24px 0;
         }
 
-        /* Header */
-        .header {
+        h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin: 0 0 8px 0;
+        }
+
+        p {
+            margin: 0 0 16px 0;
+            color: var(--color-muted);
+        }
+
+        .step {
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: var(--padding);
+            margin-bottom: 16px;
+        }
+
+        .step-header {
             display: flex;
-            align-items: center;
             justify-content: space-between;
-            padding: var(--space-5) var(--space-6);
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border-light);
-        }
-
-        .header-title {
-            font-size: var(--text-2xl);
-            font-weight: var(--font-bold);
-            color: var(--color-primary);
-        }
-
-        /* Main Layout */
-        .main {
-            padding: var(--space-6);
-        }
-
-        /* Step Cards */
-        .step-card {
-            margin-bottom: var(--space-6);
-            padding: var(--space-6);
-            background: var(--bg-card);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border-light);
-            box-shadow: 0 2px 8px var(--shadow-sm);
-        }
-
-        .step-card-header {
-            display: flex;
             align-items: center;
-            gap: var(--space-4);
-            margin-bottom: var(--space-4);
+            margin-bottom: 16px;
         }
 
-        .step-card-icon {
-            font-size: 28px;
+        .step-number {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--color-muted);
         }
 
-        .step-card-title {
-            font-size: var(--text-xl);
-            font-weight: var(--font-bold);
-            color: var(--text-primary);
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--bg);
+            border: var(--border);
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--color-text);
         }
 
-        .step-card-description {
-            color: var(--text-secondary);
-            margin-bottom: var(--space-4);
+        .btn:hover {
+            background: var(--bg-secondary);
         }
 
-        /* Status Messages */
-        .status {
-            padding: var(--space-3) var(--space-4);
-            margin: var(--space-3) 0;
-            border-radius: var(--radius-md);
-            font-size: var(--text-sm);
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
-        .status-info {
-            background: rgba(88, 86, 214, 0.1);
-            color: var(--color-info);
+        .btn-primary {
+            background: var(--color-text);
+            color: var(--bg);
+            border-color: var(--color-text);
         }
 
-        .status-success {
-            background: rgba(48, 209, 88, 0.1);
-            color: var(--color-accent-green);
+        .btn-primary:hover {
+            background: #333;
         }
 
-        .status-warning {
-            background: rgba(255, 214, 10, 0.1);
-            color: var(--color-accent-orange);
+        .btn-primary:disabled {
+            opacity: 0.4;
+            background: var(--color-text);
         }
 
-        .status-error {
-            background: rgba(255, 69, 58, 0.1);
-            color: var(--color-error);
-        }
-
-        /* Image Preview */
         .preview-container {
             display: flex;
-            gap: var(--space-4);
+            gap: 16px;
             flex-wrap: wrap;
+            margin-top: 16px;
         }
 
         .preview-box {
-            flex: 1;
-            min-width: 200px;
-            max-width: 400px;
-            padding: var(--space-4);
-            background: var(--bg-tertiary);
-            border-radius: var(--radius-md);
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
             text-align: center;
+            min-width: 200px;
         }
 
         .preview-box img {
-            max-width: 100%;
+            max-width: 300px;
             max-height: 300px;
-            border-radius: var(--radius-sm);
+            display: block;
+            margin: 0 auto 8px;
         }
 
         .preview-label {
-            margin-top: var(--space-2);
-            font-size: var(--text-sm);
-            color: var(--text-secondary);
+            font-size: 12px;
+            color: var(--color-muted);
         }
 
-        /* Reference List */
+        .gallery {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .gallery-item {
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .gallery-item img {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .gallery-item span {
+            font-size: 12px;
+        }
+
         .reference-list {
             display: flex;
-            gap: var(--space-3);
+            gap: 12px;
             flex-wrap: wrap;
-            margin-top: var(--space-4);
+            margin-top: 16px;
         }
 
         .reference-item {
-            width: 100px;
-            padding: var(--space-3);
-            background: var(--bg-tertiary);
-            border-radius: var(--radius-md);
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: 8px;
             text-align: center;
             cursor: pointer;
-            transition: all var(--transition-fast);
-        }
-
-        .reference-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px var(--shadow-md);
         }
 
         .reference-item img {
             width: 80px;
             height: 80px;
             object-fit: cover;
-            border-radius: var(--radius-sm);
+            display: block;
+            margin-bottom: 4px;
         }
 
         .reference-item span {
+            font-size: 12px;
             display: block;
-            margin-top: var(--space-2);
-            font-size: var(--text-xs);
-            color: var(--text-secondary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: 80px;
         }
 
-        /* Action Buttons */
-        .action-buttons {
+        .comparison-result {
+            display: none;
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: var(--padding);
+            margin-top: 16px;
+        }
+
+        .comparison-result.active {
+            display: block;
+        }
+
+        .comparison-content {
             display: flex;
-            gap: var(--space-3);
-            margin-top: var(--space-4);
+            align-items: center;
+            gap: 24px;
+            justify-content: center;
+        }
+
+        .comparison-side {
+            text-align: center;
+        }
+
+        .comparison-side img {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .comparison-center {
+            text-align: center;
+        }
+
+        .comparison-score {
+            font-size: 48px;
+            font-weight: 700;
+        }
+
+        .comparison-label {
+            font-size: 12px;
+            color: var(--color-muted);
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background: rgba(0, 170, 0, 0.1);
+            color: var(--color-success);
+        }
+
+        .badge-warning {
+            background: rgba(170, 102, 0, 0.1);
+            color: var(--color-warning);
+        }
+
+        .badge-error {
+            background: rgba(204, 0, 0, 0.1);
+            color: var(--color-error);
+        }
+
+        .status {
+            font-size: 13px;
+            color: var(--color-muted);
+            margin: 8px 0 0 0;
+        }
+
+        .status-success { color: var(--color-success); }
+        .status-warning { color: var(--color-warning); }
+        .status-error { color: var(--color-error); }
+        .status-info { color: var(--color-primary); }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .viz-tabs {
+            display: flex;
+            gap: 0;
+            border: var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 0;
+        }
+
+        .viz-tab {
+            flex: 1;
+            padding: 10px 8px;
+            background: var(--bg);
+            border: none;
+            border-right: var(--border);
+            font-family: inherit;
+            font-size: 12px;
+            cursor: pointer;
+            color: var(--color-text);
+        }
+
+        .viz-tab:last-child {
+            border-right: none;
+        }
+
+        .viz-tab:hover {
+            background: var(--bg-secondary);
+        }
+
+        .viz-tab.active {
+            background: var(--color-text);
+            color: var(--bg);
+        }
+
+        .viz-content {
+            border: var(--border);
+            border-top: none;
+            border-radius: var(--radius);
+            padding: var(--padding);
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .viz-content img {
+            max-width: 100%;
+            max-height: 400px;
+        }
+
+        .viz-placeholder {
+            color: var(--color-muted);
+        }
+
+        .viz-placeholder p {
+            margin: 0;
         }
 
         /* Loading Overlay */
         .loading-overlay {
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(245, 245, 247, 0.9);
-            display: none;
+            background: rgba(255, 255, 255, 0.9);
             align-items: center;
             justify-content: center;
             z-index: 1000;
@@ -198,36 +366,71 @@
         }
 
         .loading-spinner {
-            width: 48px;
-            height: 48px;
-            border: 3px solid var(--border-default);
-            border-top-color: var(--color-primary);
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--color-border);
+            border-top-color: var(--color-text);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
-            margin: 0 auto var(--space-4);
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .loading-text {
-            font-size: var(--text-lg);
-            color: var(--text-secondary);
+            font-size: 14px;
+            color: var(--color-text);
         }
 
-        /* Terminal-style Log */
-        .terminal-log {
-            margin-top: var(--space-6);
-            padding: var(--space-4);
-            background: #1e1e1e;
-            border-radius: var(--radius-md);
-            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
-            font-size: var(--text-xs);
+        /* Terminal Footer */
+        .terminal-footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
             color: #00ff00;
-            text-align: left;
-            min-height: 120px;
-            max-height: 200px;
-            overflow-y: auto;
-            width: 400px;
-            max-width: 90vw;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+            font-size: 11px;
+            z-index: 100;
+            transition: height 0.2s ease;
+        }
+
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 12px;
+            background: #2a2a2a;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .terminal-title {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .terminal-toggle {
+            color: #666;
+            font-size: 10px;
+        }
+
+        .terminal-log {
+            height: 32px;
+            overflow: hidden;
+            padding: 0 12px;
+            transition: height 0.2s ease;
+        }
+
+        .terminal-log.expanded {
+            height: 140px;
+        }
+
+        .terminal-log-content {
+            padding: 6px 0;
         }
 
         .terminal-line {
@@ -253,105 +456,110 @@
 
         .terminal-line .timestamp {
             color: #666;
-            margin-right: var(--space-2);
+            margin-right: 8px;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 160px;
+            right: 24px;
+            z-index: 200;
+        }
+
+        .toast {
+            background: var(--bg);
+            border: var(--border);
+            border-radius: var(--radius);
+            padding: 12px 16px;
+            margin-top: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            font-size: 13px;
+        }
+
+        .toast.success {
+            border-left: 3px solid var(--color-success);
+        }
+
+        .toast.error {
+            border-left: 3px solid var(--color-error);
+        }
+
+        .toast.warning {
+            border-left: 3px solid var(--color-warning);
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <h1 class="header-title">◈ Face Recognition</h1>
-    </header>
+    <div class="container">
+        <h1>Face Recognition</h1>
 
-    <!-- Main Content -->
-    <main class="main">
-        <!-- Step 1: Select Image -->
-        <div class="step-card">
-            <div class="step-card-header">
-                <span class="step-card-icon">📷</span>
+        <!-- Step 1 -->
+        <div class="step">
+            <div class="step-header">
                 <div>
-                    <h2 class="step-card-title">Choose Your Photo</h2>
-                    <p class="step-card-description">Select a photo containing faces you want to analyze.</p>
+                    <span class="step-number">Step 1</span>
+                    <h2>Choose Your Photo</h2>
+                    <p>Select a photo containing faces you want to analyze.</p>
                 </div>
+                <button class="btn btn-primary" onclick="selectImage()">Choose Photo</button>
+                <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
             </div>
-            <button class="btn btn-primary btn-lg" onclick="selectImage()">
-                Choose Photo
-            </button>
-            <input type="file" id="imageInput" accept="image/*" style="display: none;" onchange="handleImageSelect(event)">
-
             <div class="preview-container" id="previewContainer" style="display: none;">
                 <div class="preview-box">
-                    <img id="selectedImage" src="" alt="Selected image">
+                    <img id="selectedImage" src="" alt="Selected">
                     <p class="preview-label">Selected Image</p>
                 </div>
             </div>
         </div>
 
-        <!-- Step 2: Detect Faces -->
-        <div class="step-card" id="detectCard">
-            <div class="step-card-header">
-                <span class="step-card-icon">🔍</span>
+        <!-- Step 2 -->
+        <div class="step">
+            <div class="step-header">
                 <div>
-                    <h2 class="step-card-title">Find Faces</h2>
-                    <p class="step-card-description">The AI will automatically detect all faces in your photo.</p>
+                    <span class="step-number">Step 2</span>
+                    <h2>Find Faces</h2>
+                    <p>The AI will automatically detect all faces in your photo.</p>
+                    <p id="detectStatus" class="status">Waiting for image...</p>
                 </div>
+                <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
             </div>
-            <div class="status status-info" id="detectStatus">Waiting for image...</div>
-            <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>
-                Find Faces
-            </button>
-
             <div id="facesContainer" style="display: none;">
-                <h3 style="margin-top: var(--space-4); font-size: var(--text-lg);">Detected Faces</h3>
                 <div class="gallery" id="facesGallery"></div>
             </div>
         </div>
 
-        <!-- Step 3: Extract Features -->
-        <div class="step-card" id="extractCard">
-            <div class="step-card-header">
-                <span class="step-card-icon">◈</span>
+        <!-- Step 3 -->
+        <div class="step">
+            <div class="step-header">
                 <div>
-                    <h2 class="step-card-title">Create Signature</h2>
-                    <p class="step-card-description">Convert each face into a unique mathematical signature.</p>
+                    <span class="step-number">Step 3</span>
+                    <h2>Create Signature</h2>
+                    <p>Convert each face into a unique mathematical signature.</p>
+                    <p id="extractStatus" class="status">Waiting for detection...</p>
                 </div>
+                <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>Create Signature</button>
             </div>
-            <div class="status status-info" id="extractStatus">Waiting for detection...</div>
-            <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>
-                Create Signature
-            </button>
         </div>
 
-        <!-- Step 4: Compare -->
-        <div class="step-card" id="compareCard">
-            <div class="step-card-header">
-                <span class="step-card-icon">⇄</span>
+        <!-- Step 4 -->
+        <div class="step">
+            <div class="step-header">
                 <div>
-                    <h2 class="step-card-title">Compare</h2>
-                    <p class="step-card-description">Match extracted features against your reference database.</p>
+                    <span class="step-number">Step 4</span>
+                    <h2>Compare</h2>
+                    <p>Match extracted features against your reference database.</p>
+                    <p id="compareStatus" class="status">Waiting for extraction...</p>
                 </div>
             </div>
-
-            <!-- References -->
-            <h3 style="margin-bottom: var(--space-2);">Your References</h3>
-            <button class="btn btn-success" onclick="addReference()">
-                + Add Reference
-            </button>
-            <input type="file" id="refInput" accept="image/*" style="display: none;" onchange="handleReferenceSelect(event)">
-
+            <button class="btn" onclick="addReference()">+ Add Reference</button>
+            <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)">
             <div class="reference-list" id="referenceList"></div>
-
-            <div class="status status-info" id="compareStatus">Waiting for features...</div>
-            <button class="btn btn-primary" onclick="compareFaces()" id="compareBtn" disabled>
-                Compare
-            </button>
-
-            <!-- Comparison Result -->
-            <div id="comparisonResult" style="display: none;">
-                <h3 style="margin-top: var(--space-4); margin-bottom: var(--space-3);">Comparison Result</h3>
-                <div class="comparison-panel">
+            <button class="btn btn-primary" onclick="compareFaces()" id="compareBtn" disabled style="margin-top: 16px;">Compare</button>
+            <div class="comparison-result" id="comparisonResult">
+                <div class="comparison-content">
                     <div class="comparison-side">
-                        <img id="queryImage" src="" alt="Query face">
+                        <img id="queryImage" src="" alt="Query">
                         <p class="preview-label">Your Image</p>
                     </div>
                     <div class="comparison-center">
@@ -368,43 +576,54 @@
         </div>
 
         <!-- Visualizations -->
-        <div class="card" style="margin-top: var(--space-6);">
-            <div class="card-header">
-                <h2 style="font-size: var(--text-xl);">AI Analysis Visualizations</h2>
-                <p style="color: var(--text-secondary); margin-top: var(--space-1);">See how the AI analyzes faces in your images</p>
-            </div>
-            <div class="card-body">
-                <div class="viz-tabs" id="vizTabs">
-                    <button class="viz-tab active" data-viz="detection">Detection</button>
-                    <button class="viz-tab" data-viz="extraction">Extraction</button>
-                    <button class="viz-tab" data-viz="landmarks">Landmarks</button>
-                    <button class="viz-tab" data-viz="mesh3d">3D Mesh</button>
-                    <button class="viz-tab" data-viz="alignment">Alignment</button>
-                    <button class="viz-tab" data-viz="saliency">Attention</button>
-                    <button class="viz-tab" data-viz="activations">Activations</button>
-                    <button class="viz-tab" data-viz="features">Features</button>
-                    <button class="viz-tab" data-viz="multiscale">Multi-Scale</button>
-                    <button class="viz-tab" data-viz="confidence">Confidence</button>
-                    <button class="viz-tab" data-viz="embedding">Embedding</button>
-                    <button class="viz-tab" data-viz="similarity">Similarity</button>
-                    <button class="viz-tab" data-viz="robustness">Robustness</button>
-                    <button class="viz-tab" data-viz="biometric">Biometric</button>
+        <div class="step">
+            <div class="step-header">
+                <div>
+                    <span class="step-number">AI Analysis</span>
+                    <h2>Visualizations</h2>
+                    <p>See how the AI analyzes faces in your images.</p>
                 </div>
-                <div class="viz-content" id="vizContent">
-                    <div class="viz-placeholder">
-                        <p>Run analysis to see visualizations</p>
-                    </div>
+            </div>
+            <div class="viz-tabs" id="vizTabs">
+                <button class="viz-tab active" data-viz="detection">Detection</button>
+                <button class="viz-tab" data-viz="extraction">Extraction</button>
+                <button class="viz-tab" data-viz="landmarks">Landmarks</button>
+                <button class="viz-tab" data-viz="mesh3d">3D Mesh</button>
+                <button class="viz-tab" data-viz="alignment">Alignment</button>
+                <button class="viz-tab" data-viz="saliency">Attention</button>
+                <button class="viz-tab" data-viz="activations">Activations</button>
+                <button class="viz-tab" data-viz="features">Features</button>
+                <button class="viz-tab" data-viz="multiscale">Multi-Scale</button>
+                <button class="viz-tab" data-viz="confidence">Confidence</button>
+                <button class="viz-tab" data-viz="embedding">Embedding</button>
+                <button class="viz-tab" data-viz="similarity">Similarity</button>
+                <button class="viz-tab" data-viz="robustness">Robustness</button>
+                <button class="viz-tab" data-viz="biometric">Biometric</button>
+            </div>
+            <div class="viz-content" id="vizContent">
+                <div class="viz-placeholder">
+                    <p>Run analysis to see visualizations</p>
                 </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <p class="loading-text" id="loadingText">Processing...</p>
-            <div class="terminal-log" id="terminalLog"></div>
+        </div>
+    </div>
+
+    <!-- Terminal Footer -->
+    <div class="terminal-footer" id="terminalFooter">
+        <div class="terminal-header" onclick="toggleTerminal()">
+            <span class="terminal-title">Terminal</span>
+            <span class="terminal-toggle" id="terminalToggle">[+]</span>
+        </div>
+        <div class="terminal-log" id="terminalLog">
+            <div class="terminal-log-content" id="terminalLogContent"></div>
         </div>
     </div>
 

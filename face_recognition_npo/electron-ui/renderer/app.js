@@ -12,6 +12,7 @@ let currentQueryEmbedding = null;
 let references = [];
 let selectedReferenceId = null;
 let visualizationData = {};
+let terminalExpanded = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,11 +23,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Terminal Log Functions
 function initTerminal() {
-    clearTerminal();
+    const content = document.getElementById('terminalLogContent');
+    if (content) {
+        content.innerHTML = '';
+        const welcome = document.createElement('div');
+        welcome.className = 'terminal-line info';
+        welcome.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString('en-US', { hour12: false })}]</span> Face Recognition System v1.0`;
+        content.appendChild(welcome);
+    }
 }
 
 function logToTerminal(message, type = 'info') {
-    const terminal = document.getElementById('terminalLog');
+    const content = document.getElementById('terminalLogContent');
+    if (!content) return;
+    
     const line = document.createElement('div');
     line.className = `terminal-line ${type}`;
     
@@ -34,20 +44,34 @@ function logToTerminal(message, type = 'info') {
     const timestamp = now.toLocaleTimeString('en-US', { hour12: false });
     
     line.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
-    terminal.appendChild(line);
+    content.appendChild(line);
     
-    // Auto scroll to bottom
-    terminal.scrollTop = terminal.scrollHeight;
+    // Keep max 50 lines
+    while (content.children.length > 50) {
+        content.removeChild(content.firstChild);
+    }
+}
+
+function toggleTerminal() {
+    const terminalLog = document.getElementById('terminalLog');
+    const terminalToggle = document.getElementById('terminalToggle');
+    
+    terminalExpanded = !terminalExpanded;
+    
+    if (terminalExpanded) {
+        terminalLog.classList.add('expanded');
+        terminalToggle.textContent = '[-]';
+    } else {
+        terminalLog.classList.remove('expanded');
+        terminalToggle.textContent = '[+]';
+    }
 }
 
 function clearTerminal() {
-    const terminal = document.getElementById('terminalLog');
-    terminal.innerHTML = '';
-    // Add welcome message
-    const welcome = document.createElement('div');
-    welcome.className = 'terminal-line info';
-    welcome.innerHTML = `<span class="timestamp">[${new Date().toLocaleTimeString('en-US', { hour12: false })}]</span> Face Recognition System v1.0`;
-    terminal.appendChild(welcome);
+    const content = document.getElementById('terminalLogContent');
+    if (content) {
+        content.innerHTML = '';
+    }
 }
 
 function updateLoadingText(text) {
@@ -377,12 +401,12 @@ async function compareFaces() {
 // Visualization
 function showVisualization(vizType) {
     const content = document.getElementById('vizContent');
-
+    
     if (visualizationData[vizType]) {
         content.innerHTML = `
             <img src="data:image/png;base64,${visualizationData[vizType]}"
                  alt="${vizType}"
-                 style="max-width: 100%; max-height: 400px; border-radius: var(--radius-md);">
+                 style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">
         `;
     } else {
         showVisualizationPlaceholder();
