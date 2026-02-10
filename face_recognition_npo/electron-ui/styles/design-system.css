@@ -643,3 +643,48 @@
 .animate-scale-in {
     animation: scaleIn var(--transition-spring) ease;
 }
+
+/* ==========================================================================
+   DATA TABLE STYLES
+   ========================================================================== */
+.viz-data-table {
+    margin-top: 16px;
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border-default);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.viz-data-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-size: 13px;
+}
+
+.viz-data-table tbody tr {
+    border-bottom: 1px solid var(--border-light);
+}
+
+.viz-data-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.viz-data-table td {
+    padding: 8px 12px;
+}
+
+.viz-data-table td.label {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-weight: 500;
+    width: 40%;
+    text-transform: capitalize;
+}
+
+.viz-data-table td.value {
+    font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+    color: var(--text-primary);
+    text-align: right;
+}

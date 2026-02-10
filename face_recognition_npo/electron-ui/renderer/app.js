@@ -234,7 +234,14 @@ async function extractFeatures() {
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
             });
-
+            
+            // Store visualization data tables (raw data)
+            if (data.visualization_data) {
+                Object.keys(data.visualization_data).forEach(key => {
+                    visualizationData[key + '_data'] = data.visualization_data[key];
+                });
+            }
+            
             // Show embedding visualization
             showVisualization('embedding');
             showToast('Features extracted successfully', 'success');
@@ -379,6 +386,7 @@ async function compareFaces() {
 
             // Store similarity visualization
             visualizationData['similarity'] = data.similarity_viz;
+            visualizationData['similarity_data'] = data.similarity_data;
             showVisualization('similarity');
 
             showToast(`Match: ${best.name} (${Math.round(best.similarity * 100)}%)`, 'success');
@@ -399,18 +407,68 @@ async function compareFaces() {
 }
 
 // Visualization
-function showVisualization(vizType) {
+async function showVisualization(vizType) {
     const content = document.getElementById('vizContent');
     
+    // If data not available locally, fetch from API
+    if (!visualizationData[vizType]) {
+        try {
+            const response = await fetch(`${API_BASE}/visualizations/${vizType}`);
+            const data = await response.json();
+            if (data.success) {
+                visualizationData[vizType] = data.visualization;
+                if (data.data && Object.keys(data.data).length > 0) {
+                    visualizationData[vizType + '_data'] = data.data;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch visualization:', err);
+        }
+    }
+    
     if (visualizationData[vizType]) {
-        content.innerHTML = `
-            <img src="data:image/png;base64,${visualizationData[vizType]}"
-                 alt="${vizType}"
-                 style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">
-        `;
+        let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
+        
+        // Add data table if available
+        const dataKey = vizType + '_data';
+        if (visualizationData[dataKey]) {
+            html += formatDataAsTable(visualizationData[dataKey]);
+        }
+        
+        content.innerHTML = html;
     } else {
         showVisualizationPlaceholder();
     }
+}
+
+function formatDataAsTable(data) {
+    if (!data || Object.keys(data).length === 0) return '';
+    
+    let html = '<div class="viz-data-table"><table>';
+    
+    if (typeof data === 'object' && !Array.isArray(data)) {
+        // Dictionary object
+        html += '<tbody>';
+        for (const [key, value] of Object.entries(data)) {
+            const displayValue = typeof value === 'number' ? value.toFixed(4) : value;
+            html += `<tr><td class="label">${formatKey(key)}</td><td class="value">${displayValue}</td></tr>`;
+        }
+        html += '</tbody>';
+    } else if (Array.isArray(data)) {
+        // Array
+        html += '<tbody>';
+        data.forEach((item, i) => {
+            html += `<tr><td class="label">${i}</td><td class="value">${typeof item === 'number' ? item.toFixed(4) : item}</td></tr>`;
+        });
+        html += '</tbody>';
+    }
+    
+    html += '</table></div>';
+    return html;
+}
+
+function formatKey(key) {
+    return key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
 }
 
 function showVisualizationPlaceholder() {

@@ -117,6 +117,8 @@ def detect_faces():
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -136,26 +138,49 @@ def extract_embedding():
         current_face_image = current_image[y:y+h, x:x+w]
         current_embedding = extractor.extract_embedding(current_face_image)
         
-        return jsonify({
+        # Get visualizations with data
+        emb_viz, emb_data = extractor.visualize_embedding(current_embedding)
+        act_viz = extractor.visualize_activations(current_face_image)
+        feat_viz = extractor.visualize_feature_maps(current_face_image)
+        robust_viz, robust_data = extractor.test_robustness(current_face_image)
+        landmarks_est = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+        land_viz = detector.visualize_landmarks(current_face_image, landmarks_est)
+        mesh_viz = detector.visualize_3d_mesh(current_face_image)
+        alignment_est = detector.compute_alignment(current_face_image, landmarks_est)
+        align_viz = detector.visualize_alignment(current_face_image, landmarks_est, alignment_est)
+        sal_viz = detector.visualize_saliency(current_face_image)
+        multi_viz = detector.visualize_multiscale(current_face_image)
+        conf_viz, conf_data = detector.visualize_quality(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+        
+        response_data = {
             'success': True,
             'embedding_size': len(current_embedding) if current_embedding is not None else 0,
-            'embedding_mean': float(current_embedding.mean()) if current_embedding is not None else 0,
-            'embedding_std': float(current_embedding.std()) if current_embedding is not None else 0,
+            'embedding_mean': float(np.mean(current_embedding)) if current_embedding is not None else 0,
+            'embedding_std': float(np.std(current_embedding)) if current_embedding is not None else 0,
             'visualizations': {
-                'embedding': image_to_base64(extractor.visualize_embedding(current_embedding)),
-                'activations': image_to_base64(extractor.visualize_activations(current_face_image)),
-                'features': image_to_base64(extractor.visualize_feature_maps(current_face_image)),
-                'robustness': image_to_base64(extractor.test_robustness(current_face_image)[0]),
-                'landmarks': image_to_base64(detector.visualize_landmarks(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0])))),
-                'mesh3d': image_to_base64(detector.visualize_3d_mesh(current_face_image)),
-                'alignment': image_to_base64(detector.visualize_alignment(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0])), detector.compute_alignment(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))))),
-                'saliency': image_to_base64(detector.visualize_saliency(current_face_image)),
-                'multiscale': image_to_base64(detector.visualize_multiscale(current_face_image)),
-                'confidence': image_to_base64(detector.visualize_quality(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))),
+                'embedding': image_to_base64(emb_viz),
+                'activations': image_to_base64(act_viz),
+                'features': image_to_base64(feat_viz),
+                'robustness': image_to_base64(robust_viz),
+                'landmarks': image_to_base64(land_viz),
+                'mesh3d': image_to_base64(mesh_viz),
+                'alignment': image_to_base64(align_viz),
+                'saliency': image_to_base64(sal_viz),
+                'multiscale': image_to_base64(multi_viz),
+                'confidence': image_to_base64(conf_viz),
+            },
+            'visualization_data': {
+                'embedding': emb_data,
+                'robustness': robust_data,
+                'confidence': conf_data,
             }
-        })
+        }
+        
+        return jsonify(response_data)
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -197,6 +222,8 @@ def add_reference():
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -256,8 +283,9 @@ def compare_faces():
 
         # Generate similarity visualization
         sim_viz = None
+        sim_data = {}
         if ref_embeddings:
-            sim_viz = extractor.visualize_similarity_matrix(
+            sim_viz, sim_data = extractor.visualize_similarity_matrix(
                 current_embedding,
                 ref_embeddings,
                 ref_names
@@ -267,10 +295,13 @@ def compare_faces():
             'success': True,
             'results': results,
             'best_match': results[0] if results else None,
-            'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None
+            'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None,
+            'similarity_data': sim_data
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 
@@ -280,34 +311,67 @@ def get_visualization(viz_type):
     global current_image, current_face_image, current_faces, current_embedding
     
     try:
-        viz_methods = {
-            'detection': lambda: detector.visualize_detection(current_image, current_faces) if current_image is not None and current_faces else None,
-            'extraction': lambda: detector.visualize_extraction(current_image, current_faces) if current_image is not None and current_faces else None,
-            'landmarks': lambda: detector.visualize_landmarks(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))) if current_face_image is not None else None,
-            'mesh3d': lambda: detector.visualize_3d_mesh(current_face_image) if current_face_image is not None else None,
-            'alignment': lambda: detector.visualize_alignment(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0])), detector.compute_alignment(current_face_image, detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0])))) if current_face_image is not None else None,
-            'saliency': lambda: detector.visualize_saliency(current_face_image) if current_face_image is not None else None,
-            'activations': lambda: extractor.visualize_activations(current_face_image) if current_face_image is not None else None,
-            'features': lambda: extractor.visualize_feature_maps(current_face_image) if current_face_image is not None else None,
-            'multiscale': lambda: detector.visualize_multiscale(current_face_image) if current_face_image is not None else None,
-            'confidence': lambda: detector.visualize_quality(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0])) if current_face_image is not None else None,
-            'embedding': lambda: extractor.visualize_embedding(current_embedding) if current_embedding is not None else None,
-            'similarity': lambda: extractor.visualize_similarity_result(current_embedding, None, 0.75) if current_embedding is not None else None,
-            'robustness': lambda: extractor.test_robustness(current_face_image)[0] if current_face_image is not None else None,
-            'biometric': lambda: detector.visualize_biometric_capture(current_image, current_faces) if current_image is not None and current_faces else None,
-        }
+        def get_viz_and_data(viz_type):
+            if viz_type == 'detection':
+                return (detector.visualize_detection(current_image, current_faces) if current_image is not None and current_faces else None), {}
+            elif viz_type == 'extraction':
+                return (detector.visualize_extraction(current_image, current_faces) if current_image is not None and current_faces else None), {}
+            elif viz_type == 'landmarks':
+                if current_face_image is None:
+                    return None, {}
+                landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+                return (detector.visualize_landmarks(current_face_image, landmarks), {})
+            elif viz_type == 'mesh3d':
+                return (detector.visualize_3d_mesh(current_face_image) if current_face_image is not None else None), {}
+            elif viz_type == 'alignment':
+                if current_face_image is None:
+                    return None, {}
+                landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+                alignment = detector.compute_alignment(current_face_image, landmarks)
+                return (detector.visualize_alignment(current_face_image, landmarks, alignment), {})
+            elif viz_type == 'saliency':
+                return (detector.visualize_saliency(current_face_image) if current_face_image is not None else None), {}
+            elif viz_type == 'activations':
+                return (extractor.visualize_activations(current_face_image) if current_face_image is not None else None), {}
+            elif viz_type == 'features':
+                return (extractor.visualize_feature_maps(current_face_image) if current_face_image is not None else None), {}
+            elif viz_type == 'multiscale':
+                return (detector.visualize_multiscale(current_face_image) if current_face_image is not None else None), {}
+            elif viz_type == 'confidence':
+                if current_face_image is None:
+                    return None, {}
+                return detector.visualize_quality(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+            elif viz_type == 'embedding':
+                if current_embedding is None:
+                    return None, {}
+                return extractor.visualize_embedding(current_embedding)
+            elif viz_type == 'similarity':
+                if current_embedding is None:
+                    return None, {}
+                return extractor.visualize_similarity_result(current_embedding, None, 0.75)
+            elif viz_type == 'robustness':
+                if current_face_image is None:
+                    return None, {}
+                return extractor.test_robustness(current_face_image)
+            elif viz_type == 'biometric':
+                return (detector.visualize_biometric_capture(current_image, current_faces) if current_image is not None and current_faces else None), {}
+            return None, {}
         
-        viz_fn = viz_methods.get(viz_type)
-        if viz_fn is None:
-            return jsonify({'success': False, 'error': f'Unknown visualization: {viz_type}'})
+        viz_result = get_viz_and_data(viz_type)
         
-        result = viz_fn()
-        if result is None:
+        if isinstance(viz_result, tuple):
+            viz_image, viz_data = viz_result
+        else:
+            viz_image = viz_result
+            viz_data = {}
+        
+        if viz_image is None:
             return jsonify({'success': False, 'error': 'No data available'})
         
         return jsonify({
             'success': True,
-            'visualization': image_to_base64(result)
+            'visualization': image_to_base64(viz_image),
+            'data': viz_data
         })
         
     except Exception as e:
@@ -333,6 +397,8 @@ def get_quality_metrics():
         })
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
 
 

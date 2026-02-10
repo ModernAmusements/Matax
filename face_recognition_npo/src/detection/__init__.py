@@ -376,7 +376,7 @@ class FaceDetector:
 
         return result
 
-    def visualize_quality(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> np.ndarray:
+    def visualize_quality(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Tuple[np.ndarray, Dict]:
         """Visualize quality metrics as a dashboard."""
         quality = self.compute_quality_metrics(face_image, face_box)
         
@@ -401,8 +401,12 @@ class FaceDetector:
         max_bar_width = int(w * 0.7)
         start_x = 20
         
+        data = {}
         for i, metric in enumerate(metrics):
             value = quality.get(metric, 0)
+            if value is None:
+                continue
+            data[metric] = float(value)
             bar_width = int(value * max_bar_width)
             
             color = colors.get(metric, (200, 200, 200))
@@ -410,14 +414,10 @@ class FaceDetector:
             
             cv2.rectangle(output, (start_x, y), (start_x + max_bar_width, y + bar_height), (60, 60, 60), -1)
             cv2.rectangle(output, (start_x, y), (start_x + bar_width, y + bar_height), color, -1)
-            
-            label = f"{metric.replace('_', ' ').title()}: {value:.1%}"
-            cv2.putText(output, label, (start_x + max_bar_width + 10, y + 12),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         
-        return output
+        return output, data
 
-    def visualize_confidence_levels(self, face_image: np.ndarray, similarity: float = 0.75) -> np.ndarray:
+    def visualize_confidence_levels(self, face_image: np.ndarray, similarity: float = 0.75) -> Tuple[np.ndarray, Dict]:
         """Visualize confidence bands and thresholds."""
         h, w = face_image.shape[:2]
         output = np.zeros((h + 120, w, 3), dtype=np.uint8)
@@ -438,6 +438,9 @@ class FaceDetector:
         max_bar_width = w - 100
         
         total_range = 1.0
+        
+        data = {}
+        current_band = None
         for i, (name, low, high, color) in enumerate(bands):
             band_width = int(((high - low) / total_range) * max_bar_width)
             
@@ -445,19 +448,15 @@ class FaceDetector:
             
             cv2.rectangle(output, (bar_x, y), (bar_x + band_width, y + bar_height), color, -1)
             
-            label = f"{name} ({low:.0f}-{high:.0f}%)"
-            cv2.putText(output, label, (bar_x, y - 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-            
             if low <= similarity < high:
+                current_band = name
                 marker_x = bar_x + int(((similarity - low) / (high - low)) * band_width)
                 cv2.drawMarker(output, (marker_x, y + bar_height // 2), (255, 255, 255), markerSize=15, thickness=2)
         
-        current_band = next((name for name, low, high, _ in bands if low <= similarity < high), 'Unknown')
-        cv2.putText(output, f"Current Confidence: {current_band} ({similarity:.1%})", (bar_x, bar_y + 130),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        data['similarity'] = similarity
+        data['current_band'] = current_band
         
-        return output
+        return output, data
 
 
 def load_face_detection_model():

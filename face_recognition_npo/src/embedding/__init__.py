@@ -168,12 +168,9 @@ class FaceNetEmbeddingExtractor:
 
         return output
 
-    def visualize_embedding(self, embedding: np.ndarray) -> np.ndarray:
+    def visualize_embedding(self, embedding: np.ndarray) -> Tuple[np.ndarray, Dict]:
         if embedding is None:
-            output = np.zeros((100, 256, 3), dtype=np.uint8)
-            cv2.putText(output, "No Embedding", (80, 50),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-            return output
+            return np.zeros((100, 256, 3), dtype=np.uint8), {}
 
         output = np.zeros((120, 256, 3), dtype=np.uint8)
         output.fill(30)
@@ -185,7 +182,9 @@ class FaceNetEmbeddingExtractor:
 
         sorted_indices = np.argsort(embedding)[::-1]
         sorted_embedding = embedding[sorted_indices]
-
+        
+        data = {}
+        max_val = float(sorted_embedding[0]) if len(sorted_embedding) > 0 else 0
         for i, val in enumerate(sorted_embedding[:128]):
             if i >= 128:
                 break
@@ -197,24 +196,20 @@ class FaceNetEmbeddingExtractor:
             color = (int(intensity * 0.2), intensity, 255 - intensity)
 
             cv2.rectangle(output, (x, y), (x + bar_width, start_y), color, -1)
+            
+            idx = int(sorted_indices[i])
+            data[f"dim_{idx}"] = float(val)
 
-            if i == 0:
-                cv2.putText(output, f"Max: {val:.3f}", (x, y - 10),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 0), 1)
+        return output, data
 
-        cv2.putText(output, "128-Dim Face Signature", (10, 115),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
-
-        return output
-
-    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_names: List[str]) -> np.ndarray:
+    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_names: List[str]) -> Tuple[np.ndarray, Dict]:
         output = np.zeros((150, 300, 3), dtype=np.uint8)
         output.fill(245)
 
+        data = {}
+        
         if query_embedding is None or not reference_embeddings:
-            cv2.putText(output, "No Data", (120, 75),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (150, 150, 150), 2)
-            return output
+            return output, data
 
         all_embs = [query_embedding] + reference_embeddings
         n = len(all_embs)
@@ -226,6 +221,8 @@ class FaceNetEmbeddingExtractor:
             for j in range(n):
                 sim = np.dot(all_embs[i], all_embs[j]) / (np.linalg.norm(all_embs[i]) * np.linalg.norm(all_embs[j]) + 1e-8)
                 matrix[i, j] = sim
+                key = f"{['Query', *reference_names][i]}_{['Query', *reference_names][j]}"
+                data[key] = float(sim)
 
         matrix = (matrix * 255).astype(np.uint8)
 
@@ -233,32 +230,16 @@ class FaceNetEmbeddingExtractor:
         matrix_colored = cv2.applyColorMap(matrix, colormap)
         matrix_colored = cv2.resize(matrix_colored, (n * cell_size, n * cell_size))
 
-        for i in range(n):
-            for j in range(n):
-                x = j * cell_size + cell_size // 2
-                y = i * cell_size + cell_size // 2
-                sim = matrix[i, j]
-                text_color = (255, 255, 255) if sim > 127 else (0, 0, 0)
-                cv2.putText(matrix_colored, f"{sim:.1%}", (x - 20, y + 5),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.4, text_color, 1)
-
         output[:n * cell_size, :n * cell_size] = matrix_colored
 
-        for i, name in enumerate(['Query'] + reference_names):
-            cv2.putText(output, name[:10], (5, i * cell_size + cell_size // 2 + 5),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
-
-        return output
+        return output, data
 
     def visualize_similarity_result(self, query_embedding: np.ndarray, ref_embedding: np.ndarray, 
                                    similarity: float, query_name: str = "Query", 
-                                   ref_name: str = "Reference") -> np.ndarray:
+                                   ref_name: str = "Reference") -> Tuple[np.ndarray, Dict]:
         """Visualize a single similarity comparison result."""
         output = np.zeros((200, 400, 3), dtype=np.uint8)
         output.fill(245)
-        
-        cv2.putText(output, "Similarity Analysis", (120, 30),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (50, 50, 50), 2)
         
         center_x = 200
         gauge_y = 80
@@ -271,30 +252,25 @@ class FaceNetEmbeddingExtractor:
         end_y = int(gauge_y - gauge_radius * np.sin(angle))
         cv2.line(output, (center_x, gauge_y), (end_x, end_y), (76, 175, 80), 4)
         
-        cv2.putText(output, f"{similarity:.1%}", (center_x - 30, gauge_y + 100),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (76, 175, 80), 2)
-        
         from src.embedding import SimilarityComparator
         comp = SimilarityComparator()
         band = comp.get_confidence_band(similarity)
-        cv2.putText(output, band, (center_x - 50, gauge_y + 130),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 100, 100), 1)
         
-        cv2.putText(output, query_name, (50, gauge_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
-        cv2.putText(output, ref_name, (280, gauge_y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (100, 100, 100), 1)
+        data = {
+            'similarity': float(similarity),
+            'confidence': band,
+            'query': query_name,
+            'reference': ref_name
+        }
         
-        threshold = 0.6
-        cv2.putText(output, f"Threshold: {threshold:.0%}", (120, 175),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
-        
-        return output
+        return output, data
 
     def test_robustness(self, face_image: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
         original_embedding = self.extract_embedding(face_image)
         robustness_results = {}
 
         if original_embedding is None:
-            return np.zeros((100, 200, 3), dtype=np.uint8), robustness_results
+            return np.zeros((100, 200, 3), dtype=np.uint8), {}
 
         noise_levels = [0.01, 0.05, 0.1, 0.15, 0.2]
         similarities = []
@@ -307,11 +283,11 @@ class FaceNetEmbeddingExtractor:
             noisy_embedding = self.extract_embedding(noisy_image)
 
             if noisy_embedding is not None:
-                sim = np.dot(original_embedding, noisy_embedding) / (np.linalg.norm(original_embedding) * np.linalg.norm(noisy_embedding) + 1e-8)
+                sim = float(np.dot(original_embedding, noisy_embedding) / (np.linalg.norm(original_embedding) * np.linalg.norm(noisy_embedding) + 1e-8))
                 similarities.append(sim)
                 robustness_results[f'noise_{noise_sigma}'] = sim
             else:
-                similarities.append(0)
+                similarities.append(0.0)
 
         output = np.zeros((100, 200, 3), dtype=np.uint8)
         output.fill(245)
@@ -328,17 +304,10 @@ class FaceNetEmbeddingExtractor:
 
             color = (0, int(sim * 255), int((1 - sim) * 255))
             cv2.rectangle(output, (x, y), (x + bar_width, start_y), color, -1)
-            cv2.putText(output, f"{noise_levels[i]:.2f}", (x, start_y + 15),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (80, 80, 80), 1)
 
-        avg_sim = np.mean(similarities)
+        avg_sim = float(np.mean(similarities))
         robustness_results['avg_similarity'] = avg_sim
         robustness_results['robustness_score'] = avg_sim
-
-        cv2.putText(output, f"Robustness: {avg_sim:.1%}", (10, 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
-        cv2.putText(output, "Noise Level", (10, 95),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (80, 80, 80), 1)
 
         return output, robustness_results
 
