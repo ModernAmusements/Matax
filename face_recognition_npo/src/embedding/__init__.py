@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import List, Tuple, Optional
 import numpy as np
+import cv2
 
 class FaceNetEmbeddingExtractor:
     """
@@ -17,10 +18,9 @@ class FaceNetEmbeddingExtractor:
         
     def _load_model(self, model_path: str):
         """
-        Load pre-trained FaceNet model.
+        Load FaceNet model for 160x160 input images.
+        After 4 maxpool layers (160->80->40->20->10), flatten size is 512*10*10=51200
         """
-        # For simplicity, we'll use a pre-trained model from torchvision
-        # In production, you'd load your specific FaceNet weights
         model = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -35,7 +35,7 @@ class FaceNetEmbeddingExtractor:
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Flatten(),
-            nn.Linear(512 * 14 * 14, 512),
+            nn.Linear(512 * 10 * 10, 512),
             nn.ReLU(),
             nn.Linear(512, 128)
         )

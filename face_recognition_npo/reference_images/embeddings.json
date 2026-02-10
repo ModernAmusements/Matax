@@ -1,0 +1,14 @@
+{
+  "metadata": [
+    {
+      "id": "test_ref_kanye",
+      "path": "test_images/kanye_west.jpeg",
+      "metadata": {
+        "source": "test",
+        "consent": true
+      },
+      "added_at": "2026-02-10 10:55:11.029069"
+    }
+  ],
+  "embeddings": []
+}

@@ -1,7 +1,9 @@
 import os
 import json
-from typing import List, Dict, Optional
+import datetime
+from typing import List, Dict, Optional, Tuple
 import numpy as np
+import cv2
 
 class ReferenceImageManager:
     """
@@ -42,7 +44,7 @@ class ReferenceImageManager:
         except Exception as e:
             print(f"Error saving reference data: {e}")
     
-    def add_reference_image(self, image_path: str, reference_id: str, metadata: dict = None):
+    def add_reference_image(self, image_path: str, reference_id: str, metadata: Optional[dict] = None):
         """
         Add a new reference image with its embedding.
         
@@ -147,7 +149,7 @@ class HumanReviewInterface:
                           reference_image: np.ndarray,
                           similarity_score: float,
                           reference_id: str,
-                          metadata: dict = None):
+                          metadata: Optional[dict] = None):
         """
         Display side-by-side comparison for human review.
         """
