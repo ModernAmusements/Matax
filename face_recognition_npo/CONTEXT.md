@@ -997,6 +997,175 @@ echo "✓ All HTML handlers verified in app.js"
 
 ---
 
+## NEW: Lessons Learned - Persistence & Process Management (Feb 11, 2026)
+
+### Lesson 10: References Not Persisting to JSON
+
+**Problem**: References were stored in memory but not saved to `embeddings.json`. When API server restarted, references were lost.
+
+**Solution**: Added `save_references()` and `load_references()` functions to `api_server.py`:
+```python
+REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
+
+def save_references():
+    """Save references to JSON file."""
+    data = {'metadata': [...], 'embeddings': [...]}
+    with open(REFERENCES_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def load_references():
+    """Load references from JSON file on startup."""
+    global references
+    if os.path.exists(REFERENCES_FILE) and os.path.getsize(REFERENCES_FILE) > 0:
+        with open(REFERENCES_FILE, 'r') as f:
+            references = json.load(f).get('references', [])
+
+load_references()  # Call at module load
+```
+
+**Remember**: Call `save_references()` after any mutation:
+- After `add_reference()` succeeds
+- After `remove_reference()` succeeds
+
+### Lesson 11: Electron App Not Loading Existing References
+
+**Problem**: App started with empty `references = []`, never loading from API.
+
+**Solution**: Added `loadReferences()` function called from `checkAPI()`:
+```javascript
+async function checkAPI() {
+    const response = await fetch(`${API_BASE}/health`);
+    const data = await response.json();
+    if (data.status === 'ok') {
+        logToTerminal('> API connected', 'success');
+        loadReferences();  // NEW - load existing refs
+    }
+}
+
+async function loadReferences() {
+    const response = await fetch(`${API_BASE}/references`);
+    const data = await response.json();
+    if (data.references) {
+        references = data.references;
+        updateReferenceList();
+    }
+}
+```
+
+### Lesson 12: Old Python Processes Cache Code
+
+**Problem**: After editing `api_server.py`, changes didn't take effect. Old process was still running.
+
+**Root Cause**: Python caches `.pyc` files and the old process didn't restart.
+
+**Solution**: Always restart the API server after code changes:
+```bash
+# Kill existing
+pkill -f "python api_server.py"
+
+# Clear cache
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -name "*.pyc" -delete
+
+# Restart
+python api_server.py
+```
+
+**Or use `start.sh`** which does all this automatically.
+
+### Lesson 13: Test Images Had Wrong Default Paths
+
+**Problem**: `test_e2e_pipeline.py` defaulted to `kanye_west.jpeg` which doesn't exist.
+
+**Solution**: Updated defaults to actual files:
+```python
+TEST_IMAGE = os.environ.get('TEST_IMAGE', 'test_subject.jpg')
+TEST_IMAGE_REF = os.environ.get('TEST_IMAGE_REF', 'reference_subject.jpg')
+```
+
+**Files that exist**:
+- `test_images/test_subject.jpg`
+- `test_images/reference_subject.jpg`
+
+### Lesson 14: Use start.sh for Clean Startup
+
+**Problem**: Manual server starts leave old processes running.
+
+**Solution**: Use `start.sh`:
+```bash
+#!/bin/bash
+# Kill any existing API server
+pkill -f "python api_server.py" 2>/dev/null
+
+# Clear Python cache
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -name "*.pyc" -delete
+find . -name ".pytest_cache" -exec rm -rf {} +
+
+# Start API server
+cd "$(dirname "$0")"
+python api_server.py &
+
+# Start Electron UI
+cd "$(dirname "$0")/electron-ui"
+npm start &
+```
+
+---
+
+## Common Mistakes Summary
+
+| # | Mistake | Solution |
+|---|---------|----------|
+| 1 | Missing closing paren | Count `(`, `)`, `[`, `]` |
+| 2 | Duplicate code left behind | `grep -n "def "` before/after |
+| 3 | Not running syntax check | `python -m py_compile <file>` |
+| 4 | Not reading context | Read 50+ lines before edit |
+| 5 | Not testing edge cases | Run tests after every edit |
+| 6 | Blocking UI with async/await | Use `.catch()` for fire-and-forget |
+| 7 | Missing HTML-JS cross-check | Verify all onclick/onchange handlers |
+| 8 | References not persisting | Call `save_references()` after add/remove |
+| 9 | Old process caching code | Use `./start.sh` to restart |
+| 10 | Wrong test image paths | Use `test_subject.jpg`, `reference_subject.jpg` |
+
+---
+
+## Files to Know
+
+| File | Purpose | When to Edit |
+|------|---------|--------------|
+| `api_server.py` | Flask API (11 endpoints) | Backend changes |
+| `electron-ui/renderer/app.js` | Frontend logic | UI changes |
+| `electron-ui/index.html` | UI structure | HTML changes |
+| `start.sh` | Startup script | Server config |
+| `test_e2e_pipeline.py` | E2E tests | Test changes |
+| `reference_images/embeddings.json` | Persistent storage | Auto-generated |
+
+---
+
+## Quick Verification Checklist
+
+Before telling user "done" or "ready to commit":
+
+```bash
+# 1. API syntax
+python -m py_compile api_server.py && echo "✓ API OK"
+
+# 2. Tests pass
+python test_e2e_pipeline.py 2>&1 | grep -q "ALL TESTS PASSED" && echo "✓ Tests OK"
+
+# 3. Cache cleared
+find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
+find . -name "*.pyc" -delete 2>/dev/null
+echo "✓ Cache cleared"
+
+# 4. Server restarted (if needed)
+# pkill -f "python api_server.py" 2>/dev/null
+# python api_server.py &
+```
+
+---
+
 *Context document created: February 11, 2026*
 *Last updated: February 11, 2026*
 *All critical issues fixed, no mock code remaining*
