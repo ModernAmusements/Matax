@@ -9,6 +9,7 @@ import os
 import json
 import base64
 import io
+import threading
 from typing import List, Dict, Tuple, Optional
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -242,6 +243,45 @@ def get_references():
         ],
         'count': len(references)
     })
+
+
+@app.route('/api/references/<int:ref_id>', methods=['DELETE'])
+def remove_reference(ref_id):
+    """
+    Remove a reference image by ID.
+
+    Returns:
+        success: bool
+        removed_id: int
+        removed_name: str
+        count: int (remaining references)
+    """
+    global references
+
+    try:
+        with threading.Lock():
+            if ref_id < 0 or ref_id >= len(references):
+                return jsonify({
+                    'success': False,
+                    'error': 'Reference not found'
+                }), 404
+
+            removed_name = references[ref_id].get('name', f'Reference {ref_id}')
+            references.pop(ref_id)
+
+            for i, ref in enumerate(references):
+                ref['id'] = i
+
+            return jsonify({
+                'success': True,
+                'removed_id': ref_id,
+                'removed_name': removed_name,
+                'count': len(references)
+            })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/compare', methods=['POST'])

@@ -21,6 +21,31 @@ document.addEventListener('DOMContentLoaded', () => {
     initTerminal();
 });
 
+function setupEventListeners() {
+    document.querySelectorAll('.viz-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            const vizType = e.target.dataset.viz;
+            logToTerminal(`>>> CLICKED TAB: ${vizType}`, 'info');
+            showVisualization(vizType);
+        });
+    });
+}
+
+async function checkAPI() {
+    try {
+        const response = await fetch(`${API_BASE}/health`);
+        const data = await response.json();
+        if (data.status === 'ok') {
+            logToTerminal('> API connected', 'success');
+        }
+    } catch (err) {
+        logToTerminal('> Cannot connect to API server', 'error');
+        showToast('Cannot connect to API server. Make sure api_server.py is running.', 'error');
+    }
+}
+
 // Terminal Log Functions
 function initTerminal() {
     const content = document.getElementById('terminalLogContent');
@@ -74,74 +99,163 @@ function clearTerminal() {
     }
 }
 
-function updateLoadingText(text) {
-    document.getElementById('loadingText').textContent = text;
-}
-
-// Setup event listeners
-function setupEventListeners() {
-    // Visualization tabs
-    document.querySelectorAll('.viz-tab').forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
-            const vizType = e.target.dataset.viz;
-            logToTerminal(`>>> CLICKED TAB: ${vizType}`, 'info');
-            showVisualization(vizType);
-        });
+async function clearAllCache() {
+    logToTerminal('> Clearing all cache...', 'info');
+    
+    const buttons = ['detectBtn', 'extractBtn', 'compareBtn'];
+    buttons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = true;
     });
-}
-
-// Check API connection
-async function checkAPI() {
+    
     try {
-        const response = await fetch(`${API_BASE}/health`);
+        const response = await fetch(`${API_BASE}/clear`, { method: 'POST' });
         const data = await response.json();
-        if (data.status === 'ok') {
-            console.log('API connected');
-        }
+        logToTerminal('> Backend cache cleared', 'success');
     } catch (err) {
-        showToast('Cannot connect to API server. Make sure api_server.py is running.', 'error');
+        logToTerminal(`> Warning: Backend clear failed: ${err.message}`, 'warning');
     }
-}
-
-// Image Selection
-function selectImage() {
-    document.getElementById('imageInput').click();
+    
+    currentImage = null;
+    currentFaceThumbnails = [];
+    currentQueryEmbedding = null;
+    references = [];
+    visualizationData = {};
+    
+    document.getElementById('selectedImage').src = '';
+    document.getElementById('previewContainer').style.display = 'none';
+    document.getElementById('facesContainer').style.display = 'none';
+    document.getElementById('comparisonResult').classList.remove('active');
+    document.getElementById('referenceList').innerHTML = '';
+    
+    document.getElementById('detectStatus').textContent = 'Waiting for image...';
+    document.getElementById('detectStatus').className = 'status status-info';
+    document.getElementById('extractStatus').textContent = 'Waiting for detection...';
+    document.getElementById('extractStatus').className = 'status status-info';
+    document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
+    document.getElementById('compareStatus').className = 'status status-info';
+    
+    showVisualizationPlaceholder();
+    clearTerminal();
+    logToTerminal('> Cache cleared', 'success');
+    showToast('Cache cleared', 'success');
 }
 
 function handleImageSelect(event) {
     const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            currentImage = e.target.result;
-            document.getElementById('selectedImage').src = currentImage;
-            document.getElementById('previewContainer').style.display = 'flex';
-            document.getElementById('detectBtn').disabled = false;
-            document.getElementById('detectStatus').textContent = 'Ready to detect';
-            document.getElementById('detectStatus').className = 'status status-info';
-            resetSteps();
-        };
-        reader.readAsDataURL(file);
+    if (!file) return;
+    
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+        showToast('Please select an image file (JPEG, PNG, GIF, WebP)', 'error');
+        logToTerminal(`> Invalid file type: ${file.type}`, 'error');
+        event.target.value = '';
+        return;
+    }
+    
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+        showToast('Image too large (max 10MB)', 'warning');
+        logToTerminal(`> File too large: ${(file.size / 1024 / 1024).toFixed(2)}MB`, 'warning');
+        event.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        // Fire-and-forget clear - don't await
+        fetch(`${API_BASE}/clear`, { method: 'POST' }).catch(err => {
+            console.log('Clear failed:', err.message);
+        });
+        
+        currentImage = e.target.result;
+        document.getElementById('selectedImage').src = currentImage;
+        document.getElementById('previewContainer').style.display = 'flex';
+        document.getElementById('detectBtn').disabled = false;
+        document.getElementById('detectStatus').textContent = 'Ready to detect';
+        document.getElementById('detectStatus').className = 'status status-info';
+        resetSteps();
+        event.target.value = '';
+    };
+    reader.onerror = (err) => {
+        logToTerminal('> Error reading file', 'error');
+        showToast('Error reading file', 'error');
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetSteps() {
+    currentFaceThumbnails = [];
+    currentQueryEmbedding = null;
+    document.getElementById('facesContainer').style.display = 'none';
+    document.getElementById('extractBtn').disabled = true;
+    document.getElementById('extractStatus').textContent = 'Waiting for detection...';
+    document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
+    document.getElementById('compareBtn').disabled = true;
+    document.getElementById('comparisonResult').style.display = 'none';
+    visualizationData = {};
+    showVisualizationPlaceholder();
+}
+
+function selectImage() {
+    document.getElementById('imageInput').click();
+}
+
+function addReference() {
+    document.getElementById('refInput').click();
+}
+
+function handleReferenceSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        saveReference(e.target.result, file.name);
+    };
+    reader.onerror = () => {
+        logToTerminal('> Error reading reference file', 'error');
+        showToast('Error reading file', 'error');
+    };
+    reader.readAsDataURL(file);
+}
+
+async function saveReference(imageData, name) {
+    showLoading('Adding reference...');
+    logToTerminal(`> Adding reference: ${name}`, 'command');
+
+    try {
+        logToTerminal('> Detecting face in reference image...', 'info');
+        const response = await fetch(`${API_BASE}/add-reference`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData, name })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            logToTerminal(`> Reference "${name}" added successfully`, 'success');
+            references.push(data.reference);
+            updateReferenceList();
+
+            if (currentQueryEmbedding !== null) {
+                await compareFaces();
+            }
+
+            showToast(`Reference "${data.reference.name}" added`, 'success');
+        } else {
+            logToTerminal(`> Failed to add reference: ${data.error}`, 'error');
+            showToast(data.error || 'Could not add reference', 'error');
+        }
+    } catch (err) {
+        logToTerminal(`> Error: ${err.message}`, 'error');
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        hideLoading();
     }
 }
 
-    // Reset steps
-    function resetSteps() {
-        currentFaceThumbnails = [];
-        currentQueryEmbedding = null;
-        document.getElementById('facesContainer').style.display = 'none';
-        document.getElementById('extractBtn').disabled = true;
-        document.getElementById('extractStatus').textContent = 'Waiting for detection...';
-        document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
-        document.getElementById('compareBtn').disabled = true;
-        document.getElementById('comparisonResult').style.display = 'none';
-        visualizationData = {};
-        showVisualizationPlaceholder();
-    }
-
-// Detect Faces
 async function detectFaces() {
     if (!currentImage) return;
 
@@ -164,7 +278,6 @@ async function detectFaces() {
             document.getElementById('detectStatus').className = 'status status-success';
             document.getElementById('extractBtn').disabled = false;
 
-            // Show face thumbnails
             const gallery = document.getElementById('facesGallery');
             gallery.innerHTML = '';
             currentFaceThumbnails = data.faces;
@@ -182,12 +295,10 @@ async function detectFaces() {
 
             document.getElementById('facesContainer').style.display = 'block';
 
-            // Store visualization data
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
             });
 
-            // Show first visualization
             showVisualization('detection');
             showToast(`Found ${data.count} face(s)`, 'success');
         } else {
@@ -206,7 +317,6 @@ async function detectFaces() {
     }
 }
 
-// Extract Features
 async function extractFeatures() {
     if (currentFaceThumbnails.length === 0) return;
 
@@ -233,19 +343,16 @@ async function extractFeatures() {
             document.getElementById('compareBtn').disabled = false;
             document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
 
-            // Store visualization data
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
             });
             
-            // Store visualization data tables (raw data)
             if (data.visualization_data) {
                 Object.keys(data.visualization_data).forEach(key => {
                     visualizationData[key + '_data'] = data.visualization_data[key];
                 });
             }
             
-            // Show embedding visualization
             showVisualization('embedding');
             showToast('Features extracted successfully', 'success');
         } else {
@@ -264,70 +371,114 @@ async function extractFeatures() {
     }
 }
 
-// Add Reference
-function addReference() {
-    document.getElementById('refInput').click();
-}
-
-function handleReferenceSelect(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            await saveReference(e.target.result, file.name);
-        };
-        reader.readAsDataURL(file);
+async function removeReference(index, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    const ref = references[index];
+    if (!ref) {
+        logToTerminal(`> Error: Reference ${index} not found`, 'error');
+        showToast('Reference not found', 'error');
+        return;
+    }
+    
+    const refName = ref.name || `Reference ${index + 1}`;
+    logToTerminal(`> Removing: ${refName}`, 'info');
+    
+    const btn = event?.target;
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/references/${index}`, { method: 'DELETE' });
+        const data = await response.json();
+        
+        if (data.success) {
+            references = references.filter((_, i) => i !== index);
+            references.forEach((ref, i) => ref.id = i);
+            updateReferenceList();
+            logToTerminal(`> Removed: ${refName}`, 'success');
+            showToast('Reference removed', 'success');
+        } else {
+            throw new Error(data.error || 'Unknown error');
+        }
+    } catch (err) {
+        logToTerminal(`> Error removing ${refName}: ${err.message}`, 'error');
+        showToast('Failed to remove reference', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
     }
 }
 
-async function saveReference(imageData, name) {
-    showLoading('Adding reference...');
-    logToTerminal(`> Adding reference: ${name}`, 'command');
-
+async function showReferenceVisualizations(refId) {
+    const ref = references[refId];
+    if (!ref) {
+        logToTerminal(`> Error: Reference ${refId} not found`, 'error');
+        showToast('Reference not found', 'error');
+        return;
+    }
+    
+    const refName = ref.name || `Reference ${refId + 1}`;
+    logToTerminal(`> Loading visualizations for: ${refName}`, 'info');
+    
+    document.getElementById('vizContent').innerHTML = `
+        <div class="viz-placeholder">
+            <p>Loading ${refName}...</p>
+        </div>
+    `;
+    
     try {
-        logToTerminal('> Detecting face in reference image...', 'info');
-        const response = await fetch(`${API_BASE}/add-reference`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData, name })
-        });
-
+        const response = await fetch(`${API_BASE}/visualizations/embedding/reference/${refId}`);
         const data = await response.json();
-
-        if (data.success) {
-            logToTerminal(`> Reference "${name}" added successfully`, 'success');
-            references.push(data.reference);
-            updateReferenceList();
-
-            if (currentQueryEmbedding !== null) {
-                // Auto compare
-                await compareFaces();
-            }
-
-            showToast(`Reference "${data.reference.name}" added`, 'success');
+        
+        if (data.success && data.visualization) {
+            visualizationData[`ref_${refId}_embedding`] = data.visualization;
+            showVisualization(`ref_${refId}_embedding`);
+            logToTerminal(`> Showing embedding for: ${refName}`, 'success');
         } else {
-            logToTerminal(`> Failed to add reference: ${data.error}`, 'error');
-            showToast(data.error || 'Could not add reference', 'error');
+            throw new Error(data.error || 'No embedding available');
         }
     } catch (err) {
-        logToTerminal(`> Error: ${err.message}`, 'error');
-        showToast('Error: ' + err.message, 'error');
-    } finally {
-        hideLoading();
+        logToTerminal(`> Error loading ${refName}: ${err.message}`, 'error');
+        document.getElementById('vizContent').innerHTML = `
+            <div class="viz-placeholder">
+                <p>No visualization available</p>
+                <p style="color: #cc0000;">${err.message}</p>
+            </div>
+        `;
     }
 }
 
 function updateReferenceList() {
     const container = document.getElementById('referenceList');
     container.innerHTML = '';
-
+    
+    if (!references || references.length === 0) {
+        container.innerHTML = '<p style="color: #666; padding: 8px;">No references added yet</p>';
+        return;
+    }
+    
     references.forEach((ref, i) => {
+        if (!ref || !ref.thumbnail) {
+            logToTerminal(`> Warning: Skipping corrupted reference at index ${i}`, 'warning');
+            return;
+        }
+        
         const div = document.createElement('div');
         div.className = 'reference-item';
-        div.onclick = () => selectReference(i);
+        div.onclick = () => showReferenceVisualizations(i);
+        
+        const name = ref.name || `Reference ${i + 1}`;
+        
         div.innerHTML = `
-            <img src="data:image/png;base64,${ref.thumbnail}" alt="${ref.name}">
-            <span>${ref.name}</span>
+            <div class="ref-remove-btn" onclick="removeReference(${i}, event)">×</div>
+            <img src="data:image/png;base64,${ref.thumbnail}" alt="${name}">
+            <span>${name}</span>
         `;
         container.appendChild(div);
     });

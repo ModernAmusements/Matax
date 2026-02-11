@@ -43,6 +43,216 @@
 - Use `write` to create a complete new version
 - Don't try to make multiple complex `edit` calls
 
+### Rule 6: Function Preservation for JavaScript Files
+**BEFORE making edits to JavaScript files:**
+
+1. List ALL function definitions:
+```bash
+grep -n "function " electron-ui/renderer/app.js
+```
+
+2. Count functions before edit:
+```bash
+grep -n "function " electron-ui/renderer/app.js | wc -l
+```
+
+3. Verify critical functions exist after edit:
+```bash
+CRITICAL_FUNCS="handleImageSelect selectImage resetSteps detectFaces extractFeatures compareFaces clearAllCache removeReference showReferenceVisualizations updateReferenceList"
+for func in $CRITICAL_FUNCS; do
+  if ! grep -q "function $func" electron-ui/renderer/app.js; then
+    echo "MISSING: $func"
+    exit 1
+  fi
+done
+echo "All critical functions present"
+```
+
+**CRITICAL FUNCTIONS (must always exist):**
+- `selectImage()` - File input trigger
+- `handleImageSelect()` - File processing (MOST CRITICAL - losing this breaks uploads!)
+- `resetSteps()` - State reset
+- `detectFaces()` - Face detection
+- `extractFeatures()` - Embedding extraction
+- `compareFaces()` - Comparison
+- `updateReferenceList()` - Reference management
+- `clearAllCache()` - Cache clearing
+- `removeReference()` - Reference removal
+- `showReferenceVisualizations()` - Reference viz
+
+### Rule 7: Atomic Edits for Multiple Functions
+**When adding 2+ functions in one session:**
+
+1. Make ONE edit per function
+2. Verify each edit individually with the function count script
+3. Only proceed to next edit after verification passes
+
+```bash
+# BEFORE first edit - count functions
+echo "Before: $(grep -n 'function ' electron-ui/renderer/app.js | wc -l) functions"
+
+# AFTER each edit - count and compare
+echo "After: $(grep -n 'function ' electron-ui/renderer/app.js | wc -l) functions"
+
+# If count doesn't match expected, restore from git:
+# git checkout electron-ui/renderer/app.js
+```
+
+**WRONG approach:**
+```bash
+# One massive edit trying to add/change 5 functions → CORRUPTION RISK
+```
+
+**RIGHT approach:**
+```bash
+Edit 1: Add clearAllCache() → Verify → Pass
+Edit 2: Add removeReference() → Verify → Pass
+Edit 3: Add showReferenceVisualizations() → Verify → Pass
+Edit 4: Update updateReferenceList() → Verify → Pass
+```
+
+### Rule 8: Fire-and-Forget for Non-Critical API Calls
+**When calling non-blocking APIs (like cache clear):**
+- Use `.catch()` instead of `await` with try/catch
+- Never await non-essential API calls in user interaction handlers
+- Blocking the UI thread with awaits can freeze the interface
+
+**WRONG:**
+```javascript
+reader.onload = async (e) => {
+    try {
+        await fetch(`${API_BASE}/clear`, { method: 'POST' });  // BLOCKS!
+    } catch (err) {
+        logToTerminal(`> Warning: ${err.message}`, 'warning');
+    }
+    // ... rest of upload logic
+};
+```
+
+**RIGHT:**
+```javascript
+reader.onload = (e) => {
+    fetch(`${API_BASE}/clear`, { method: 'POST' }).catch(err => {
+        console.log('Clear failed:', err.message);
+    });
+    // ... rest of upload logic (executes immediately)
+};
+```
+
+### Rule 9: Cross-Check HTML with JavaScript (CRITICAL!)
+
+**BEFORE submitting ANY edit to app.js:**
+
+1. Extract ALL function calls from HTML:
+```bash
+grep -E 'onclick=|onchange=' electron-ui/index.html
+```
+
+2. Verify each function exists in app.js:
+```bash
+echo "=== HTML EVENT HANDLERS ===" && \
+grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u
+
+echo "" && echo "=== VERIFYING FUNCTIONS ===" && \
+for func in $(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u); do
+    if grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js; then
+        echo "✓ $func"
+    else
+        echo "✗ MISSING: $func - ADD IT NOW!"
+        exit 1
+    fi
+done
+```
+
+3. Count and compare function definitions:
+```bash
+echo "Sync functions: $(grep -c '^function ' electron-ui/renderer/app.js)"
+echo "Async functions: $(grep -c '^async function ' electron-ui/renderer/app.js)"
+echo "Total: $(($(grep -c '^function ') + $(grep -c '^async function ')))"
+```
+
+**CRITICAL FUNCTIONS (must always exist):**
+```
+From HTML onclick/onchange:
+  ✓ selectImage()           - Trigger file input
+  ✓ handleImageSelect(event) - Process uploaded image
+  ✓ detectFaces()           - Face detection
+  ✓ extractFeatures()       - Embedding extraction
+  ✓ addReference()          - Add reference image
+  ✓ handleReferenceSelect(event) - Process reference upload
+  ✓ compareFaces()          - Compare embeddings
+  ✓ clearAllCache()         - Clear session
+  ✓ toggleTerminal()        - Toggle terminal
+
+From app.js internal calls:
+  ✓ resetSteps()            - Reset UI state
+  ✓ updateReferenceList()   - Render references
+  ✓ removeReference()        - Delete reference
+  ✓ showReferenceVisualizations() - Show ref viz
+  ✓ saveReference()         - Save ref to backend
+  ✓ selectReference()       - Select ref for viz
+  ✓ showLoading()           - Show loading overlay
+  ✓ hideLoading()           - Hide loading overlay
+  ✓ showToast()            - Show toast notification
+  ✓ logToTerminal()        - Log to terminal
+  ✓ clearTerminal()        - Clear terminal
+  ✓ initTerminal()         - Initialize terminal
+  ✓ toggleTerminal()       - Toggle terminal
+  ✓ showVisualization()   - Show viz
+  ✓ showVisualizationPlaceholder() - Show placeholder
+  ✓ formatDataAsTable()    - Format data table
+  ✓ formatKey()            - Format key names
+```
+
+**SHELL SCRIPT FOR COMPLETE VERIFICATION:**
+```bash
+#!/bin/bash
+# Complete verification script - RUN BEFORE EVERY COMMIT
+
+echo "========================================="
+echo "HTML-JS CROSS-CHECK VERIFICATION"
+echo "========================================="
+
+cd /Users/modernamusmenet/Desktop/MANTAX/face_recognition_npo
+
+# Extract HTML function calls
+echo "1. Extracting HTML event handlers..."
+HTML_FUNCS=$(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u)
+echo "$HTML_FUNCS"
+
+# Extract JS definitions
+echo ""
+echo "2. Extracting JS function definitions..."
+JS_SYNC=$(grep -c '^function ' electron-ui/renderer/app.js)
+JS_ASYNC=$(grep -c '^async function ' electron-ui/renderer/app.js)
+echo "Sync: $JS_SYNC, Async: $JS_ASYNC, Total: $((JS_SYNC + JS_ASYNC))"
+
+# Verify each HTML function exists
+echo ""
+echo "3. Verifying HTML functions exist in JS..."
+MISSING=0
+for func in $HTML_FUNCS; do
+    if ! grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js; then
+        echo "✗ MISSING: $func"
+        MISSING=$((MISSING + 1))
+    fi
+done
+
+if [ $MISSING -eq 0 ]; then
+    echo "✓ All HTML functions verified!"
+else
+    echo ""
+    echo "✗ FAILED: $MISSING missing functions!"
+    echo "FIX BEFORE COMMITTING!"
+    exit 1
+fi
+
+echo ""
+echo "========================================="
+echo "✓ VERIFICATION PASSED"
+echo "========================================="
+```
+
 ---
 
 ## Developer Mindset Checklist
@@ -61,6 +271,124 @@ Before submitting ANY code edit:
 ```
 
 If ANY answer is NO → Do not submit the edit until fixed!
+
+---
+
+### MANDATORY PRE-COMMIT VERIFICATION SCRIPT
+
+Run this BEFORE every commit:
+
+```bash
+#!/bin/bash
+# Complete verification - Run BEFORE commit
+
+cd /Users/modernamusmenet/Desktop/MANTAX/face_recognition_npo
+
+echo "========================================="
+echo "MANDATORY PRE-COMMIT VERIFICATION"
+echo "========================================="
+
+PASS=true
+
+# 1. BACKEND: Python syntax
+echo ""
+echo "1. Backend Python syntax..."
+python -m py_compile api_server.py
+if [ $? -eq 0 ]; then
+    echo "   ✓ Backend OK"
+else
+    echo "   ✗ Backend FAILED"
+    PASS=false
+fi
+
+# 2. BACKEND: API endpoints
+echo ""
+echo "2. Backend API endpoints..."
+ENDPOINTS=$(grep -c "@app.route" api_server.py)
+echo "   Found: $ENDPOINTS endpoints"
+if [ "$ENDPOINTS" -ge 10 ]; then
+    echo "   ✓ Endpoint count OK"
+else
+    echo "   ✗ Endpoint count too low"
+    PASS=false
+fi
+
+# 3. BACKEND: Visualization handlers
+echo ""
+echo "3. Backend visualization handlers..."
+VIZ_HANDLERS=$(grep -c "viz_type ==" api_server.py)
+echo "   Found: $VIZ_HANDLERS handlers"
+if [ "$VIZ_HANDLERS" -ge 10 ]; then
+    echo "   ✓ Visualization handlers OK"
+else
+    echo "   ✗ Visualization handlers too few"
+    PASS=false
+fi
+
+# 4. FRONTEND: HTML event handlers
+echo ""
+echo "4. Frontend HTML event handlers..."
+HTML_HANDLERS=$(grep -cE 'onclick=|onchange=' electron-ui/index.html)
+echo "   Found: $HTML_HANDLERS handlers"
+if [ "$HTML_HANDLERS" -ge 5 ]; then
+    echo "   ✓ HTML handlers OK"
+else
+    echo "   ✗ HTML handlers too few"
+    PASS=false
+fi
+
+# 5. FRONTEND: Function definitions
+echo ""
+echo "5. Frontend function definitions..."
+FUNC_COUNT=$(grep -c '^function ' electron-ui/renderer/app.js)
+echo "   Found: $FUNC_COUNT functions"
+if [ "$FUNC_COUNT" -ge 10 ]; then
+    echo "   ✓ Function count OK"
+else
+    echo "   ✗ Function count too low"
+    PASS=false
+fi
+
+# 6. HTML-JS cross-check
+echo ""
+echo "6. HTML-JS cross-check..."
+MISSING=""
+for func in $(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u); do
+    if ! grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js; then
+        MISSING="$MISSING $func"
+    fi
+done
+
+if [ -z "$MISSING" ]; then
+    echo "   ✓ All HTML functions exist in JS"
+else
+    echo "   ✗ MISSING:$MISSING"
+    PASS=false
+fi
+
+# 7. E2E Tests
+echo ""
+echo "7. E2E tests..."
+python test_e2e_pipeline.py 2>&1 | grep -q "ALL TESTS PASSED"
+if [ $? -eq 0 ]; then
+    echo "   ✓ E2E tests passed"
+else
+    echo "   ✗ E2E tests FAILED"
+    PASS=false
+fi
+
+echo ""
+echo "========================================="
+if [ "$PASS" = true ]; then
+    echo "✓ ALL VERIFICATIONS PASSED"
+    echo "Ready to commit"
+    exit 0
+else
+    echo "✗ VERIFICATION FAILED"
+    echo "Fix issues before committing"
+    exit 1
+fi
+```
 
 ---
 
@@ -491,6 +819,125 @@ python -c "import api_server; print('OK')"
 - Test with boundary values
 - Run the full test suite
 
+### Mistake 6: Blocking UI with Async/Await in Event Handlers
+**Problem Encountered (Feb 11, 2026):**
+```
+Using async/await with fetch() in handleImageSelect() caused the UI to freeze.
+The await blocked the onload callback, preventing image display.
+Users couldn't upload any images because the upload appeared to do nothing.
+```
+
+**Root Cause:**
+- `reader.onload = async (e) => { await fetch(...) }` blocked the UI thread
+- The fetch to /api/clear was non-essential but was awaited
+- UI updates after the await never executed because the fetch never completed
+
+**How to prevent:**
+- Use fire-and-forget for non-essential API calls
+- Never await in event handlers unless you need the result
+- Use `.catch()` for error handling on fire-and-forget calls
+
+**The Fix:**
+```javascript
+// WRONG - blocks UI
+reader.onload = async (e) => {
+    await fetch(`${API_BASE}/clear`, { method: 'POST' });  // BLOCKS!
+    // This code never executes if fetch hangs
+};
+
+// RIGHT - fire-and-forget
+reader.onload = (e) => {
+    fetch(`${API_BASE}/clear`, { method: 'POST' }).catch(err => {
+        console.log('Clear failed:', err.message);
+    });
+    // This code executes immediately
+};
+```
+
+### Mistake 7: Not Cross-Checking HTML with JavaScript
+
+**Problem Encountered (Feb 11, 2026):**
+```
+During cache/clear feature implementation, multiple functions were lost:
+- detectFaces() - CRITICAL: No face detection
+- extractFeatures() - CRITICAL: No embedding extraction
+- Other helper functions from previous refactoring
+
+Result: Buttons did NOTHING when clicked. Complete UI failure.
+```
+
+**Root Cause:**
+- Added new functions without checking what HTML was calling
+- Previous edits corrupted the file by overwriting instead of adding
+- No verification that HTML event handlers matched JS function definitions
+- Assumed all functions existed when they didn't
+
+**How to prevent:**
+1. ALWAYS extract HTML event handlers before making changes:
+```bash
+grep -E 'onclick=|onchange=' electron-ui/index.html
+```
+
+2. ALWAYS verify each HTML function exists in JS:
+```bash
+# Extract and verify all at once
+HTML_FUNCS=$(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u)
+for func in $HTML_FUNCS; do
+    grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js || echo "MISSING: $func"
+done
+```
+
+3. ALWAYS count functions before and after edits:
+```bash
+BEFORE=$(grep -c '^function ' app.js)
+AFTER=$(grep -c '^function ' app.js)
+[ "$BEFORE" != "$AFTER" ] && echo "FUNCTION COUNT CHANGED!"
+```
+
+**The Fix Applied (Feb 11, 2026):**
+```bash
+# Added missing critical functions:
+✓ detectFaces()  - Face detection API call
+✓ extractFeatures() - Embedding extraction API call
+✓ selectImage() - File input trigger
+✓ addReference() - Reference input trigger
+✓ handleReferenceSelect() - Process reference upload
+✓ resetSteps() - Reset UI state
+✓ saveReference() - Save reference to backend
+✓ removeReference() - Remove reference
+✓ showReferenceVisualizations() - Show ref viz
+✓ compareFaces() - Compare embeddings
+✓ And 15+ helper functions...
+
+# Total functions: 25 (17 sync + 8 async)
+```
+
+**MANDATORY PRE-COMMIT CHECK:**
+```bash
+#!/bin/bash
+# Run this before EVERY commit
+
+# 1. Extract HTML handlers
+echo "HTML handlers:"
+grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u
+
+# 2. Verify each exists
+MISSING=""
+for func in $(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u); do
+    if ! grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js; then
+        MISSING="$MISSING $func"
+    fi
+done
+
+if [ -n "$MISSING" ]; then
+    echo "MISSING FUNCTIONS:$MISSING"
+    echo "FIX BEFORE COMMITTING!"
+    exit 1
+fi
+
+echo "✓ All HTML handlers verified in app.js"
+```
+
 ---
 
 ## Files Modified During Code Review
@@ -509,12 +956,15 @@ python -c "import api_server; print('OK')"
 | Feb 11, 2026 | `src/embedding/__init__.py` | Implemented get_activations() with real activations |
 | Feb 11, 2026 | `src/embedding/__init__.py` | Added visualize_embedding(), visualize_similarity_matrix(), visualize_similarity_result() |
 | Feb 11, 2026 | `src/detection/__init__.py` | Added None check to visualize_3d_mesh() |
-| Feb 11, 2026 | `src/detection/__init__.py` | Added validation to compute_quality_metrics() |
-| Feb 11, 2026 | `utils/webcam.py` | Added missing imports |
-| Feb 11, 2026 | `visualize_biometric.py` | Fixed hardcoded path |
-| Feb 11, 2026 | `gui/facial_analysis_gui.py` | Fixed random embedding fallback |
-| Feb 11, 2026 | `test_edge_cases.py` | Created comprehensive edge case test suite |
-| Feb 11, 2026 | `api_server.py` | Added reference visualization endpoints (`/api/visualizations/<type>/reference/<id>`) |
+| Feb 11, 2026 | `CONTEXT.md` | Added Rules 6-8 (Function Preservation, Atomic Edits, Exact Matching) |
+| Feb 11, 2026 | `CONTEXT.md` | Added Mistake 6 (Blocking UI with Async/Await) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Fixed: handleImageSelect() was lost during edits, restored complete function |
+| Feb 11, 2026 | `electron-ui/index.html` | Fixed font stack for macOS compatibility |
+| Feb 11, 2026 | `api_server.py` | Added DELETE /api/references/<id> endpoint |
+| Feb 11, 2026 | `CONTEXT.md` | Added Rule 9 (HTML-JS Cross-Check) - MANDATORY |
+| Feb 11, 2026 | `CONTEXT.md` | Added Mistake 7 (Missing HTML-JS Cross-Check) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Added 10 missing functions: detectFaces, extractFeatures, selectImage, addReference, handleReferenceSelect, saveReference, resetSteps, removeReference, showReferenceVisualizations, compareFaces (FULL RESTORE) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Total functions: 25 (17 sync + 8 async) |
 
 ---
 
@@ -522,3 +972,28 @@ python -c "import api_server; print('OK')"
 *Last updated: February 11, 2026*
 *All critical issues fixed, no mock code remaining*
 *Strict edit rules enforced*
+*MANDATORY: Run HTML-JS cross-check before every commit*
+| Feb 11, 2026 | `src/detection/__init__.py` | Added validation to compute_quality_metrics() |
+| Feb 11, 2026 | `utils/webcam.py` | Added missing imports |
+| Feb 11, 2026 | `visualize_biometric.py` | Fixed hardcoded path |
+| Feb 11, 2026 | `gui/facial_analysis_gui.py` | Fixed random embedding fallback |
+| Feb 11, 2026 | `test_edge_cases.py` | Created comprehensive edge case test suite |
+| Feb 11, 2026 | `api_server.py` | Added reference visualization endpoints (`/api/visualizations/<type>/reference/<id>`) |
+| Feb 11, 2026 | `CONTEXT.md` | Added Rules 6-8 (Function Preservation, Atomic Edits, Exact Matching) |
+| Feb 11, 2026 | `CONTEXT.md` | Added Mistake 6 (Blocking UI with Async/Await) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Fixed: handleImageSelect() was lost during edits, restored complete function |
+| Feb 11, 2026 | `electron-ui/index.html` | Fixed font stack for macOS compatibility |
+| Feb 11, 2026 | `api_server.py` | Added DELETE /api/references/<id> endpoint |
+| Feb 11, 2026 | `CONTEXT.md` | Added Rule 9 (HTML-JS Cross-Check) - MANDATORY |
+| Feb 11, 2026 | `CONTEXT.md` | Added Mistake 7 (Missing HTML-JS Cross-Check) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Added 10+ missing functions: detectFaces, extractFeatures, selectImage, addReference, handleReferenceSelect, saveReference, resetSteps, removeReference, showReferenceVisualizations, compareFaces, setupEventListeners, checkAPI (FULL RESTORE) |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Total: 18 sync + 9 async functions (27 total) |
+| Feb 11, 2026 | `CONTEXT.md` | Added mandatory pre-commit verification script |
+
+---
+
+*Context document created: February 11, 2026*
+*Last updated: February 11, 2026*
+*All critical issues fixed, no mock code remaining*
+*Strict edit rules enforced*
+*MANDATORY: Run pre-commit verification before every commit*

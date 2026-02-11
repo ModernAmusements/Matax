@@ -6,7 +6,8 @@
     <title>Face Recognition</title>
     <style>
         :root {
-            --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+            --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            --font-mono: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
             --color-text: #000;
             --color-muted: #666;
             --color-border: #000;
@@ -485,9 +486,42 @@
             border-left: 3px solid var(--color-error);
         }
 
-        .toast.warning {
-            border-left: 3px solid var(--color-warning);
-        }
+.toast.warning {
+    border-left: 3px solid var(--color-warning);
+}
+
+.reference-item {
+    position: relative;
+}
+
+.ref-remove-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    background: #cc0000;
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 1;
+    z-index: 10;
+    border: none;
+}
+
+.ref-remove-btn:hover {
+    background: #ff0000;
+}
+
+.ref-remove-btn:disabled {
+    background: #999;
+    cursor: not-allowed;
+}
     </style>
 </head>
 <body>
@@ -496,15 +530,18 @@
 
         <!-- Step 1 -->
         <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Step 1</span>
-                    <h2>Choose Your Photo</h2>
-                    <p>Select a photo containing faces you want to analyze.</p>
-                </div>
+<div class="step-header">
+            <div>
+                <span class="step-number">Step 1</span>
+                <h2>Choose Your Photo</h2>
+                <p>Select a photo containing faces you want to analyze.</p>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button class="btn" onclick="clearAllCache()">Clear Cache</button>
                 <button class="btn btn-primary" onclick="selectImage()">Choose Photo</button>
                 <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
             </div>
+        </div>
             <div class="preview-container" id="previewContainer" style="display: none;">
                 <div class="preview-box">
                     <img id="selectedImage" src="" alt="Selected">
