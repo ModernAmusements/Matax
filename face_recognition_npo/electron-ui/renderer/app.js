@@ -39,10 +39,25 @@ async function checkAPI() {
         const data = await response.json();
         if (data.status === 'ok') {
             logToTerminal('> API connected', 'success');
+            loadReferences();
         }
     } catch (err) {
         logToTerminal('> Cannot connect to API server', 'error');
         showToast('Cannot connect to API server. Make sure api_server.py is running.', 'error');
+    }
+}
+
+async function loadReferences() {
+    try {
+        const response = await fetch(`${API_BASE}/references`);
+        const data = await response.json();
+        if (data.references) {
+            references = data.references;
+            updateReferenceList();
+            logToTerminal(`> Loaded ${data.count} reference(s) from storage`, 'info');
+        }
+    } catch (err) {
+        logToTerminal(`> Failed to load references: ${err.message}`, 'error');
     }
 }
 
@@ -336,15 +351,12 @@ async function extractFeatures() {
 
         if (data.success) {
             currentQueryEmbedding = data.embedding_mean;
-            logToTerminal(`> Embedding vector: ${data.embedding_size} dimensions`, 'success');
-            logToTerminal(`> Mean: ${data.embedding_mean.toFixed(6)}, Std: ${data.embedding_std.toFixed(6)}`, 'info');
-            document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
-            document.getElementById('extractStatus').className = 'status status-success';
-            document.getElementById('compareBtn').disabled = false;
-            document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
-
+            console.log('[EXTRACT] Received', Object.keys(data.visualizations).length, 'visualizations');
+            console.log('[EXTRACT] Viz keys:', Object.keys(data.visualizations));
+            
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
+                console.log('[EXTRACT] Stored:', key, 'length:', data.visualizations[key]?.length);
             });
             
             if (data.visualization_data) {
@@ -352,6 +364,15 @@ async function extractFeatures() {
                     visualizationData[key + '_data'] = data.visualization_data[key];
                 });
             }
+            
+            logToTerminal(`> Embedding vector: ${data.embedding_size} dimensions`, 'success');
+            logToTerminal(`> Mean: ${data.embedding_mean.toFixed(6)}, Std: ${data.embedding_std.toFixed(6)}`, 'info');
+            document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
+            document.getElementById('extractStatus').className = 'status status-success';
+            document.getElementById('compareBtn').disabled = false;
+            document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
+
+            console.log('[EXTRACT] Cached visualizations:', Object.keys(visualizationData));
             
             showVisualization('embedding');
             showToast('Features extracted successfully', 'success');
@@ -570,34 +591,80 @@ async function compareFaces() {
 // Visualization
 async function showVisualization(vizType) {
     const content = document.getElementById('vizContent');
-
+    
+    console.log('[VIZ] Requested:', vizType);
+    
+    // Check if we have the required data
+    if (!currentFaceThumbnails || currentFaceThumbnails.length === 0) {
+        content.innerHTML = `
+            <div class="viz-placeholder">
+                <p style="color: #e74c3c;">No face detected</p>
+                <p>1. Upload an image</p>
+                <p>2. Click "Find Faces"</p>
+                <p>3. Click "Create Signature"</p>
+                <p>4. Then click visualization tabs</p>
+            </div>
+        `;
+        logToTerminal(`> No face detected - run detection first`, 'warning');
+        return;
+    }
+    
+    if (!currentQueryEmbedding) {
+        content.innerHTML = `
+            <div class="viz-placeholder">
+                <p style="color: #e74c3c;">No embedding extracted</p>
+                <p>Click "Create Signature" first to extract features</p>
+            </div>
+        `;
+        logToTerminal(`> No embedding - click "Create Signature" first`, 'warning');
+        return;
+    }
+    
+    console.log('[VIZ] In cache:', visualizationData[vizType] ? 'YES' : 'NO');
     logToTerminal(`> Loading visualization: ${vizType}`, 'info');
 
     // If data not available locally, fetch from API
     if (!visualizationData[vizType]) {
         try {
+            console.log('[VIZ] Fetching from API:', `${API_BASE}/visualizations/${vizType}`);
             logToTerminal(`> Fetching ${vizType} from API...`, 'info');
             const response = await fetch(`${API_BASE}/visualizations/${vizType}`);
             const data = await response.json();
+            console.log('[VIZ] API response:', data);
 
-            if (data.success) {
+            if (data.success && data.visualization && data.visualization.length > 100) {
                 visualizationData[vizType] = data.visualization;
                 if (data.data && Object.keys(data.data).length > 0) {
                     visualizationData[vizType + '_data'] = data.data;
                 }
-                logToTerminal(`> Received ${data.visualization?.length || 0} chars for ${vizType}`, 'success');
+                logToTerminal(`> Received ${data.visualization.length} chars for ${vizType}`, 'success');
             } else {
-                logToTerminal(`> Failed to get ${vizType}: ${data.error}`, 'error');
+                console.log('[VIZ] API returned no/invalid data:', data);
+                content.innerHTML = `
+                    <div class="viz-placeholder">
+                        <p style="color: #e74c3c;">No ${vizType} data available</p>
+                        <p>Try running the full workflow:</p>
+                        <p>1. Upload image → 2. Find Faces → 3. Create Signature</p>
+                    </div>
+                `;
+                return;
             }
         } catch (err) {
             logToTerminal(`> Failed to fetch ${vizType}: ${err.message}`, 'error');
+            console.log('[VIZ] Fetch error:', err);
+            content.innerHTML = `
+                <div class="viz-placeholder">
+                    <p style="color: #e74c3c;">Error loading ${vizType}</p>
+                    <p>${err.message}</p>
+                </div>
+            `;
+            return;
         }
-    } else {
-        logToTerminal(`> Using cached ${vizType}: ${visualizationData[vizType]?.length || 0} chars`, 'info');
     }
 
     if (visualizationData[vizType]) {
         const length = visualizationData[vizType].length;
+        console.log('[VIZ] Displaying:', vizType, 'length:', length);
         logToTerminal(`> Displaying ${vizType} (${length} chars)`, 'success');
 
         let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
@@ -611,7 +678,13 @@ async function showVisualization(vizType) {
         content.innerHTML = html;
     } else {
         logToTerminal(`> No data for ${vizType}`, 'warning');
-        showVisualizationPlaceholder();
+        console.log('[VIZ] No data found for:', vizType);
+        content.innerHTML = `
+            <div class="viz-placeholder">
+                <p>No ${vizType} data available</p>
+                <p>Run: Upload → Find Faces → Create Signature</p>
+            </div>
+        `;
     }
 }
 

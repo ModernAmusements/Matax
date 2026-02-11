@@ -989,6 +989,11 @@ echo "✓ All HTML handlers verified in app.js"
 | Feb 11, 2026 | `electron-ui/renderer/app.js` | Added 10+ missing functions: detectFaces, extractFeatures, selectImage, addReference, handleReferenceSelect, saveReference, resetSteps, removeReference, showReferenceVisualizations, compareFaces, setupEventListeners, checkAPI (FULL RESTORE) |
 | Feb 11, 2026 | `electron-ui/renderer/app.js` | Total: 18 sync + 9 async functions (27 total) |
 | Feb 11, 2026 | `CONTEXT.md` | Added mandatory pre-commit verification script |
+| Feb 11, 2026 | `src/embedding/__init__.py` | Fixed visualize_activations() and visualize_feature_maps() |
+| Feb 11, 2026 | `electron-ui/renderer/app.js` | Added console logging, better error messages |
+| Feb 11, 2026 | `test_e2e_pipeline.py` | Made test images configurable via env vars |
+| Feb 11, 2026 | `visualize_biometric.py` | Made test image configurable |
+| Feb 11, 2026 | `reference_images/README.md` | Updated documentation |
 
 ---
 

@@ -4,8 +4,9 @@ End-to-end test for the complete face recognition pipeline.
 Tests that real embeddings are extracted and compared correctly.
 
 Usage:
-    python test_e2e_pipeline.py                    # Uses default test image
+    python test_e2e_pipeline.py                    # Uses default test images
     TEST_IMAGE=my_image.jpg python test_e2e_pipeline.py  # Uses custom image
+    TEST_IMAGE_REF=other.jpg python test_e2e_pipeline.py  # Uses custom reference
 """
 
 import sys
@@ -15,9 +16,9 @@ import numpy as np
 import json
 
 # Configuration - set via environment variable or use defaults
-TEST_IMAGE = os.environ.get('TEST_IMAGE', 'kanye_west.jpeg')
+TEST_IMAGE = os.environ.get('TEST_IMAGE', 'test_subject.jpg')
 TEST_IMAGE_PATH = f"test_images/{TEST_IMAGE}"
-TEST_IMAGE_REF = os.environ.get('TEST_IMAGE_REF', 'kanye_detected.jpeg')
+TEST_IMAGE_REF = os.environ.get('TEST_IMAGE_REF', 'reference_subject.jpg')
 TEST_IMAGE_REF_PATH = f"test_images/{TEST_IMAGE_REF}"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')

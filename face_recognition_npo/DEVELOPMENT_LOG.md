@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Development Log
 
-**Last Updated**: February 11, 2026  
-**Project**: Face Recognition GUI for NGO Use  
-**Version**: 0.1.0  
+**Last Updated**: February 11, 2026
+**Project**: Face Recognition GUI for NGO Use
+**Version**: 0.1.0
 **Status**: ✅ Fully Functional
 
 ---
@@ -10,16 +10,105 @@
 ## Summary (February 11, 2026)
 
 The system is now **fully functional** with:
-- Real 128-dim embeddings (not random!)
-- Dynamic array sizes for visualizations (fixed broadcast bug!)
-- Working compare with proper similarity scores
-- All tests passing
+- ✅ Real 128-dim embeddings (not random!)
+- ✅ Dynamic array sizes for visualizations
+- ✅ Working compare with proper similarity scores
+- ✅ Reference persistence to `embeddings.json`
+- ✅ Electron app loads references on startup
+- ✅ All tests passing (6/6 E2E, 30/30 unit)
 
 **Test Results:**
 ```
+E2E Tests: 6/6 PASSED
+Unit Tests: 30/30 PASSED
 Same image:          100% similarity
-Different person:    ~78% similarity (reasonable)
+Different person:    ~78% similarity
 ```
+
+**Files Updated Today:**
+- `api_server.py` - Added `save_references()`, `load_references()`, persistence
+- `app.js` - Added `loadReferences()` to load on startup
+- `start.sh` - Clears cache, starts API + Electron
+- `test_e2e_pipeline.py` - Fixed default image paths
+- `README.md` - Complete documentation
+
+---
+
+## February 11, 2026 - Persistence Fixes
+
+### Bug: References Not Saved to JSON
+
+**Problem**: When adding references via the app, they were stored in memory but not saved to `reference_images/embeddings.json`.
+
+**Fix**: Added `save_references()` function to API:
+```python
+REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
+
+def save_references():
+    """Save references to JSON file."""
+    data = {
+        'metadata': [...],
+        'embeddings': [...]
+    }
+    with open(REFERENCES_FILE, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def load_references():
+    """Load references from JSON file on startup."""
+    # Load existing references
+```
+
+**Added calls to `save_references()`**:
+- After `add_reference()` - line 265
+- After `remove_reference()` - line 323
+
+### Bug: App Not Loading References on Startup
+
+**Problem**: Electron app started with empty `references = []`, never loading existing references.
+
+**Fix**: Added `loadReferences()` function:
+```javascript
+async function checkAPI() {
+    // ...
+    if (data.status === 'ok') {
+        logToTerminal('> API connected', 'success');
+        loadReferences();  // NEW
+    }
+}
+
+async function loadReferences() {
+    const response = await fetch(`${API_BASE}/references`);
+    const data = await response.json();
+    if (data.references) {
+        references = data.references;
+        updateReferenceList();
+    }
+}
+```
+
+### Bug: Start Script Not Clearing Cache
+
+**Problem**: Old Python processes cached old code.
+
+**Fix**: Updated `start.sh`:
+```bash
+# Clear Python cache
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -name "*.pyc" -delete
+find . -name ".pytest_cache" -exec rm -rf {} +
+```
+
+### Bug: Test Images Had Wrong Names
+
+**Problem**: Default test images were `kanye_west.jpeg` and `kanye_detected.jpeg` which don't exist.
+
+**Fix**: Updated `test_e2e_pipeline.py`:
+```python
+TEST_IMAGE = os.environ.get('TEST_IMAGE', 'test_subject.jpg')
+TEST_IMAGE_REF = os.environ.get('TEST_IMAGE_REF', 'reference_subject.jpg')
+```
+
+Renamed `kanye_west_ref.jpg` → `reference_subject.jpg`
 
 ---
 
@@ -147,6 +236,74 @@ find . -name "*.pyc" -delete
 | `electron-ui/renderer/app.js` | Better error messages, clearer status |
 | `test_e2e_pipeline.py` | New comprehensive E2E test script |
 | `start.sh` | New interactive start script |
+
+---
+
+## Session: February 11, 2026 (Afternoon) - Visualization Fixes
+
+### Fix: Activations and Features Visualizations
+
+**Problem**: `visualize_activations()` and `visualize_feature_maps()` were using wrong model reference.
+
+**Locations Fixed**:
+- `src/embedding/__init__.py:326` - `visualize_activations()` used `self.backbone` (undefined)
+- `src/embedding/__init__.py:383` - `visualize_feature_maps()` used `self.model.backbone` (correct)
+
+**Changes Made**:
+```python
+# Before (broken):
+backbone = self.backbone  # WRONG - self.backbone doesn't exist
+
+# After (fixed):
+backbone = self.model.backbone  # CORRECT - access via model
+```
+
+### Fix: RGB/BGR Color Conversion
+
+**Problem**: OpenCV uses BGR, PyTorch outputs RGB. Colormaps were applied incorrectly.
+
+**Fix**:
+```python
+channel_colored = cv2.applyColorMap(channel, cv2.COLORMAP_VIRIDIS)
+channel_bgr = cv2.cvtColor(channel_colored, cv2.COLOR_RGB2BGR)  # Convert RGB to BGR
+```
+
+### Enhancement: Better Error Messages
+
+**Problem**: Users couldn't tell why visualizations weren't showing.
+
+**Frontend Changes** (`electron-ui/renderer/app.js`):
+- Added console logging for debugging
+- Added clear error messages when visualizations unavailable
+- Added validation for None/empty face images
+- Error messages now show: "Click Create Signature first"
+
+### Enhancement: Configurable Test Images
+
+**Problem**: Hardcoded `kanye_west.jpeg` filename in tests.
+
+**Changes**:
+- `test_e2e_pipeline.py` now accepts environment variables:
+  - `TEST_IMAGE` - Primary test image (default: `kanye_west.jpeg`)
+  - `TEST_IMAGE_REF` - Reference image (default: `kanye_detected.jpeg`)
+- `visualize_biometric.py` - Same configurable approach
+
+**Usage**:
+```bash
+TEST_IMAGE=my_image.jpg TEST_IMAGE_REF=ref_image.jpg python test_e2e_pipeline.py
+```
+
+---
+
+## Files Changed (February 11, 2026 - Afternoon)
+
+| File | Changes |
+|------|---------|
+| `src/embedding/__init__.py` | Fixed `visualize_activations()` and `visualize_feature_maps()` |
+| `electron-ui/renderer/app.js` | Added console logging, better error messages |
+| `test_e2e_pipeline.py` | Made test images configurable via env vars |
+| `visualize_biometric.py` | Made test image configurable via env var |
+| `reference_images/README.md` | Updated documentation |
 
 ---
 

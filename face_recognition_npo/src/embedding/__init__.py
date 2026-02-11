@@ -318,22 +318,30 @@ class FaceNetEmbeddingExtractor:
         try:
             import torch
 
+            if face_image is None or face_image.size == 0:
+                raise ValueError("Face image is None or empty")
+
+            # Get backbone from model
+            backbone = self.model.backbone
+
             # Preprocess face image
             face_tensor = self.preprocess(face_image)
 
             # Get first layer activations using the actual model structure
-            # The backbone is a Sequential container
-            backbone = self.backbone
             x = face_tensor
 
             with torch.no_grad():
                 # Go through first few layers to get activations
+                activations = None
                 for i, child in enumerate(backbone.children()):
                     x = child(x)
                     if i == 3:  # After maxpool
+                        activations = x.detach().cpu().numpy()[0]  # Shape: (channels, H, W)
                         break
 
-            activations = x.detach().cpu().numpy()[0]  # Shape: (channels, H, W)
+                if activations is None:
+                    activations = x.detach().cpu().numpy()[0]
+
             num_channels = min(activations.shape[0], max_channels)
 
             # Create grid visualization
@@ -349,23 +357,28 @@ class FaceNetEmbeddingExtractor:
                 channel = (channel - channel.min()) / (channel.max() - channel.min() + 1e-8)
                 channel = (channel * 255).astype(np.uint8)
                 channel = cv2.resize(channel, (cell_size, cell_size))
+                # Apply colormap and convert RGB to BGR for OpenCV
                 channel_colored = cv2.applyColorMap(channel, cv2.COLORMAP_VIRIDIS)
+                channel_bgr = cv2.cvtColor(channel_colored, cv2.COLOR_RGB2BGR)
 
                 y_start = row * cell_size
                 x_start = col * cell_size
-                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = channel_colored
+                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = channel_bgr
 
             # Add title
-            cv2.putText(output, f"CNN Activations (First Layer)", (10, 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+            cv2.putText(output, f"CNN Activations ({num_channels} channels)", (10, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
 
             return output
 
         except Exception as e:
+            print(f"Error visualizing activations: {e}")
             output = np.zeros((200, 320, 3), dtype=np.uint8)
             output.fill(245)
-            cv2.putText(output, f"Error: {str(e)[:40]}", (20, 160),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            cv2.putText(output, f"Activation Error: {str(e)[:30]}", (10, 100),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            cv2.putText(output, "See terminal for details", (10, 130),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (100, 100, 100), 1)
             return output
 
     def visualize_feature_maps(self, face_image: np.ndarray) -> np.ndarray:
@@ -375,6 +388,9 @@ class FaceNetEmbeddingExtractor:
         """
         try:
             import torch
+
+            if face_image is None or face_image.size == 0:
+                raise ValueError("Face image is None or empty")
 
             # Get embedding features
             face_tensor = self.preprocess(face_image)
@@ -393,7 +409,6 @@ class FaceNetEmbeddingExtractor:
                         break
 
                 if activations is None:
-                    # If we didn't find the right layer, use whatever we have
                     activations = x.detach().cpu().numpy()[0]
 
             # Create feature map visualization
@@ -410,23 +425,28 @@ class FaceNetEmbeddingExtractor:
                 feature = (feature - feature.min()) / (feature.max() - feature.min() + 1e-8)
                 feature = (feature * 255).astype(np.uint8)
                 feature = cv2.resize(feature, (cell_size, cell_size))
+                # Apply colormap and convert RGB to BGR for OpenCV
                 feature_colored = cv2.applyColorMap(feature, cv2.COLORMAP_PLASMA)
+                feature_bgr = cv2.cvtColor(feature_colored, cv2.COLOR_RGB2BGR)
 
                 y_start = row * cell_size
                 x_start = col * cell_size
-                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = feature_colored
+                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = feature_bgr
 
             # Add title
-            cv2.putText(output, f"Feature Maps (Layer 7 - 7x7)", (10, 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+            cv2.putText(output, f"Feature Maps ({num_features} channels)", (10, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
 
             return output
 
         except Exception as e:
+            print(f"Error visualizing feature maps: {e}")
             output = np.zeros((224, 224, 3), dtype=np.uint8)
             output.fill(245)
-            cv2.putText(output, f"Error: {str(e)[:40]}", (20, 110),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            cv2.putText(output, f"Feature Error: {str(e)[:30]}", (10, 110),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+            cv2.putText(output, "See terminal for details", (10, 140),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (100, 100, 100), 1)
             return output
 
     def test_robustness(self, face_image: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:

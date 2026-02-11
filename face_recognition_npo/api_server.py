@@ -35,6 +35,53 @@ current_embedding = None
 current_face_image = None
 references = []
 
+REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
+
+
+def load_references():
+    """Load references from JSON file on startup."""
+    global references
+    try:
+        if os.path.exists(REFERENCES_FILE) and os.path.getsize(REFERENCES_FILE) > 0:
+            with open(REFERENCES_FILE, 'r') as f:
+                data = json.load(f)
+                references = data.get('references', [])
+            print(f"Loaded {len(references)} references from {REFERENCES_FILE}")
+    except Exception as e:
+        print(f"Error loading references: {e}")
+        references = []
+
+
+def save_references():
+    """Save references to JSON file."""
+    try:
+        data = {
+            'metadata': [
+                {
+                    'id': r.get('id'),
+                    'name': r.get('name'),
+                    'thumbnail': r.get('thumbnail')[:100] + '...' if r.get('thumbnail') and len(r.get('thumbnail', '')) > 100 else r.get('thumbnail'),
+                    'added_at': r.get('added_at')
+                }
+                for r in references
+            ],
+            'embeddings': [
+                {
+                    'id': r.get('id'),
+                    'embedding': r.get('embedding', [])
+                }
+                for r in references
+            ]
+        }
+        with open(REFERENCES_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+        print(f"Saved {len(references)} references to {REFERENCES_FILE}")
+    except Exception as e:
+        print(f"Error saving references: {e}")
+
+
+load_references()
+
 
 def np_to_python(val):
     """Convert numpy types to Python native types for JSON serialization."""
@@ -215,6 +262,7 @@ def add_reference():
             'thumbnail': image_to_base64(ref_face),
         }
         references.append(ref_data)
+        save_references()
         
         return jsonify({
             'success': True,
@@ -271,6 +319,8 @@ def remove_reference(ref_id):
 
             for i, ref in enumerate(references):
                 ref['id'] = i
+            
+            save_references()
 
             return jsonify({
                 'success': True,
