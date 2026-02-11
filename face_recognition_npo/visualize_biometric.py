@@ -97,6 +97,5 @@ def visualize_biometric_capture(image_path: str):
     print("=" * 50)
 
 if __name__ == "__main__":
-    # Test with Kanye West image
-    image_path = "face_recognition_npo/test_images/kanye_west.jpeg"
+    image_path = "test_images/kanye_west.jpeg"
     visualize_biometric_capture(image_path)

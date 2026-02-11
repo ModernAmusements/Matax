@@ -307,77 +307,125 @@ def compare_faces():
 
 @app.route('/api/visualizations/<viz_type>', methods=['GET'])
 def get_visualization(viz_type):
-    """Get specific visualization."""
+    """Get visualization for current query face."""
     global current_image, current_face_image, current_faces, current_embedding
     
     try:
-        def get_viz_and_data(viz_type):
-            if viz_type == 'detection':
-                return (detector.visualize_detection(current_image, current_faces) if current_image is not None and current_faces else None), {}
-            elif viz_type == 'extraction':
-                return (detector.visualize_extraction(current_image, current_faces) if current_image is not None and current_faces else None), {}
-            elif viz_type == 'landmarks':
-                if current_face_image is None:
-                    return None, {}
-                landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
-                return (detector.visualize_landmarks(current_face_image, landmarks), {})
-            elif viz_type == 'mesh3d':
-                return (detector.visualize_3d_mesh(current_face_image) if current_face_image is not None else None), {}
-            elif viz_type == 'alignment':
-                if current_face_image is None:
-                    return None, {}
-                landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
-                alignment = detector.compute_alignment(current_face_image, landmarks)
-                return (detector.visualize_alignment(current_face_image, landmarks, alignment), {})
-            elif viz_type == 'saliency':
-                return (detector.visualize_saliency(current_face_image) if current_face_image is not None else None), {}
-            elif viz_type == 'activations':
-                return (extractor.visualize_activations(current_face_image) if current_face_image is not None else None), {}
-            elif viz_type == 'features':
-                return (extractor.visualize_feature_maps(current_face_image) if current_face_image is not None else None), {}
-            elif viz_type == 'multiscale':
-                return (detector.visualize_multiscale(current_face_image) if current_face_image is not None else None), {}
-            elif viz_type == 'confidence':
-                if current_face_image is None:
-                    return None, {}
-                return detector.visualize_quality(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
-            elif viz_type == 'embedding':
-                if current_embedding is None:
-                    return None, {}
-                return extractor.visualize_embedding(current_embedding)
-            elif viz_type == 'similarity':
-                if current_embedding is None:
-                    return None, {}
-                return extractor.visualize_similarity_result(current_embedding, None, 0.75)
-            elif viz_type == 'robustness':
-                if current_face_image is None:
-                    return None, {}
-                return extractor.test_robustness(current_face_image)
-            elif viz_type == 'biometric':
-                return (detector.visualize_biometric_capture(current_image, current_faces) if current_image is not None and current_faces else None), {}
-            return None, {}
+        face_image = current_face_image
+        embedding = current_embedding
         
-        viz_result = get_viz_and_data(viz_type)
-        
-        if isinstance(viz_result, tuple):
-            viz_image, viz_data = viz_result
-        else:
-            viz_image = viz_result
-            viz_data = {}
-        
-        if viz_image is None:
-            return jsonify({'success': False, 'error': 'No data available'})
-        
-        return jsonify({
-            'success': True,
-            'visualization': image_to_base64(viz_image),
-            'data': viz_data
-        })
+        return get_viz_result(viz_type, face_image, embedding)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/visualizations/<viz_type>/reference/<int:ref_id>', methods=['GET'])
+def get_reference_visualization(viz_type, ref_id):
+    """Get visualization for a specific reference image."""
+    global references
+    
+    try:
+        if ref_id < 0 or ref_id >= len(references):
+            return jsonify({'success': False, 'error': 'Reference not found'})
+        
+        ref = references[ref_id]
+        if ref.get('embedding') is None:
+            return jsonify({'success': False, 'error': 'No embedding for reference'})
+        
+        # Reconstruct face from thumbnail
+        import base64
+        from PIL import Image
+        import io
+        
+        thumb_data = ref.get('thumbnail', '')
+        if not thumb_data:
+            return jsonify({'success': False, 'error': 'No thumbnail'})
+        
+        # Decode base64 thumbnail
+        if ',' in thumb_data:
+            thumb_data = thumb_data.split(',')[1]
+        
+        thumb_bytes = base64.b64decode(thumb_data)
+        thumb_img = Image.open(io.BytesIO(thumb_bytes))
+        face_image = cv2.cvtColor(np.array(thumb_img), cv2.COLOR_RGB2BGR)
+        
+        embedding = np.array(ref['embedding'])
+        
+        return get_viz_result(viz_type, face_image, embedding)
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+def get_viz_result(viz_type, face_image, embedding):
+    """Helper function to generate visualization."""
+    def get_viz_and_data(viz_type, face_image, embedding):
+        if viz_type == 'detection':
+            return (detector.visualize_detection(current_image, current_faces) if current_image is not None and current_faces else None), {}
+        elif viz_type == 'extraction':
+            return (detector.visualize_extraction(current_image, current_faces) if current_image is not None and current_faces else None), {}
+        elif viz_type == 'landmarks':
+            if face_image is None:
+                return None, {}
+            landmarks = detector.estimate_landmarks(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+            return (detector.visualize_landmarks(face_image, landmarks), {})
+        elif viz_type == 'mesh3d':
+            return (detector.visualize_3d_mesh(face_image) if face_image is not None else None), {}
+        elif viz_type == 'alignment':
+            if face_image is None:
+                return None, {}
+            landmarks = detector.estimate_landmarks(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+            alignment = detector.compute_alignment(face_image, landmarks)
+            return (detector.visualize_alignment(face_image, landmarks, alignment), {})
+        elif viz_type == 'saliency':
+            return (detector.visualize_saliency(face_image) if face_image is not None else None), {}
+        elif viz_type == 'activations':
+            return (extractor.visualize_activations(face_image) if face_image is not None else None), {}
+        elif viz_type == 'features':
+            return (extractor.visualize_feature_maps(face_image) if face_image is not None else None), {}
+        elif viz_type == 'multiscale':
+            return (detector.visualize_multiscale(face_image) if face_image is not None else None), {}
+        elif viz_type == 'confidence':
+            if face_image is None:
+                return None, {}
+            return detector.visualize_quality(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+        elif viz_type == 'embedding':
+            if embedding is None:
+                return None, {}
+            return extractor.visualize_embedding(embedding)
+        elif viz_type == 'similarity':
+            if embedding is None:
+                return None, {}
+            return extractor.visualize_similarity_result(embedding, None, 0.75)
+        elif viz_type == 'robustness':
+            if face_image is None:
+                return None, {}
+            return extractor.test_robustness(face_image)
+        elif viz_type == 'biometric':
+            return (detector.visualize_biometric_capture(current_image, current_faces) if current_image is not None and current_faces else None), {}
+        return None, {}
+    
+    viz_result = get_viz_and_data(viz_type, face_image, embedding)
+    
+    if isinstance(viz_result, tuple):
+        viz_image, viz_data = viz_result
+    else:
+        viz_image = viz_result
+        viz_data = {}
+    
+    if viz_image is None:
+        return jsonify({'success': False, 'error': 'No data available'})
+    
+    return jsonify({
+        'success': True,
+        'visualization': image_to_base64(viz_image),
+        'data': viz_data
+    })
 
 
 @app.route('/api/quality', methods=['GET'])
@@ -406,14 +454,30 @@ def get_quality_metrics():
 def clear_all():
     """Clear all data."""
     global current_image, current_faces, current_embedding, current_face_image, references
-    
+
     current_image = None
     current_faces = []
     current_embedding = None
     current_face_image = None
     references = []
-    
+
     return jsonify({'success': True, 'message': 'All data cleared'})
+
+
+@app.route('/api/status', methods=['GET'])
+def get_status():
+    """Get current server state for debugging."""
+    global current_embedding, current_faces, references
+
+    return jsonify({
+        'success': True,
+        'has_embedding': current_embedding is not None,
+        'embedding_type': type(current_embedding).__name__ if current_embedding is not None else None,
+        'embedding_shape': current_embedding.shape if current_embedding is not None else None,
+        'faces_count': len(current_faces),
+        'references_count': len(references),
+        'reference_embeddings': [r.get('embedding') is not None for r in references]
+    })
 
 
 if __name__ == '__main__':

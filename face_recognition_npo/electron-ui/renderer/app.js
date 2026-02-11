@@ -85,7 +85,9 @@ function setupEventListeners() {
         tab.addEventListener('click', (e) => {
             document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
             e.target.classList.add('active');
-            showVisualization(e.target.dataset.viz);
+            const vizType = e.target.dataset.viz;
+            logToTerminal(`>>> CLICKED TAB: ${vizType}`, 'info');
+            showVisualization(vizType);
         });
     });
 }
@@ -125,18 +127,19 @@ function handleImageSelect(event) {
     }
 }
 
-// Reset steps
-function resetSteps() {
-    currentFaceThumbnails = [];
-    currentQueryEmbedding = null;
-    document.getElementById('facesContainer').style.display = 'none';
-    document.getElementById('extractBtn').disabled = true;
-    document.getElementById('extractStatus').textContent = 'Waiting for detection...';
-    document.getElementById('compareStatus').textContent = 'Waiting for extraction...';
-    document.getElementById('comparisonResult').style.display = 'none';
-    visualizationData = {};
-    showVisualizationPlaceholder();
-}
+    // Reset steps
+    function resetSteps() {
+        currentFaceThumbnails = [];
+        currentQueryEmbedding = null;
+        document.getElementById('facesContainer').style.display = 'none';
+        document.getElementById('extractBtn').disabled = true;
+        document.getElementById('extractStatus').textContent = 'Waiting for detection...';
+        document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
+        document.getElementById('compareBtn').disabled = true;
+        document.getElementById('comparisonResult').style.display = 'none';
+        visualizationData = {};
+        showVisualizationPlaceholder();
+    }
 
 // Detect Faces
 async function detectFaces() {
@@ -228,7 +231,7 @@ async function extractFeatures() {
             document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
             document.getElementById('extractStatus').className = 'status status-success';
             document.getElementById('compareBtn').disabled = false;
-            document.getElementById('compareStatus').textContent = 'Ready to compare';
+            document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
 
             // Store visualization data
             Object.keys(data.visualizations).forEach(key => {
@@ -336,16 +339,22 @@ function selectReference(index) {
 
 // Compare Faces
 async function compareFaces() {
-    if (currentQueryEmbedding === null || references.length === 0) {
-        if (references.length === 0) {
-            showToast('Add at least one reference', 'warning');
-        }
+    logToTerminal(`> Compare: currentQueryEmbedding=${currentQueryEmbedding}, references.length=${references.length}`, 'info');
+
+    if (currentQueryEmbedding === null) {
+        logToTerminal('> Error: No embedding extracted. Please click \"Create Signature\" first.', 'error');
+        showToast('Extract features first!', 'error');
+        return;
+    }
+    if (references.length === 0) {
+        logToTerminal('> Error: No references added. Add a reference image first.', 'error');
+        showToast('Add at least one reference', 'warning');
         return;
     }
 
     showLoading('Comparing...');
     logToTerminal('> Initializing similarity comparison...', 'command');
-    logToTerminal(`> Query embedding: ${currentQueryEmbedding.toFixed(6)}`, 'info');
+    logToTerminal(`> Query embedding: ${currentQueryEmbedding?.toFixed(6) || 'null'}`, 'info');
     logToTerminal(`> Comparing against ${references.length} reference(s)...`, 'info');
 
     try {
@@ -391,10 +400,11 @@ async function compareFaces() {
 
             showToast(`Match: ${best.name} (${Math.round(best.similarity * 100)}%)`, 'success');
         } else {
-            logToTerminal('> No match found', 'warning');
-            document.getElementById('compareStatus').textContent = 'No match found';
+            const errorMsg = data.error || 'No match found';
+            logToTerminal(`> ${errorMsg}`, 'warning');
+            document.getElementById('compareStatus').textContent = errorMsg;
             document.getElementById('compareStatus').className = 'status status-warning';
-            showToast('No match found', 'warning');
+            showToast(errorMsg, 'warning');
         }
     } catch (err) {
         logToTerminal(`> Error: ${err.message}`, 'error');
@@ -409,34 +419,47 @@ async function compareFaces() {
 // Visualization
 async function showVisualization(vizType) {
     const content = document.getElementById('vizContent');
-    
+
+    logToTerminal(`> Loading visualization: ${vizType}`, 'info');
+
     // If data not available locally, fetch from API
     if (!visualizationData[vizType]) {
         try {
+            logToTerminal(`> Fetching ${vizType} from API...`, 'info');
             const response = await fetch(`${API_BASE}/visualizations/${vizType}`);
             const data = await response.json();
+
             if (data.success) {
                 visualizationData[vizType] = data.visualization;
                 if (data.data && Object.keys(data.data).length > 0) {
                     visualizationData[vizType + '_data'] = data.data;
                 }
+                logToTerminal(`> Received ${data.visualization?.length || 0} chars for ${vizType}`, 'success');
+            } else {
+                logToTerminal(`> Failed to get ${vizType}: ${data.error}`, 'error');
             }
         } catch (err) {
-            console.error('Failed to fetch visualization:', err);
+            logToTerminal(`> Failed to fetch ${vizType}: ${err.message}`, 'error');
         }
+    } else {
+        logToTerminal(`> Using cached ${vizType}: ${visualizationData[vizType]?.length || 0} chars`, 'info');
     }
-    
+
     if (visualizationData[vizType]) {
+        const length = visualizationData[vizType].length;
+        logToTerminal(`> Displaying ${vizType} (${length} chars)`, 'success');
+
         let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
-        
+
         // Add data table if available
         const dataKey = vizType + '_data';
         if (visualizationData[dataKey]) {
             html += formatDataAsTable(visualizationData[dataKey]);
         }
-        
+
         content.innerHTML = html;
     } else {
+        logToTerminal(`> No data for ${vizType}`, 'warning');
         showVisualizationPlaceholder();
     }
 }

@@ -395,7 +395,7 @@ class FacialAnalysisGUI:
             self.detector = FaceDetector()
             self.extractor = FaceNetEmbeddingExtractor()
             self.comparator = SimilarityComparator(threshold=0.5)
-            self.reference_manager = ReferenceImageManager()
+            self.reference_manager = ReferenceImageManager(embedding_extractor=self.extractor)
             self._load_references()
             self.log_message("Models initialized successfully", "success")
         except Exception as e:
@@ -404,12 +404,11 @@ class FacialAnalysisGUI:
     def _load_references(self):
         """Load existing reference embeddings."""
         try:
-            refs = self.reference_manager.list_references()
-            for ref in refs:
-                ref_id = ref.get("id", "Unknown")
+            ref_embeddings, ref_ids = self.reference_manager.get_reference_embeddings()
+            for ref_id, embedding in zip(ref_ids, ref_embeddings):
                 if ref_id not in self.reference_ids:
                     self.reference_ids.append(ref_id)
-                    self.reference_embeddings.append(np.random.rand(128))
+                    self.reference_embeddings.append(embedding)
             self._refresh_references()
             self.log_message(f"Loaded {len(self.reference_ids)} reference images")
         except Exception as e:
@@ -1057,17 +1056,30 @@ class FacialAnalysisGUI:
                 filetypes=(("Images", "*.jpg *.jpeg *.png *.bmp"), ("All files", "*.*")))
         
         if filepath:
-            ref_id = os.path.splitext(os.path.basename(filepath))[0]
-            if ref_id in self.reference_ids:
-                messagebox.showwarning("Duplicate", "Reference already exists.")
+            img = cv2.imread(filepath)
+            if img is None:
+                messagebox.showerror("Error", "Could not load image")
                 return
-            
-            self.reference_ids.append(ref_id)
-            self.reference_embeddings.append(np.random.rand(128))
-            self._refresh_references()
-            self._refresh_ref_gallery()
-            self.log_message(f"Reference added: {ref_id}", "success")
-            self.status_card.update(icon="✓", message=f"Reference '{ref_id}' added successfully.", status="success")
+
+            ref_id = os.path.splitext(os.path.basename(filepath))[0]
+
+            success, embedding = self.reference_manager.add_reference_image(
+                filepath, ref_id, {"source": "gui_import", "consent": True}
+            )
+
+            if success:
+                self.reference_ids.append(ref_id)
+                if embedding is not None:
+                    self.reference_embeddings.append(embedding)
+                else:
+                    self.reference_embeddings.append(None)
+
+                self._refresh_references()
+                self._refresh_ref_gallery()
+                self.log_message(f"Reference added: {ref_id}", "success")
+                self.status_card.update(icon="✓", message=f"Reference '{ref_id}' added successfully.", status="success")
+            else:
+                self.status_card.update(icon="✗", message=f"Failed to add reference '{ref_id}'.", status="error")
 
     def _on_remove_reference(self):
         """Remove selected reference."""
@@ -1096,10 +1108,16 @@ class FacialAnalysisGUI:
             for filepath in filepaths:
                 ref_id = os.path.splitext(os.path.basename(filepath))[0]
                 if ref_id not in self.reference_ids:
+                    success, embedding = self.reference_manager.add_reference_image(
+                        filepath, ref_id, {"source": "gui_bulk_import", "consent": True}
+                    )
                     self.reference_ids.append(ref_id)
-                    self.reference_embeddings.append(np.random.rand(128))
+                    if embedding is not None:
+                        self.reference_embeddings.append(embedding)
+                    else:
+                        self.reference_embeddings.append(None)
                     count += 1
-            
+
             self._refresh_references()
             self._refresh_ref_gallery()
             self.log_message(f"Imported {count} reference(s)", "success")

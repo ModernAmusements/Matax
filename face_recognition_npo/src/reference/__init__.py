@@ -10,29 +10,34 @@ class ReferenceImageManager:
     Manage reference images and their embeddings for comparison.
     Ensures all operations are consent-based and reviewable.
     """
-    
-    def __init__(self, reference_dir: str = "reference_images"):
+
+    def __init__(self, reference_dir: str = "reference_images", embedding_extractor=None, detector=None):
         self.reference_dir = reference_dir
         self.embeddings_file = os.path.join(reference_dir, "embeddings.json")
-        self.reference_data = {}
+        self.reference_data = {"metadata": [], "embeddings": []}
+        self.embedding_extractor = embedding_extractor
+        self.detector = detector
         self._load_reference_data()
     
     def _load_reference_data(self):
         """
         Load reference image metadata and embeddings from file.
         """
+        os.makedirs(self.reference_dir, exist_ok=True)
         if os.path.exists(self.embeddings_file):
             try:
                 with open(self.embeddings_file, 'r') as f:
-                    self.reference_data = json.load(f)
+                    data = json.load(f)
+                    self.reference_data = {
+                        "metadata": data.get("metadata", []),
+                        "embeddings": data.get("embeddings", [])
+                    }
             except Exception as e:
                 print(f"Error loading reference data: {e}")
+                self.reference_data = {"metadata": [], "embeddings": []}
         else:
-            self.reference_data = {
-                "metadata": [],
-                "embeddings": []
-            }
-    
+            self.reference_data = {"metadata": [], "embeddings": []}
+
     def _save_reference_data(self):
         """
         Save reference image metadata and embeddings to file.
@@ -47,58 +52,81 @@ class ReferenceImageManager:
     def add_reference_image(self, image_path: str, reference_id: str, metadata: Optional[dict] = None):
         """
         Add a new reference image with its embedding.
-        
+
         Args:
             image_path: Path to reference image
             reference_id: Unique identifier for this reference
             metadata: Additional metadata (consent info, source, etc.)
+
+        Returns:
+            Tuple of (success: bool, embedding: Optional[np.ndarray])
         """
         if not os.path.exists(image_path):
             print(f"Image not found: {image_path}")
-            return False
-            
-        # Load and process image
+            return False, None
+
         try:
             from PIL import Image
-            import numpy as np
-            
             image = Image.open(image_path)
             image_array = np.array(image)
-            
-            # Create metadata entry
+
+            embedding = None
+            if self.embedding_extractor is not None:
+                faces = []
+                detector_to_use = self.detector
+                if detector_to_use is None and hasattr(self.embedding_extractor, 'detector'):
+                    detector_to_use = self.embedding_extractor.detector
+
+                if detector_to_use is not None:
+                    faces = detector_to_use.detect_faces(image_array)
+
+                if faces:
+                    x, y, w, h = faces[0]
+                    face_roi = image_array[y:y+h, x:x+w]
+                    embedding = self.embedding_extractor.extract_embedding(face_roi)
+                else:
+                    print(f"  Warning: No faces detected in {image_path}")
+
             entry = {
                 "id": reference_id,
                 "path": image_path,
                 "metadata": metadata or {},
                 "added_at": str(datetime.datetime.now())
             }
-            
+
             self.reference_data["metadata"].append(entry)
+            if embedding is not None:
+                self.reference_data["embeddings"].append({
+                    "id": reference_id,
+                    "embedding": embedding.tolist()
+                })
             self._save_reference_data()
-            
-            return True
-            
+
+            return True, embedding
+
         except Exception as e:
             print(f"Error adding reference image: {e}")
-            return False
+            return False, None
     
     def get_reference_embeddings(self) -> Tuple[List[np.ndarray], List[str]]:
         """
         Get all reference embeddings and their IDs.
-        
+
         Returns:
             Tuple of (embeddings_list, ids_list)
         """
         embeddings = []
         ids = []
-        
-        for entry in self.reference_data["metadata"]:
-            # In a real implementation, you'd load the embedding
-            # For now, we'll return placeholder embeddings
-            embedding = np.random.rand(128)  # Placeholder
+
+        for emb_entry in self.reference_data.get("embeddings", []):
+            embedding = np.array(emb_entry["embedding"])
             embeddings.append(embedding)
-            ids.append(entry["id"])
-        
+            ids.append(emb_entry["id"])
+
+        if not embeddings:
+            for entry in self.reference_data.get("metadata", []):
+                ids.append(entry["id"])
+
         return embeddings, ids
     
     def get_reference_metadata(self, reference_id: str) -> Optional[dict]:

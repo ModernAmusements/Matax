@@ -1,5 +1,5 @@
 import unittest
-from src.comparison import SimilarityComparator
+from src.embedding import SimilarityComparator
 
 class TestSimilarityComparison(unittest.TestCase):
     """

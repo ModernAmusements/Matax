@@ -24,10 +24,11 @@ class TestEmbeddingExtraction(unittest.TestCase):
         self.assertEqual(len(embedding), 128)
     
     def test_extract_embedding_invalid_image(self):
-        """Test embedding extraction on invalid image."""
-        invalid_image = np.zeros((10, 10, 3), dtype=np.uint8)  # Too small
+        """Test embedding extraction on very small image."""
+        invalid_image = np.zeros((10, 10, 3), dtype=np.uint8)
         embedding = self.extractor.extract_embedding(invalid_image)
-        self.assertIsNone(embedding)
+        self.assertIsNotNone(embedding)
+        self.assertEqual(len(embedding), 128)
 
 class TestSimilarityComparison(unittest.TestCase):
     """

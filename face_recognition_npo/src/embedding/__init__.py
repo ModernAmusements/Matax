@@ -1,71 +1,77 @@
+import os
+import cv2
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import List, Tuple, Optional, Dict
+import torchvision.models as torchvision_models
 import numpy as np
-import cv2
+from typing import List, Tuple, Optional, Dict
+
+
+class ImprovedEmbeddingExtractor(nn.Module):
+    def __init__(self, embedding_size=128, backbone='resnet18', pretrained=True):
+        super(ImprovedEmbeddingExtractor, self).__init__()
+        
+        if backbone == 'resnet18':
+            base_model = torchvision_models.resnet18(weights='IMAGENET1K_V1' if pretrained else None)
+            feat_dim = 512
+        elif backbone == 'mobilenet_v3_large':
+            base_model = torchvision_models.mobilenet_v3_large(weights='IMAGENET1K_V1' if pretrained else None)
+            feat_dim = 960
+        elif backbone == 'efficientnet_b0':
+            base_model = torchvision_models.efficientnet_b0(weights='IMAGENET1K_V1' if pretrained else None)
+            feat_dim = 1280
+        else:
+            base_model = torchvision_models.resnet18(weights='IMAGENET1K_V1' if pretrained else None)
+            feat_dim = 512
+        
+        self.backbone = nn.Sequential(*list(base_model.children())[:-1])
+        
+        self.embedding = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(feat_dim, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(512, embedding_size),
+            nn.BatchNorm1d(embedding_size)
+        )
+        
+        self.embedding_size = embedding_size
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.to(self.device)
+        self.eval()
+        
+    def forward(self, x):
+        with torch.no_grad():
+            features = self.backbone(x)
+            embedding = self.embedding(features)
+            embedding = nn.functional.normalize(embedding, p=2, dim=1)
+        return embedding
 
 
 class FaceNetEmbeddingExtractor:
-    def __init__(self, model_path: str = "facenet_model.pth"):
-        self.model = self._load_model(model_path)
+    def __init__(self, embedding_size=128, backbone='resnet18'):
+        self.embedding_size = embedding_size
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.model = ImprovedEmbeddingExtractor(embedding_size, backbone).to(self.device)
         self.model.eval()
-        self.embedding_size = 128
-        self.activation_maps = {}
-
-        self._register_hooks()
-
-    def _load_model(self, model_path: str):
-        model = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Flatten(),
-            nn.Linear(512 * 10 * 10, 512),
-            nn.ReLU(),
-            nn.Linear(512, 128)
-        )
-        return model
-
-    def _register_hooks(self):
-        self.activation_maps = {}
-        self.hooks = []
+        self.mean = np.array([0.485, 0.456, 0.406])
+        self.std = np.array([0.229, 0.224, 0.225])
         
-        def hook_fn(module, input, output):
-            self.activation_maps[module] = input[0]
-        
-        modules_to_hook = [self.model[0], self.model[4], self.model[8], self.model[12]]
-        for module in modules_to_hook:
-            try:
-                handle = module.register_forward_hook(hook_fn)
-                self.hooks.append(handle)
-            except:
-                pass
-
     def preprocess(self, face_image: np.ndarray) -> torch.Tensor:
-        face_image = cv2.resize(face_image, (160, 160))
+        face_image = cv2.resize(face_image, (224, 224))
         face_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
-        face_image = np.transpose(face_image, (2, 0, 1))
         face_image = face_image.astype(np.float32) / 255.0
-        face_image = torch.tensor(face_image).unsqueeze(0)
+        face_image = (face_image - self.mean) / self.std
+        face_image = torch.from_numpy(face_image).permute(2, 0, 1).unsqueeze(0).float().to(self.device)
         return face_image
 
     def extract_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
         try:
-            face_image = self.preprocess(face_image)
+            input_tensor = self.preprocess(face_image)
             with torch.no_grad():
-                embedding = self.model(face_image)
-            embedding = embedding.numpy().flatten()
-            embedding = embedding / np.linalg.norm(embedding)
+                embedding = self.model(input_tensor)
+                embedding = embedding.cpu().numpy().flatten()
             return embedding
         except Exception as e:
             print(f"Error extracting embedding: {e}")
@@ -75,195 +81,353 @@ class FaceNetEmbeddingExtractor:
         return [self.extract_embedding(img) for img in face_images]
 
     def get_activations(self, face_image: np.ndarray) -> Dict[str, np.ndarray]:
-        face_image = self.preprocess(face_image)
-        with torch.no_grad():
-            _ = self.model(face_image)
+        """
+        Extract neural network activations from multiple layers.
+        Returns activation maps from different stages of the network.
+        
+        Args:
+            face_image: Input face image (BGR format, any size)
+            
+        Returns:
+            Dictionary mapping layer names to activation arrays
+        """
         activations = {}
-        for name, act in self.activation_maps.items():
-            act_np = act[0].cpu().numpy()
-            activations[name] = act_np
+        
+        if face_image is None or face_image.size == 0:
+            return activations
+        
+        try:
+            face_tensor = self.preprocess(face_image)
+            backbone = self.model.backbone
+            x = face_tensor
+            
+            layer_names = ['conv1', 'bn1', 'relu', 'maxpool', 'layer1', 'layer2', 'layer3', 'layer4', 'gap', 'fc']
+            layer_index = 0
+            
+            with torch.no_grad():
+                for i, child in enumerate(backbone.children()):
+                    x = child(x)
+                    
+                    if layer_index < len(layer_names):
+                        act = x.detach().cpu().numpy()[0]
+                        activations[layer_names[layer_index]] = act
+                        layer_index += 1
+                    
+                    if layer_index >= len(layer_names):
+                        break
+                
+                if layer_index < len(layer_names):
+                    remaining = len(layer_names) - layer_index
+                    final_act = x.detach().cpu().numpy()[0]
+                    for j in range(remaining):
+                        activations[layer_names[layer_index + j]] = final_act
+                
+                activations['embedding'] = self.extract_embedding(face_image)
+                
+        except Exception as e:
+            print(f"Error extracting activations: {e}")
+        
         return activations
 
-    def visualize_activations(self, face_image: np.ndarray, max_channels: int = 16) -> np.ndarray:
-        activations = self.get_activations(face_image)
-
-        if not activations:
-            return np.zeros((160, 160, 3), dtype=np.uint8)
-
-        output = np.zeros((200, 320, 3), dtype=np.uint8)
-        output.fill(245)
-
-        if not activations:
-            cv2.putText(output, "No activations", (100, 100),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100), 2)
-            return output
-
-        cell_size = 70
-        max_per_row = 4
-        row = 0
-        col = 0
-
-        for layer_name, act in list(activations.items()):
-            for i in range(min(max_channels, act.shape[0])):
-                act_channel = act[i]
-                if act_channel.ndim == 3:
-                    act_channel = act_channel.mean(axis=0)
-                act_channel = (act_channel - act_channel.min()) / (act_channel.max() - act_channel.min() + 1e-8)
-                act_channel = (act_channel * 255).astype(np.uint8)
-                act_channel = cv2.resize(act_channel, (cell_size, cell_size))
-
-                color = (act_channel.mean(), 100, 255 - act_channel.mean())
-                color_uint8 = (int(color[0]), int(color[1]), int(color[2]))
-
-                canvas = np.zeros((cell_size, cell_size, 3), dtype=np.uint8)
-                canvas[:] = color_uint8
-
-                x = 10 + col * (cell_size + 5)
-                y = 10 + row * (cell_size + 5)
-
-                if y + cell_size < output.shape[0] and x + cell_size < output.shape[1]:
-                    output[y:y+cell_size, x:x+cell_size] = canvas
-                    col += 1
-                    if col >= max_per_row:
-                        col = 0
-                        row += 1
-                        if row >= 2:
-                            break
-            if row >= 2:
-                break
-
-        cv2.putText(output, "Neural Network Activations", (10, 195),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
-
-        return output
-
-    def visualize_feature_maps(self, face_image: np.ndarray) -> np.ndarray:
-        activations = self.get_activations(face_image)
-
-        output = np.zeros((224, 224, 3), dtype=np.uint8)
-        output.fill(245)
-
-        if not activations:
-            cv2.putText(output, "No Feature Maps", (60, 110),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (100, 100, 100), 2)
-            return output
-
-        combined = None
-        for layer_name, act in activations.items():
-            act_mean = act[0].mean(axis=0)
-            act_mean = (act_mean - act_mean.min()) / (act_mean.max() - act_mean.min() + 1e-8)
-            act_mean = cv2.resize(act_mean, (224, 224))
-            if combined is None:
-                combined = act_mean
-            else:
-                combined = (combined + act_mean) / 2
-
-        if combined is not None:
-            combined = (combined * 255).astype(np.uint8)
-            heatmap = cv2.applyColorMap(combined, cv2.COLORMAP_VIRIDIS)
-            output = heatmap.copy()
-
-        cv2.putText(output, "Feature Importance", (10, 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-        return output
-
     def visualize_embedding(self, embedding: np.ndarray) -> Tuple[np.ndarray, Dict]:
-        if embedding is None:
-            return np.zeros((100, 256, 3), dtype=np.uint8), {}
-
-        output = np.zeros((120, 256, 3), dtype=np.uint8)
-        output.fill(30)
-
-        bar_width = 2
-        gap = 1
-        start_x = 10
-        start_y = 100
-
-        sorted_indices = np.argsort(embedding)[::-1]
-        sorted_embedding = embedding[sorted_indices]
+        """
+        Visualize the embedding as a heatmap/bar chart.
         
-        data = {}
-        max_val = float(sorted_embedding[0]) if len(sorted_embedding) > 0 else 0
-        for i, val in enumerate(sorted_embedding[:128]):
-            if i >= 128:
-                break
-            x = start_x + i * (bar_width + gap)
-            height = int(val * 80)
-            y = start_y - height
-
-            intensity = int(val * 255)
-            color = (int(intensity * 0.2), intensity, 255 - intensity)
-
-            cv2.rectangle(output, (x, y), (x + bar_width, start_y), color, -1)
+        Args:
+            embedding: 128-dimensional face embedding
             
-            idx = int(sorted_indices[i])
-            data[f"dim_{idx}"] = float(val)
-
-        return output, data
-
-    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_names: List[str]) -> Tuple[np.ndarray, Dict]:
-        output = np.zeros((150, 300, 3), dtype=np.uint8)
-        output.fill(245)
-
-        data = {}
-        
-        if query_embedding is None or not reference_embeddings:
-            return output, data
-
-        all_embs = [query_embedding] + reference_embeddings
-        n = len(all_embs)
-
-        cell_size = 50
-        matrix = np.zeros((n, n))
-
-        for i in range(n):
-            for j in range(n):
-                sim = np.dot(all_embs[i], all_embs[j]) / (np.linalg.norm(all_embs[i]) * np.linalg.norm(all_embs[j]) + 1e-8)
-                matrix[i, j] = sim
-                key = f"{['Query', *reference_names][i]}_{['Query', *reference_names][j]}"
-                data[key] = float(sim)
-
-        matrix = (matrix * 255).astype(np.uint8)
-
-        colormap = cv2.COLORMAP_VIRIDIS
-        matrix_colored = cv2.applyColorMap(matrix, colormap)
-        matrix_colored = cv2.resize(matrix_colored, (n * cell_size, n * cell_size))
-
-        output[:n * cell_size, :n * cell_size] = matrix_colored
-
-        return output, data
-
-    def visualize_similarity_result(self, query_embedding: np.ndarray, ref_embedding: np.ndarray, 
-                                   similarity: float, query_name: str = "Query", 
-                                   ref_name: str = "Reference") -> Tuple[np.ndarray, Dict]:
-        """Visualize a single similarity comparison result."""
+        Returns:
+            Tuple of (visualization_image, data_dict)
+        """
         output = np.zeros((200, 400, 3), dtype=np.uint8)
         output.fill(245)
         
-        center_x = 200
-        gauge_y = 80
-        gauge_radius = 60
+        data = {}
         
-        cv2.circle(output, (center_x, gauge_y), gauge_radius, (200, 200, 200), 20)
+        if embedding is None:
+            cv2.putText(output, "No embedding available", (20, 100),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output, data
         
-        angle = np.pi - (similarity * np.pi)
-        end_x = int(center_x + gauge_radius * np.cos(angle))
-        end_y = int(gauge_y - gauge_radius * np.sin(angle))
-        cv2.line(output, (center_x, gauge_y), (end_x, end_y), (76, 175, 80), 4)
+        data['mean'] = float(np.mean(embedding))
+        data['std'] = float(np.std(embedding))
+        data['norm'] = float(np.linalg.norm(embedding))
+        data['min'] = float(np.min(embedding))
+        data['max'] = float(np.max(embedding))
         
-        from src.embedding import SimilarityComparator
-        comp = SimilarityComparator()
-        band = comp.get_confidence_band(similarity)
+        cv2.putText(output, "128-Dim Face Embedding", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
         
-        data = {
-            'similarity': float(similarity),
-            'confidence': band,
-            'query': query_name,
-            'reference': ref_name
-        }
+        cv2.putText(output, f"Mean: {data['mean']:.4f}  Std: {data['std']:.4f}", (20, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
+        
+        bar_height = 12
+        bar_width = 280
+        start_x = 50
+        start_y = 80
+        
+        num_values = len(embedding)
+        step = max(1, num_values // 16)
+        
+        for i in range(0, num_values, step):
+            value = embedding[i]
+            normalized = (value - embedding.min()) / (embedding.max() - embedding.min() + 1e-8)
+            bar_len = int(normalized * bar_width)
+            
+            y = start_y + (i // step) * (bar_height + 2)
+            if y > 180:
+                break
+                
+            color_val = int(normalized * 255)
+            color = (255 - color_val, color_val, 100)
+            
+            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
         
         return output, data
+
+    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> Tuple[np.ndarray, Dict]:
+        """
+        Visualize similarity scores between query and references as a matrix.
+        
+        Args:
+            query_embedding: The query embedding to compare
+            reference_embeddings: List of reference embeddings
+            reference_ids: List of reference identifiers
+            
+        Returns:
+            Tuple of (visualization_image, data_dict)
+        """
+        n = len(reference_embeddings)
+        if n == 0:
+            output = np.zeros((100, 200, 3), dtype=np.uint8)
+            output.fill(245)
+            cv2.putText(output, "No references", (30, 55),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output, {}
+        
+        output_size = max(150, n * 50)
+        output = np.zeros((output_size, output_size, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        data = {'similarities': [], 'best_match': None, 'best_score': 0}
+        
+        similarities = []
+        for i, (ref_emb, ref_id) in enumerate(zip(reference_embeddings, reference_ids)):
+            if ref_emb is None:
+                similarity = 0.0
+            else:
+                dot_prod = np.dot(query_embedding, ref_emb)
+                norm_prod = np.linalg.norm(query_embedding) * np.linalg.norm(ref_emb) + 1e-8
+                similarity = float(dot_prod / norm_prod)
+            similarities.append((ref_id, similarity))
+            
+            if similarity > data['best_score']:
+                data['best_score'] = similarity
+                data['best_match'] = ref_id
+        
+        data['similarities'] = similarities
+        
+        cv2.putText(output, "Similarity Matrix", (10, 20),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        bar_height = 30
+        bar_width = output_size - 120
+        start_x = 110
+        start_y = 50
+        
+        for i, (ref_id, similarity) in enumerate(similarities):
+            y = start_y + i * (bar_height + 5)
+            
+            cv2.putText(output, ref_id[:12], (10, y + 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+            
+            bar_len = int(similarity * bar_width)
+            
+            if similarity > 0.8:
+                color = (0, 200, 0)
+            elif similarity > 0.6:
+                color = (0, 165, 255)
+            elif similarity > 0.4:
+                color = (0, 100, 255)
+            else:
+                color = (0, 0, 150)
+            
+            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
+            cv2.rectangle(output, (start_x, y), (start_x + bar_width, y + bar_height), (200, 200, 200), 1)
+            
+            cv2.putText(output, f"{similarity:.2f}", (start_x + bar_width + 10, y + 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+        
+        return output, data
+
+    def visualize_similarity_result(self, query_embedding: np.ndarray, reference_embedding: np.ndarray = None, similarity: float = 0.75) -> np.ndarray:
+        """
+        Visualize a single similarity result.
+        
+        Args:
+            query_embedding: The query embedding
+            reference_embedding: The reference embedding (optional)
+            similarity: Similarity score
+            
+        Returns:
+            Visualization image
+        """
+        output = np.zeros((100, 300, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Similarity Result", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        bar_width = 200
+        bar_height = 25
+        start_x = 50
+        start_y = 50
+        
+        if similarity > 0.8:
+            color = (0, 200, 0)
+        elif similarity > 0.6:
+            color = (0, 165, 255)
+        elif similarity > 0.4:
+            color = (0, 100, 255)
+        else:
+            color = (0, 0, 150)
+        
+        bar_len = int(similarity * bar_width)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
+        
+        if similarity > 0.8:
+            confidence = "High confidence"
+        elif similarity > 0.6:
+            confidence = "Moderate confidence"
+        elif similarity > 0.4:
+            confidence = "Low confidence"
+        else:
+            confidence = "Insufficient confidence"
+        
+        cv2.putText(output, f"{similarity:.2f} - {confidence}", (start_x, start_y + 50),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (60, 60, 60), 1)
+        
+        return output
+
+    def visualize_activations(self, face_image: np.ndarray, max_channels: int = 8) -> np.ndarray:
+        """
+        Visualize neural network activations for the first convolutional layer.
+        Shows the intermediate activations of the network when processing the face.
+        """
+        try:
+            import torch
+
+            # Preprocess face image
+            face_tensor = self.preprocess(face_image)
+
+            # Get first layer activations using the actual model structure
+            # The backbone is a Sequential container
+            backbone = self.backbone
+            x = face_tensor
+
+            with torch.no_grad():
+                # Go through first few layers to get activations
+                for i, child in enumerate(backbone.children()):
+                    x = child(x)
+                    if i == 3:  # After maxpool
+                        break
+
+            activations = x.detach().cpu().numpy()[0]  # Shape: (channels, H, W)
+            num_channels = min(activations.shape[0], max_channels)
+
+            # Create grid visualization
+            grid_size = int(np.ceil(np.sqrt(num_channels)))
+            cell_size = 32
+            output = np.zeros((grid_size * cell_size, grid_size * cell_size, 3), dtype=np.uint8)
+            output.fill(245)
+
+            for i in range(num_channels):
+                row = i // grid_size
+                col = i % grid_size
+                channel = activations[i]
+                channel = (channel - channel.min()) / (channel.max() - channel.min() + 1e-8)
+                channel = (channel * 255).astype(np.uint8)
+                channel = cv2.resize(channel, (cell_size, cell_size))
+                channel_colored = cv2.applyColorMap(channel, cv2.COLORMAP_VIRIDIS)
+
+                y_start = row * cell_size
+                x_start = col * cell_size
+                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = channel_colored
+
+            # Add title
+            cv2.putText(output, f"CNN Activations (First Layer)", (10, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
+            return output
+
+        except Exception as e:
+            output = np.zeros((200, 320, 3), dtype=np.uint8)
+            output.fill(245)
+            cv2.putText(output, f"Error: {str(e)[:40]}", (20, 160),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output
+
+    def visualize_feature_maps(self, face_image: np.ndarray) -> np.ndarray:
+        """
+        Visualize the feature maps from a convolutional layer with spatial resolution.
+        Shows the learned features that represent the face.
+        """
+        try:
+            import torch
+
+            # Get embedding features
+            face_tensor = self.preprocess(face_image)
+
+            with torch.no_grad():
+                backbone = self.model.backbone
+                x = face_tensor
+
+                # Go through backbone layers until we get spatial features
+                # Layer 7 has 7x7 spatial resolution (512 channels)
+                activations = None
+                for i, child in enumerate(backbone.children()):
+                    x = child(x)
+                    if i == 7:  # Use layer before global pooling
+                        activations = x.detach().cpu().numpy()[0]  # Shape: (512, 7, 7)
+                        break
+
+                if activations is None:
+                    # If we didn't find the right layer, use whatever we have
+                    activations = x.detach().cpu().numpy()[0]
+
+            # Create feature map visualization
+            num_features = min(16, activations.shape[0])
+            grid_size = int(np.ceil(np.sqrt(num_features)))
+            cell_size = 32
+            output = np.zeros((grid_size * cell_size, grid_size * cell_size, 3), dtype=np.uint8)
+            output.fill(245)
+
+            for i in range(num_features):
+                row = i // grid_size
+                col = i % grid_size
+                feature = activations[i]
+                feature = (feature - feature.min()) / (feature.max() - feature.min() + 1e-8)
+                feature = (feature * 255).astype(np.uint8)
+                feature = cv2.resize(feature, (cell_size, cell_size))
+                feature_colored = cv2.applyColorMap(feature, cv2.COLORMAP_PLASMA)
+
+                y_start = row * cell_size
+                x_start = col * cell_size
+                output[y_start:y_start+cell_size, x_start:x_start+cell_size] = feature_colored
+
+            # Add title
+            cv2.putText(output, f"Feature Maps (Layer 7 - 7x7)", (10, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
+            return output
+
+        except Exception as e:
+            output = np.zeros((224, 224, 3), dtype=np.uint8)
+            output.fill(245)
+            cv2.putText(output, f"Error: {str(e)[:40]}", (20, 110),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output
 
     def test_robustness(self, face_image: np.ndarray) -> Tuple[np.ndarray, Dict[str, float]]:
         original_embedding = self.extract_embedding(face_image)
@@ -322,7 +486,7 @@ class SimilarityComparator:
         if norm_product == 0:
             return 0.0
         similarity = dot_product / norm_product
-        return max(0.0, min(1.0, similarity))
+        return float(similarity)
 
     def compare_embeddings(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> List[Tuple[str, float]]:
         results = []
@@ -344,6 +508,177 @@ class SimilarityComparator:
             return "Low confidence"
         else:
             return "Insufficient confidence"
+
+    def visualize_embedding(self, embedding: np.ndarray) -> Tuple[np.ndarray, Dict]:
+        """
+        Visualize the embedding as a heatmap/bar chart.
+        
+        Args:
+            embedding: 128-dimensional face embedding
+            
+        Returns:
+            Tuple of (visualization_image, data_dict)
+        """
+        output = np.zeros((200, 400, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        data = {}
+        
+        if embedding is None:
+            cv2.putText(output, "No embedding available", (20, 100),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output, data
+        
+        data['mean'] = float(np.mean(embedding))
+        data['std'] = float(np.std(embedding))
+        data['norm'] = float(np.linalg.norm(embedding))
+        data['min'] = float(np.min(embedding))
+        data['max'] = float(np.max(embedding))
+        
+        cv2.putText(output, "128-Dim Face Embedding", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        
+        cv2.putText(output, f"Mean: {data['mean']:.4f}  Std: {data['std']:.4f}", (20, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
+        
+        bar_height = 12
+        bar_width = 280
+        start_x = 50
+        start_y = 80
+        
+        num_values = len(embedding)
+        step = max(1, num_values // 16)
+        
+        for i in range(0, num_values, step):
+            value = embedding[i]
+            normalized = (value - embedding.min()) / (embedding.max() - embedding.min() + 1e-8)
+            bar_len = int(normalized * bar_width)
+            
+            y = start_y + (i // step) * (bar_height + 2)
+            if y > 180:
+                break
+                
+            color_val = int(normalized * 255)
+            color = (255 - color_val, color_val, 100)
+            
+            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
+        
+        return output, data
+
+    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> Tuple[np.ndarray, Dict]:
+        """
+        Visualize similarity scores between query and references as a matrix.
+        
+        Args:
+            query_embedding: The query embedding to compare
+            reference_embeddings: List of reference embeddings
+            reference_ids: List of reference identifiers
+            
+        Returns:
+            Tuple of (visualization_image, data_dict)
+        """
+        n = len(reference_embeddings)
+        if n == 0:
+            output = np.zeros((100, 200, 3), dtype=np.uint8)
+            output.fill(245)
+            cv2.putText(output, "No references", (30, 55),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
+            return output, {}
+        
+        output_size = max(150, n * 50)
+        output = np.zeros((output_size, output_size, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        data = {'similarities': [], 'best_match': None, 'best_score': 0}
+        
+        similarities = []
+        for i, (ref_emb, ref_id) in enumerate(zip(reference_embeddings, reference_ids)):
+            if ref_emb is None:
+                similarity = 0.0
+            else:
+                similarity = self.cosine_similarity(query_embedding, ref_emb)
+            similarities.append((ref_id, similarity))
+            
+            if similarity > data['best_score']:
+                data['best_score'] = similarity
+                data['best_match'] = ref_id
+        
+        data['similarities'] = similarities
+        
+        cv2.putText(output, "Similarity Matrix", (10, 20),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        bar_height = 30
+        bar_width = output_size - 120
+        start_x = 110
+        start_y = 50
+        
+        for i, (ref_id, similarity) in enumerate(similarities):
+            y = start_y + i * (bar_height + 5)
+            
+            cv2.putText(output, ref_id[:12], (10, y + 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+            
+            bar_len = int(similarity * bar_width)
+            
+            if similarity > 0.8:
+                color = (0, 200, 0)
+            elif similarity > 0.6:
+                color = (0, 165, 255)
+            elif similarity > 0.4:
+                color = (0, 100, 255)
+            else:
+                color = (0, 0, 150)
+            
+            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
+            cv2.rectangle(output, (start_x, y), (start_x + bar_width, y + bar_height), (200, 200, 200), 1)
+            
+            cv2.putText(output, f"{similarity:.2f}", (start_x + bar_width + 10, y + 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+        
+        return output, data
+
+    def visualize_similarity_result(self, query_embedding: np.ndarray, reference_embedding: np.ndarray = None, similarity: float = 0.75) -> np.ndarray:
+        """
+        Visualize a single similarity result.
+        
+        Args:
+            query_embedding: The query embedding
+            reference_embedding: The reference embedding (optional)
+            similarity: Similarity score
+            
+        Returns:
+            Visualization image
+        """
+        output = np.zeros((100, 300, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Similarity Result", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        bar_width = 200
+        bar_height = 25
+        start_x = 50
+        start_y = 50
+        
+        if similarity > 0.8:
+            color = (0, 200, 0)
+        elif similarity > 0.6:
+            color = (0, 165, 255)
+        elif similarity > 0.4:
+            color = (0, 100, 255)
+        else:
+            color = (0, 0, 150)
+        
+        bar_len = int(similarity * bar_width)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
+        
+        confidence = self.get_confidence_band(similarity)
+        cv2.putText(output, f"{similarity:.2f} - {confidence}", (start_x, start_y + 50),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (60, 60, 60), 1)
+        
+        return output
 
 
 if __name__ == "__main__":

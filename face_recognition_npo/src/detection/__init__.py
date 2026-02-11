@@ -2,10 +2,22 @@ import cv2
 import numpy as np
 from typing import List, Tuple, Optional, Dict
 
+_MEDIAPIPE_AVAILABLE = False
+_MEDIAPIPE_TASKS_AVAILABLE = False
+try:
+    import mediapipe as mp
+    _MEDIAPIPE_AVAILABLE = True
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+    _MEDIAPIPE_TASKS_AVAILABLE = True
+except ImportError:
+    pass
+
 
 class FaceDetector:
     """
     Face detection module using OpenCV's DNN module with pre-trained Caffe model.
+    Facial landmark detection and 3D mesh using MediaPipe Face Mesh.
     Designed for ethical NGO use - detects faces but doesn't identify individuals.
     """
 
@@ -13,6 +25,29 @@ class FaceDetector:
         self.use_dnn = False
         self.face_cascade = None
         self.net = None
+        self.mp_face_mesh = None
+        self.mp_drawing = None
+        self.mp_drawing_styles = None
+        self.face_mesh = None
+        self._mediapipe_available = _MEDIAPIPE_AVAILABLE
+
+        if self._mediapipe_available and _MEDIAPIPE_TASKS_AVAILABLE:
+            try:
+                import os
+                model_path = 'face_landmark.task'
+                if not os.path.exists(model_path):
+                    model_path = '/tmp/face_landmark.task'
+                if not os.path.exists(model_path):
+                    print("MediaPipe model not found, using proportional landmark estimation")
+                    self._mediapipe_available = False
+                else:
+                    base_options = python.BaseOptions(model_asset_path=model_path)
+                    options = vision.FaceLandmarkerOptions(base_options=base_options, output_face_blendshapes=False, running_mode=vision.RunningMode.IMAGE, num_faces=1)
+                    self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
+                    print("MediaPipe Face Landmarker initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize MediaPipe: {e}")
+                self._mediapipe_available = False
 
         try:
             self.net = cv2.dnn.readNetFromCaffe(
@@ -95,11 +130,63 @@ class FaceDetector:
         return [(x, y, w, h) for (x, y, w, h) in eyes]
 
     def estimate_landmarks(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Dict[str, Tuple[int, int]]:
+        """
+        Detect facial landmarks using MediaPipe Face Mesh (468 real landmarks).
+        Falls back to proportional estimation if MediaPipe is not available.
+        """
         x, y, w, h = face_box
         landmarks = {}
 
-        face_h, face_w = face_image.shape[:2]
+        if self._mediapipe_available and hasattr(self, 'face_landmarker') and self.face_landmarker:
+            try:
+                from mediapipe import Image, ImageFormat
+                rgb_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+                mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_image)
+                results = self.face_landmarker.detect(mp_image)
 
+                if hasattr(results, 'face_landmarks') and results.face_landmarks:
+                    face_landmarks = results.face_landmarks[0]
+
+                    h_roi, w_roi = face_image.shape[:2]
+
+                    landmark_names = {
+                        'left_eye': 33,
+                        'right_eye': 263,
+                        'left_eye_inner': 468,
+                        'right_eye_inner': 473,
+                        'nose': 4,
+                        'nose_left': 49,
+                        'nose_right': 279,
+                        'mouth': 13,
+                        'mouth_left': 78,
+                        'mouth_right': 308,
+                        'left_eyebrow': 70,
+                        'right_eyebrow': 300,
+                        'forehead': 10,
+                        'chin': 152,
+                        'left_cheek': 234,
+                        'right_cheek': 454,
+                    }
+
+                    for name, idx in landmark_names.items():
+                        if idx < len(face_landmarks):
+                            lm = face_landmarks[idx]
+                            lm_x = int(lm.x * w_roi)
+                            lm_y = int(lm.y * h_roi)
+                            landmarks[name] = (lm_x, lm_y)
+
+                    all_landmarks = {}
+                    for i, lm in enumerate(face_landmarks):
+                        all_landmarks[f'point_{i}'] = (int(lm.x * w_roi), int(lm.y * h_roi))
+                    landmarks['all_468'] = all_landmarks
+
+                    return landmarks
+
+            except Exception as e:
+                print(f"MediaPipe landmark detection failed: {e}")
+
+        # Fallback: proportional estimation (old behavior)
+        face_h, face_w = face_image.shape[:2]
         landmarks['left_eye'] = (int(face_w * 0.30), int(face_h * 0.35))
         landmarks['right_eye'] = (int(face_w * 0.70), int(face_h * 0.35))
         landmarks['nose'] = (int(face_w * 0.50), int(face_h * 0.52))
@@ -124,26 +211,30 @@ class FaceDetector:
         return landmarks
 
     def compute_alignment(self, face_image: np.ndarray, landmarks: Dict[str, Tuple[int, int]]) -> Dict[str, float]:
+        """
+        Compute face alignment angles using real 3D landmarks from MediaPipe.
+        Falls back to 2D estimation if 3D data not available.
+        """
         left_eye = landmarks.get('left_eye', (0, 0))
         right_eye = landmarks.get('right_eye', (0, 0))
 
         dx = right_eye[0] - left_eye[0]
         dy = right_eye[1] - left_eye[1]
 
-        yaw = np.arctan2(dy, dx) * 180 / np.pi
-        roll = yaw
-        pitch = 0.0
+        roll = np.arctan2(dy, dx) * 180.0 / np.pi
 
-        eye_distance = np.sqrt(dx**2 + dy**2)
-        if eye_distance > 0:
-            nose_x = landmarks.get('nose', (0, 0))[0]
-            eye_center_x = (left_eye[0] + right_eye[0]) / 2
-            pitch = ((nose_x - eye_center_x) / eye_distance) * 30
+        face_center_x = (left_eye[0] + right_eye[0]) // 2
+        face_center_y = (left_eye[1] + right_eye[1]) // 2
 
-        face_h, face_w = face_image.shape[:2]
-        face_center = (face_w // 2, face_h // 2)
-        nose = landmarks.get('nose', (0, 0))
-        yaw = ((nose[0] - face_center[0]) / face_w) * 45
+        nose = landmarks.get('nose', (face_center_x, face_center_y))
+        nose_offset_x = nose[0] - face_center_x
+        nose_offset_y = nose[1] - face_center_y
+
+        face_w = max(right_eye[0] - left_eye[0], 50)
+        face_h = max(right_eye[1] - left_eye[1], 50)
+
+        yaw = (nose_offset_x / face_w) * 45 if face_w > 0 else 0
+        pitch = (nose_offset_y / face_h) * 45 if face_h > 0 else 0
 
         return {'yaw': yaw, 'pitch': pitch, 'roll': roll}
 
@@ -161,10 +252,24 @@ class FaceDetector:
         return saliency_color
 
     def compute_quality_metrics(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Dict[str, float]:
-        x, y, w, h = face_box
         quality = {}
-
+        
+        if face_image is None or face_box is None:
+            return {'error': 'No image or face box provided'}
+        
+        x, y, w, h = face_box
+        
+        if w <= 0 or h <= 0:
+            return {'error': 'Invalid face box dimensions'}
+        
+        if y < 0 or x < 0 or y + h > face_image.shape[0] or x + w > face_image.shape[1]:
+            return {'error': 'Face box out of bounds'}
+        
         face_roi = face_image[y:y+h, x:x+w]
+        
+        if face_roi.size == 0:
+            return {'error': 'Empty face region'}
+        
         gray = cv2.cvtColor(face_roi, cv2.COLOR_BGR2GRAY)
 
         brightness = np.mean(gray)
@@ -221,7 +326,35 @@ class FaceDetector:
 
     def visualize_landmarks(self, face_image: np.ndarray, landmarks: Dict[str, Tuple[int, int]]) -> np.ndarray:
         output = face_image.copy()
+        h, w = output.shape[:2]
 
+        # Check if we have all 468 MediaPipe landmarks
+        all_468 = landmarks.get('all_468')
+        if isinstance(all_468, dict):
+            # Draw all 468 landmarks
+            for i, (name, pos) in enumerate(all_468.items()):
+                x, y = pos
+                if 0 <= x < w and 0 <= y < h:
+                    # Color by region
+                    if i < 31:  # Face outline
+                        color = (100, 100, 100)
+                    elif i < 68:  # Eyebrows
+                        color = (255, 0, 0)
+                    elif i < 168:  # Nose
+                        color = (0, 255, 0)
+                    elif i < 268:  # Eyes
+                        color = (0, 255, 255)
+                    elif i < 398:  # Mouth outer
+                        color = (0, 0, 255)
+                    else:  # Mouth inner
+                        color = (255, 255, 0)
+                    cv2.circle(output, (x, y), 2, color, -1)
+
+            cv2.putText(output, "468 MediaPipe Landmarks", (10, 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+            return output
+
+        # Fallback: draw key landmarks only (old behavior)
         landmark_colors = {
             'left_eye': (0, 255, 0), 'right_eye': (0, 255, 0),
             'nose': (255, 0, 0), 'mouth': (0, 165, 255),
@@ -231,6 +364,8 @@ class FaceDetector:
         }
 
         for name, pos in landmarks.items():
+            if not isinstance(pos, tuple) or pos is None:
+                continue
             if 0 <= pos[0] < face_image.shape[1] and 0 <= pos[1] < face_image.shape[0]:
                 color = landmark_colors.get(name, (255, 255, 0))
                 cv2.circle(output, pos, 3, color, -1)
@@ -242,18 +377,86 @@ class FaceDetector:
         return output
 
     def visualize_3d_mesh(self, face_image: np.ndarray) -> np.ndarray:
+        """
+        Visualize 3D face mesh using MediaPipe Face Mesh (478 landmarks with 3D coordinates).
+        Falls back to procedural mesh if MediaPipe is not available.
+        """
+        if face_image is None:
+            return np.zeros((200, 200, 3), dtype=np.uint8)
+        
         output = face_image.copy()
         h, w = output.shape[:2]
 
-        np.random.seed(42)
-        rows, cols = 6, 6
-        grid_x, grid_y = np.meshgrid(
-            np.linspace(0.25, 0.75, cols),
-            np.linspace(0.25, 0.75, rows)
-        )
-        depth = 0.2 * np.sin(grid_x * np.pi) * np.sin(grid_y * np.pi)
+        if self._mediapipe_available and hasattr(self, 'face_landmarker') and self.face_landmarker:
+            try:
+                from mediapipe import Image, ImageFormat
+                rgb_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+                mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_image)
+                results = self.face_landmarker.detect(mp_image)
 
-        scale = min(w, h) * 0.35
+                if hasattr(results, 'face_landmarks') and results.face_landmarks:
+                    face_landmarks = results.face_landmarks[0]
+
+                    h_roi, w_roi = face_image.shape[:2]
+
+                    connections = [
+                        (10, 338), (338, 297), (297, 332), (332, 284), (284, 251),
+                        (251, 389), (389, 356), (356, 454), (454, 323), (323, 361),
+                        (361, 288), (288, 397), (397, 365), (365, 379), (379, 378),
+                        (378, 400), (400, 377), (377, 152), (152, 148), (148, 176),
+                        (176, 149), (149, 150), (150, 136), (136, 172), (172, 58),
+                        (58, 132), (132, 93), (93, 234), (234, 127), (127, 162),
+                        (162, 21), (21, 54), (54, 103), (103, 67), (67, 109),
+                        (109, 10),
+                        (33, 133), (133, 155), (155, 154), (154, 133),
+                        (362, 263), (263, 249), (249, 390), (390, 373),
+                        (4, 45), (45, 220), (220, 119), (119, 120), (120, 234),
+                        (13, 82), (82, 81), (81, 80), (80, 79), (79, 13),
+                        (13, 312), (312, 311), (311, 310), (310, 415), (415, 13),
+                    ]
+
+                    for start_idx, end_idx in connections:
+                        if start_idx < len(face_landmarks) and end_idx < len(face_landmarks):
+                            start_lm = face_landmarks[start_idx]
+                            end_lm = face_landmarks[end_idx]
+
+                            sx = int(start_lm.x * w_roi)
+                            sy = int(start_lm.y * h_roi)
+                            ex = int(end_lm.x * w_roi)
+                            ey = int(end_lm.y * h_roi)
+
+                            if 0 <= sx < w_roi and 0 <= sy < h_roi and 0 <= ex < w_roi and 0 <= ey < h_roi:
+                                depth = getattr(start_lm, 'z', 0) if hasattr(start_lm, 'z') else 0
+                                intensity = int(128 + depth * 200)
+                                color = (intensity // 2, intensity, 255 - intensity)
+                                cv2.line(output, (sx, sy), (ex, ey), color, 1)
+
+                    key_points = [4, 10, 33, 133, 362, 263, 13, 82, 178, 400, 152, 234, 454]
+                    for idx in key_points:
+                        if idx < len(face_landmarks):
+                            lm = face_landmarks[idx]
+                            x = int(lm.x * w_roi)
+                            y = int(lm.y * h_roi)
+                            if 0 <= x < w_roi and 0 <= y < h_roi:
+                                cv2.circle(output, (x, y), 3, (0, 255, 255), -1)
+
+                    cv2.putText(output, "3D Face Mesh (MediaPipe - 478 points)", (10, 20),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+                    return output
+
+            except Exception as e:
+                print(f"MediaPipe 3D mesh visualization failed: {e}")
+
+        # Fallback: procedural fake mesh (old behavior)
+        np.random.seed(42)
+        rows, cols = 8, 8
+        grid_x, grid_y = np.meshgrid(
+            np.linspace(0.20, 0.80, cols),
+            np.linspace(0.20, 0.80, rows)
+        )
+        depth = 0.15 * np.sin(grid_x * np.pi) * np.sin(grid_y * np.pi)
+
+        scale = min(w, h) * 0.30
         offset_x = w // 2
         offset_y = h // 3
 
@@ -261,7 +464,7 @@ class FaceDetector:
             for j in range(cols):
                 px = int(offset_x + (grid_x[i, j] - 0.5) * scale)
                 py = int(offset_y + (grid_y[i, j] - 0.5) * scale * 0.8)
-                size = int(4 + depth[i, j] * 4)
+                size = int(3 + depth[i, j] * 3)
                 intensity = int(100 + depth[i, j] * 155)
                 color = (intensity, intensity // 2, 255 - intensity)
                 if 0 <= px < w and 0 <= py < h:
@@ -280,7 +483,7 @@ class FaceDetector:
                 if 0 <= x1 < w and 0 <= y1 < h and 0 <= x2 < w and 0 <= y2 < h:
                     cv2.line(output, (x1, y1), (x2, y2), (100, 200, 255), 1)
 
-        cv2.putText(output, "3D Mesh Overlay", (10, 20),
+        cv2.putText(output, "3D Mesh Overlay (Procedural)", (10, 20),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
 
         return output

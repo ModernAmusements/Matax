@@ -1,17 +1,29 @@
 # NGO Facial Image Analysis System
 
+**Version**: 0.1.0  
+**Last Updated**: February 11, 2026  
+**Status**: ✅ Fully Functional
+
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
+
+---
 
 ## Quick Start
 
-### Desktop UI (Recommended)
+### Option 1: Interactive Menu (Recommended)
+```bash
+cd face_recognition_npo
+./start.sh
+```
+
+### Option 2: Electron Desktop App
 ```bash
 cd face_recognition_npo/electron-ui
 npm install
 npm start
 ```
 
-### Python API Server
+### Option 3: Flask API Server
 ```bash
 cd face_recognition_npo
 source venv/bin/activate
@@ -19,179 +31,138 @@ python api_server.py
 # Open http://localhost:3000 in browser
 ```
 
+### Option 4: Tkinter GUI
+```bash
+cd face_recognition_npo
+source venv/bin/activate
+python gui/facial_analysis_gui.py
+```
+
+---
+
 ## Features
 
-- **Electron Desktop UI**: Ultra minimal design - black text on white, no icons
-- **Sticky Terminal Footer**: Always-visible logs, click to expand/collapse
-- **Face Detection**: Detect human faces in images using OpenCV's DNN module
-- **Embedding Extraction**: Convert faces into non-reversible 128-dimensional embeddings
-- **Similarity Comparison**: Compare embeddings using cosine similarity with confidence bands
-- **Reference Management**: Manage reference images with metadata and consent information
-- **14 AI Visualizations**: See how the AI analyzes faces
+- ✅ **Face Detection**: OpenCV DNN with Caffe model
+- ✅ **Embedding Extraction**: 128-dimensional vectors (ResNet18 backbone)
+- ✅ **Similarity Comparison**: Cosine similarity with confidence bands
+- ✅ **Reference Management**: Store references with real embeddings (NOT random!)
+- ✅ **14 AI Visualizations**: Detection, landmarks, mesh, activations, etc.
+- ✅ **Electron Desktop UI**: Ultra minimal design
+- ✅ **Flask API Server**: 9 REST endpoints
+- ✅ **End-to-End Tests**: All passing
 
-## UI Design
+---
 
-**Ultra Minimal:**
-- Sans serif font (system stack)
-- Black text on white background
-- White buttons with black borders
-- Step indicators (Step 1, 2, 3, 4)
+## Usage Workflow
 
-**Terminal Footer:**
-- Fixed at bottom, always visible
-- Shows live processing logs
-- Compact (5 lines) or expanded (click to toggle)
-- Black background, green monospace text
+```
+Step 1: Choose Photo     → Upload image
+Step 2: Find Faces       → Click "Find Faces"
+Step 3: Create Signature → Click "Create Signature" (EXTRACTS EMBEDDING)
+Step 4: Add Reference    → Upload reference image
+Step 5: Compare          → Click "Compare"
+```
+
+---
+
+## Expected Results
+
+| Scenario | Similarity Score |
+|----------|-----------------|
+| Same image | ~100% |
+| Same person, different photo | 70-99% |
+| Different person | 20-60% |
+
+---
 
 ## Architecture
 
 ```
-face_recognition_npo/
-├── api_server.py           # Flask API server
-├── src/
-│   ├── detection/          # Face detection module
-│   └── embedding/          # Embedding extraction & comparison
-├── electron-ui/           # Electron desktop application
-│   ├── main.js             # Electron main process
-│   ├── renderer/app.js     # Frontend JavaScript
-│   └── index.html          # Ultra minimal UI
-├── tests/                   # Unit tests
-└── examples/              # Usage examples
+User → Electron UI → Flask API → ML Pipeline → Results
+                     │
+                     ├── FaceDetector (OpenCV DNN)
+                     ├── EmbeddingExtractor (ResNet18)
+                     ├── SimilarityComparator
+                     └── ReferenceManager
+```
 
-## Core Components
-
-### 1. Face Detection
-- Uses OpenCV's DNN module with pre-trained Caffe model
-- Detects multiple faces per image
-- Outputs bounding boxes with confidence scores
-
-### 2. Embedding Extraction
-- Converts detected faces into 128-dimensional embeddings
-- Embeddings are non-reversible and comparable via distance metrics
-- Includes visualizations: activations, feature maps, robustness testing
-
-### 3. Similarity Comparison
-- Compares embeddings using cosine similarity
-- Confidence bands: High/Moderate/Low/Insufficient
-- Never makes binary match/no-match decisions
-- Visual similarity matrix for multi-reference comparison
-
-### 4. AI Visualizations (14 types)
-| Visualization | Description |
-|--------------|-------------|
-| Detection | Bounding boxes with confidence scores |
-| Extraction | 160x160 face crop preview |
-| Landmarks | Facial feature points (eyes, nose, mouth) |
-| 3D Mesh | 3D wireframe overlay on face |
-| Alignment | Face alignment visualization |
-| Attention | Saliency/attention heatmap |
-| Activations | Neural network layer activations |
-| Features | Feature map visualizations |
-| Multi-Scale | Face at 5 different scales |
-| Confidence | Quality metrics dashboard (brightness, sharpness, centering) |
-| Embedding | 128-dim vector visualization |
-| Similarity | Similarity gauge with threshold |
-| Robustness | Noise robustness test results |
-| Biometric | Biometric capture quality view |
+---
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
-| POST | `/api/detect` | Detect faces in uploaded image |
-| POST | `/api/extract` | Extract embedding from detected face |
-| POST | `/api/add-reference` | Add reference image for comparison |
-| GET | `/api/references` | List all references |
-| POST | `/api/compare` | Compare query embedding with references |
-| GET | `/api/visualizations/<type>` | Get specific AI visualization |
-| POST | `/api/clear` | Clear all session data |
+| POST | `/api/detect` | Detect faces |
+| POST | `/api/extract` | Extract embedding |
+| POST | `/api/add-reference` | Add reference |
+| POST | `/api/compare` | Compare embeddings |
+| GET | `/api/visualizations/<type>` | Get visualization |
 
-## Usage Examples
-
-### Desktop UI
-The Electron app provides a complete workflow:
-1. Choose Photo → Upload image
-2. Find Faces → AI detects all faces
-3. Create Signature → Extract 128-dim embedding
-4. Add Reference → Upload reference images
-5. Compare → See similarity scores with confidence bands
-
-### Python API
-
-```python
-from src.detection import FaceDetector
-from src.embedding import FaceNetEmbeddingExtractor, SimilarityComparator
-
-# Initialize
-detector = FaceDetector()
-extractor = FaceNetEmbeddingExtractor()
-comparator = SimilarityComparator()
-
-# Detect faces
-image = cv2.imread("test.jpg")
-faces = detector.detect_faces(image)
-
-# Extract embedding
-x, y, w, h = faces[0]
-face_image = image[y:y+h, x:x+w]
-embedding = extractor.extract_embedding(face_image)
-
-# Compare
-results = comparator.compare_embeddings(embedding, [ref_embedding], ["ref1"])
-```
-
-## Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd face_recognition_npo
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Download required model files:
-- Download `deploy.prototxt.txt` and `res10_300x300_ssd_iter_140000.caffemodel` for face detection
-- Place them in the project directory
-
-## Ethical Guidelines
-
-This system is designed for ethical NGO use with the following principles:
-
-1. **Consent-Based**: All images must have lawful basis for use
-2. **Human Oversight**: No automated identification - human review required
-3. **Uncertainty Handling**: Never claim certainty - use confidence bands
-4. **Privacy Protection**: Embeddings are non-reversible
-5. **Documentation**: Maintain clear audit trails
+---
 
 ## Testing
 
-Run all tests:
 ```bash
+# End-to-end pipeline test
+python test_e2e_pipeline.py
+
+# Unit tests
 python -m unittest discover tests/
 ```
 
-Run specific test:
-```bash
-python -m unittest tests.test_detection
+---
+
+## Documentation
+
+- **PROJECT_STRUCTURE.md**: Complete architecture, lessons learned, roadmap
+- **ARCHITECTURE.md**: Detailed system design
+- **DEVELOPMENT_LOG.md**: Development history
+- **ETHICAL_COMPLIANCE.md**: Ethical guidelines
+
+---
+
+## Lessons Learned (Don't Repeat!)
+
+### 1. Dynamic Array Sizes
+Always use dynamic array sizes when output depends on input count:
+```python
+# WRONG: Hardcoded size
+output = np.zeros((150, 300, 3), dtype=np.uint8)
+
+# RIGHT: Dynamic size
+output_size = max(150, n * cell_size)
+output = np.zeros((output_size, output_size, 3), dtype=np.uint8)
 ```
+
+### 2. Real Embeddings
+Never use random values for embeddings:
+```python
+# WRONG
+embedding = np.random.rand(128)
+
+# RIGHT
+embedding = extractor.extract_embedding(face_roi)
+```
+
+### 3. Clear Cache After Editing
+```bash
+find . -type d -name "__pycache__" -exec rm -rf {} +
+find . -name "*.pyc" -delete
+```
+
+---
+
+## Ethical Guidelines
+
+1. **Consent-Based**: All images must have lawful basis
+2. **Human Oversight**: No automated decisions
+3. **Uncertainty Handling**: Use confidence bands
+4. **Privacy Protection**: Non-reversible embeddings
+5. **Documentation**: Maintain audit trails
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests for new functionality
-5. Submit a pull request
-
-## Support
-
-For questions or support, please contact the NGO technical team.
+MIT License

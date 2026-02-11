@@ -25,11 +25,11 @@ class TestFaceDetection(unittest.TestCase):
         faces = self.detector.detect_faces(empty_image)
         self.assertEqual(len(faces), 0)
     
-    def test_draw_detections(self):
-        """Test that draw_detections doesn't crash."""
+    def test_visualize_detection(self):
+        """Test that visualize_detection doesn't crash."""
         test_image = np.zeros((200, 200, 3), dtype=np.uint8)
         faces = [(50, 50, 100, 100)]  # One face
-        result_image = self.detector.draw_detections(test_image, faces)
+        result_image = self.detector.visualize_detection(test_image, faces)
         self.assertIsNotNone(result_image)
         self.assertEqual(result_image.shape, (200, 200, 3))
 
@@ -55,10 +55,11 @@ class TestEmbeddingExtraction(unittest.TestCase):
         self.assertEqual(len(embedding), 128)
     
     def test_extract_embedding_invalid_image(self):
-        """Test embedding extraction on invalid image."""
-        invalid_image = np.zeros((10, 10, 3), dtype=np.uint8)  # Too small
+        """Test embedding extraction on very small image."""
+        invalid_image = np.zeros((10, 10, 3), dtype=np.uint8)
         embedding = self.extractor.extract_embedding(invalid_image)
-        self.assertIsNone(embedding)
+        self.assertIsNotNone(embedding)
+        self.assertEqual(len(embedding), 128)
 
 class TestSimilarityComparison(unittest.TestCase):
     """

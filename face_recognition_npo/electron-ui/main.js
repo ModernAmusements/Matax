@@ -9,7 +9,30 @@ const API_PORT = 3000;
 
 const PYTHON_PATH = path.join(__dirname, '../venv/bin/python');
 
-function startPythonServer() {
+function isPortInUse(port) {
+    return new Promise((resolve) => {
+        const net = require('net');
+        const server = net.createServer();
+        server.unref();
+        server.on('error', () => {
+            resolve(true);
+        });
+        server.on('listening', () => {
+            server.close();
+            resolve(false);
+        });
+        server.listen(port, '0.0.0.0');
+    });
+}
+
+async function startPythonServer() {
+    const portInUse = await isPortInUse(API_PORT);
+    if (portInUse) {
+        console.log(`Python: Using existing server on port ${API_PORT}`);
+        return Promise.resolve();
+    }
+    
+    console.log(`Python: Starting new server on port ${API_PORT}`);
     return new Promise((resolve, reject) => {
         pythonProcess = spawn(PYTHON_PATH, ['api_server.py'], {
             cwd: path.join(__dirname, '..'),

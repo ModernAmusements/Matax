@@ -22,8 +22,8 @@ def test_full_workflow():
     extractor = FaceNetEmbeddingExtractor()
     comparator = SimilarityComparator(threshold=0.5)
 
-    test_image = "test_images/kanye_west.jpeg"
-    ref_image = "test_images/kanye_west_test_02.jpg"
+    test_image = "test_images/kanye_west_test_02.jpg"
+    ref_image = "test_images/cross_reference_new.jpg"
 
     print("\n[STEP 1] Loading images...")
     img = cv2.imread(test_image)
@@ -82,7 +82,7 @@ def test_full_workflow():
     print(f"    Mean: {embedding.mean():.4f}, Std: {embedding.std():.4f}")
 
     print("\n[STEP 5] Embedding visualization...")
-    emb_viz = extractor.visualize_embedding(embedding)
+    emb_viz, emb_data = extractor.visualize_embedding(embedding)
     print(f"  ✓ Embedding viz: {emb_viz.shape}")
 
     print("\n[STEP 6] Testing robustness...")
@@ -107,7 +107,7 @@ def test_full_workflow():
             print(f"  ✓ Confidence: {confidence}")
 
             print("\n[STEP 9] Similarity matrix...")
-            sim_matrix = extractor.visualize_similarity_matrix(embedding, [ref_embedding], ["ref1"])
+            sim_matrix, sim_data = extractor.visualize_similarity_matrix(embedding, [ref_embedding], ["ref1"])
             print(f"  ✓ Similarity matrix: {sim_matrix.shape}")
         else:
             print("  ⚠ Reference embedding failed, using same image test")

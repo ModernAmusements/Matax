@@ -1,7 +1,14 @@
 import cv2
 import numpy as np
-from typing import Optional
+from typing import Optional, List, Tuple
 import time
+
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from src.detection import FaceDetector
+from src.embedding import FaceNetEmbeddingExtractor, SimilarityComparator
 
 class WebcamCapture:
     """
