@@ -2,12 +2,22 @@
 """
 Simple biometric visualization script.
 Shows what biometric features are captured for facial recognition.
+
+Usage:
+    python visualize_biometric.py                    # Uses default test image
+    TEST_IMAGE=my_image.jpg python visualize_biometric.py  # Uses custom image
 """
 
+import os
 import cv2
 import numpy as np
 
-def visualize_biometric_capture(image_path: str):
+# Configuration - set via environment variable or use default
+DEFAULT_IMAGE = 'test_images/kanye_west.jpeg'
+IMAGE_PATH = os.environ.get('TEST_IMAGE', DEFAULT_IMAGE)
+
+
+def visualize_biometric_capture(image_path: str = IMAGE_PATH):
     """
     Visualize what biometric features are being captured from detected faces.
     

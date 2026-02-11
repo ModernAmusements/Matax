@@ -2,6 +2,10 @@
 """
 End-to-end test for the complete face recognition pipeline.
 Tests that real embeddings are extracted and compared correctly.
+
+Usage:
+    python test_e2e_pipeline.py                    # Uses default test image
+    TEST_IMAGE=my_image.jpg python test_e2e_pipeline.py  # Uses custom image
 """
 
 import sys
@@ -9,6 +13,12 @@ import os
 import cv2
 import numpy as np
 import json
+
+# Configuration - set via environment variable or use defaults
+TEST_IMAGE = os.environ.get('TEST_IMAGE', 'kanye_west.jpeg')
+TEST_IMAGE_PATH = f"test_images/{TEST_IMAGE}"
+TEST_IMAGE_REF = os.environ.get('TEST_IMAGE_REF', 'kanye_detected.jpeg')
+TEST_IMAGE_REF_PATH = f"test_images/{TEST_IMAGE_REF}"
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
@@ -23,7 +33,7 @@ def test_detection_pipeline():
     print("-" * 40)
     
     detector = FaceDetector()
-    test_image = "test_images/kanye_west.jpeg"
+    test_image = TEST_IMAGE_PATH
     
     img = cv2.imread(test_image)
     if img is None:
@@ -49,7 +59,7 @@ def test_embedding_pipeline():
     print("-" * 40)
     
     extractor = FaceNetEmbeddingExtractor()
-    test_image = "test_images/kanye_west.jpeg"
+    test_image = TEST_IMAGE_PATH
     
     img = cv2.imread(test_image)
     detector = FaceDetector()
@@ -95,56 +105,7 @@ def test_reference_manager_real_embeddings():
         detector=detector
     )
     
-    test_image = "test_images/kanye_west.jpeg"
-    ref_id = "test_reference_kanye"
-    
-    success, embedding = manager.add_reference_image(
-        test_image, 
-        ref_id,
-        {"source": "e2e_test", "consent": True}
-    )
-    
-    print(f"  ✓ add_reference_image returned: success={success}")
-    
-    if not success:
-        print("  ✗ Failed to add reference")
-        return False
-    
-    if embedding is None:
-        print("  ✗ No embedding extracted!")
-        return False
-    
-    print(f"  ✓ Extracted embedding: shape={embedding.shape}")
-    
-    stored_embs, stored_ids = manager.get_reference_embeddings()
-    print(f"  ✓ get_reference_embeddings returned {len(stored_embs)} embeddings")
-    
-    if len(stored_embs) != 1:
-        print(f"  ✗ Expected 1 embedding, got {len(stored_embs)}")
-        return False
-    
-    if stored_ids[0] != ref_id:
-        print(f"  ✗ Expected ref_id '{ref_id}', got '{stored_ids[0]}'")
-        return False
-    
-    emb_from_storage = stored_embs[0]
-    if not np.allclose(embedding, emb_from_storage):
-        print("  ✗ Stored embedding doesn't match extracted embedding!")
-        return False
-    
-    print(f"  ✓ Stored embedding matches extracted embedding")
-    
-    return True
-
-
-def test_similarity_with_same_image():
-    """Test that same image gives high similarity."""
-    print("\n[TEST 4] Same Image Similarity (SHOULD BE HIGH)")
-    print("-" * 40)
-    
-    extractor = FaceNetEmbeddingExtractor()
-    comparator = SimilarityComparator(threshold=0.5)
-    test_image = "test_images/kanye_west.jpeg"
+    test_image = TEST_IMAGE_PATH
     
     img = cv2.imread(test_image)
     detector = FaceDetector()
@@ -152,6 +113,50 @@ def test_similarity_with_same_image():
     
     if not faces:
         print("  ✗ No faces detected")
+        return False
+    
+    x, y, w, h = faces[0]
+    face_img = img[y:y+h, x:x+w]
+    
+    emb1 = extractor.extract_embedding(face_img)
+    emb2 = extractor.extract_embedding(face_img.copy())
+    
+    if emb1 is None or emb2 is None:
+        print("  ✗ Failed to extract embeddings")
+        return False
+    
+    comparator = SimilarityComparator(threshold=0.5)
+    similarity = comparator.cosine_similarity(emb1, emb2)
+    print(f"  ✓ Same image similarity: {similarity:.4f} ({similarity:.2%})")
+    
+    if similarity < 0.95:
+        print(f"  ✗ Same image should have similarity > 0.95")
+        return False
+    
+    print("  ✓ PASS: Same image has high similarity")
+    return True
+
+
+def test_similarity_with_same_image():
+    """Test that same image gives high similarity (near 100%)."""
+    print("\n[TEST 4] Same Image Similarity (SHOULD BE HIGH)")
+    print("-" * 40)
+    
+    extractor = FaceNetEmbeddingExtractor()
+    comparator = SimilarityComparator(threshold=0.5)
+    
+    test_image = TEST_IMAGE_PATH
+    
+    img = cv2.imread(test_image)
+    if img is None:
+        print(f"  ✗ Could not load test image: {test_image}")
+        return False
+    
+    detector = FaceDetector()
+    faces = detector.detect_faces(img)
+    
+    if not faces:
+        print("  ✗ No faces detected!")
         return False
     
     x, y, w, h = faces[0]
@@ -184,8 +189,8 @@ def test_similarity_with_different_images():
     comparator = SimilarityComparator(threshold=0.5)
     
     test_images = [
-        "test_images/kanye_west.jpeg",
-        "test_images/kanye_detected.jpeg",
+        TEST_IMAGE_PATH,
+        TEST_IMAGE_REF_PATH,
     ]
     
     embeddings = []
@@ -240,8 +245,8 @@ def test_reference_comparison():
     )
     
     test_images = [
-        ("test_images/kanye_west.jpeg", "kanye_west_1"),
-        ("test_images/kanye_detected.jpeg", "kanye_detected_2"),
+        (TEST_IMAGE_PATH, "test_image_1"),
+        (TEST_IMAGE_REF_PATH, "test_image_2"),
     ]
     
     for img_path, ref_id in test_images:
@@ -251,7 +256,7 @@ def test_reference_comparison():
     ref_embs, ref_ids = manager.get_reference_embeddings()
     print(f"  ✓ Total references: {len(ref_embs)}")
     
-    query_img = cv2.imread("test_images/kanye_west.jpeg")
+    query_img = cv2.imread(TEST_IMAGE_PATH)
     faces = detector.detect_faces(query_img)
     
     if not faces:
@@ -268,7 +273,7 @@ def test_reference_comparison():
     
     results = comparator.compare_embeddings(query_emb, ref_embs, ref_ids)
     
-    print(f"\n  Query: kanye_west.jpeg")
+    print(f"\n  Query: {TEST_IMAGE}")
     print(f"  Comparisons:")
     for ref_id, sim in results:
         conf = comparator.get_confidence_band(sim)

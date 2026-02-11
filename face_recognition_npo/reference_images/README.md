@@ -1,126 +1,67 @@
-# Sample Reference Images for NGO Facial Image Analysis System
+# Reference Images Folder
 
-This directory contains sample reference images for testing and demonstration purposes.
+This folder stores reference images added through the Electron UI.
 
-## Images
+## Files
 
-### test_reference_1.jpg
-- **Description**: Male face, frontal view, good lighting
-- **Use Case**: Basic face detection test
-- **Metadata**: 
-  - Name: John Doe
-  - Document ID: DOC001
-  - Consent: Yes
-  - Source: Test document
+| File/Folder | Purpose |
+|-------------|---------|
+| `embeddings.json` | Stores reference metadata and embeddings (auto-managed) |
+| `*/` | Subdirectories (if any - usually empty) |
 
-### test_reference_2.jpg  
-- **Description**: Female face, slight angle, moderate lighting
-- **Use Case**: Pose variation test
-- **Metadata**: 
-  - Name: Jane Smith
-  - Document ID: DOC002
-  - Consent: Yes
-  - Source: Test photo
+## What Gets Stored
 
-### test_reference_3.jpg
-- **Description**: Male face, profile view, challenging lighting
-- **Use Case**: Edge case detection test
-- **Metadata**: 
-  - Name: Michael Brown
-  - Document ID: DOC003
-  - Consent: Yes
-  - Source: Test scan
-
-### test_reference_4.jpg
-- **Description**: Female face, multiple people, partial occlusion
-- **Use Case**: Multiple face detection test
-- **Metadata**: 
-  - Name: Sarah Johnson
-  - Document ID: DOC004
-  - Consent: Yes
-  - Source: Group photo
-
-### test_reference_5.jpg
-- **Description**: Male face, low resolution, poor lighting
-- **Use Case**: Quality variation test
-- **Metadata**: 
-  - Name: Robert Wilson
-  - Document ID: DOC005
-  - Consent: Yes
-  - Source: Low quality document
-
-## Usage
-
-### Add Reference Images
-```bash
-python3 main.py reference add reference_images/test_reference_1.jpg john_doe --metadata '{"name": "John Doe", "document_id": "DOC001", "consent": "yes", "source": "test_document"}'
-python3 main.py reference add reference_images/test_reference_2.jpg jane_smith --metadata '{"name": "Jane Smith", "document_id": "DOC002", "consent": "yes", "source": "test_photo"}'
-```
-
-### Test Detection
-```bash
-python3 main.py detect reference_images/test_reference_1.jpg
-python3 main.py detect reference_images/test_reference_4.jpg  # Should detect multiple faces
-```
-
-### Test Verification
-```bash
-python3 main.py verify reference_images/test_reference_1.jpg  # Should match reference 1
-python3 main.py verify reference_images/test_reference_3.jpg  # Should match reference 3
-```
-
-## Metadata Structure
-
-Each reference image should have the following metadata:
+When you add a reference through the UI, the following is stored in `embeddings.json`:
 
 ```json
 {
-  "name": "Full Name",
-  "document_id": "Unique ID",
-  "consent": "yes|no|unknown",
-  "source": "document|photo|scan|other",
-  "added_at": "YYYY-MM-DD",
-  "notes": "Additional information"
+  "metadata": [
+    {
+      "id": "auto-generated-id",
+      "path": "path/to/image.jpg",
+      "metadata": {
+        "source": "upload|example|test",
+        "consent": true
+      },
+      "added_at": "2026-02-10 10:55:11.029069"
+    }
+  ],
+  "embeddings": []
 }
 ```
 
-## Image Quality Guidelines
+## Fields
 
-### Good Quality Images
-- Clear frontal view
-- Good lighting
-- High resolution
-- No occlusion
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Auto | Unique identifier (auto-generated) |
+| `path` | Auto | Where the image was loaded from |
+| `source` | Optional | Where image came from (upload/example/test) |
+| `consent` | Yes | Whether consent was obtained (true/false) |
+| `added_at` | Auto | Timestamp when added |
 
-### Challenging Cases
-- Profile views
-- Poor lighting
-- Low resolution
-- Partial occlusion
-- Multiple faces
+**Note:** No name or document_id is stored. Use the UI to manage references.
 
-## Test Scenarios
+## Usage
 
-### Basic Tests
-1. **Single face detection** - test_reference_1.jpg
-2. **Multiple face detection** - test_reference_4.jpg
-3. **Pose variation** - test_reference_2.jpg, test_reference_3.jpg
+References are managed entirely through the Electron UI:
 
-### Edge Cases
-1. **Low quality** - test_reference_5.jpg
-2. **Challenging lighting** - test_reference_3.jpg
-3. **Partial occlusion** - test_reference_4.jpg
+1. Click "+ Add Reference"
+2. Select an image
+3. Consent is recorded
+4. Reference is saved to `embeddings.json`
 
-### Performance Tests
-1. **Batch processing** - multiple images
-2. **Real-time processing** - webcam demo
-3. **Large reference set** - all 5 references
+## Cleanup
 
-## Notes
+The `kanye_west/` subfolder is leftover from old tests and can be safely deleted:
 
-- These images are for testing purposes only
-- In production, use actual reference images with proper consent
-- Always maintain documentation of consent and source
-- Regularly update reference images for better accuracy
+```bash
+rm -rf reference_images/kanye_west/
+```
 
-The sample images demonstrate various real-world scenarios that NGOs might encounter in documentation verification workflows.
+## Privacy
+
+- No personal names or document IDs are stored
+- Only 128-dimensional embeddings (non-reversible)
+- Consent status is recorded
+- Timestamps track when references were added
