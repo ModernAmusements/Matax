@@ -30,13 +30,35 @@ USE_ARCFACE=true python api_server.py &
 API_PID=$!
 
 # Wait for API to start
-sleep 2
+sleep 3
 
-# Start Electron UI
-echo "Starting Electron UI..."
-cd "$(dirname "$0")/electron-ui"
-npm start &
-ELECTRON_PID=$!
+# Ask user how to open
+echo ""
+echo "=========================================="
+echo "Choose how to open:"
+echo "  [1] Electron Desktop App (recommended)"
+echo "  [2] Browser"
+echo "  [3] Both"
+echo "=========================================="
+echo ""
+read -p "Enter choice [1]: " -n1 choice
+echo ""
+
+case "$choice" in
+    2)
+        echo "Opening in browser..."
+        open http://localhost:3000
+        ;;
+    3)
+        echo "Opening Electron app and browser..."
+        open http://localhost:3000 &
+        cd "$(dirname "$0")/electron-ui" && npm start &
+        ;;
+    *)
+        echo "Starting Electron Desktop App..."
+        cd "$(dirname "$0")/electron-ui" && npm start &
+        ;;
+esac
 
 echo ""
 echo "=========================================="

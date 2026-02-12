@@ -412,7 +412,7 @@ def compare_faces():
         if ref_embeddings:
             similarities = [r['similarity'] for r in results]
             distances = [r['euclidean_distance'] for r in results]
-            sim_viz, sim_data = extractor.model.visualize_comparison_metrics(
+            sim_viz, sim_data = extractor.visualize_comparison_metrics(
                 current_embedding,
                 ref_embeddings,
                 ref_names,

@@ -354,6 +354,82 @@ class ArcFaceEmbeddingExtractor:
         
         return output
 
+    def visualize_comparison_metrics(self, query_embedding: np.ndarray,
+                                    reference_embeddings: List[np.ndarray],
+                                    reference_ids: List[str],
+                                    similarities: List[float],
+                                    distances: List[float]) -> Tuple[np.ndarray, Dict]:
+        """Visualize both cosine similarity and euclidean distance for all comparisons."""
+        n = len(reference_ids)
+        height = max(150, n * 50 + 80)
+        output = np.zeros((height, 500, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Comparison Metrics", (20, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
+        
+        cv2.putText(output, "Cosine Similarity", (20, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 100, 0), 1)
+        cv2.putText(output, "Euclidean Distance", (250, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 100, 0), 1)
+        
+        data = {'comparisons': []}
+        
+        bar_width_sim = 150
+        bar_width_dist = 100
+        bar_height = 20
+        start_x_sim = 20
+        start_x_dist = 250
+        start_y = 70
+        
+        for i, (ref_id, sim, dist) in enumerate(zip(reference_ids, similarities, distances)):
+            y = start_y + i * 45
+            
+            cv2.putText(output, ref_id[:18], (10, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+            
+            # Similarity bar
+            sim_len = int(sim * bar_width_sim)
+            if sim > 0.70:
+                color = (0, 200, 0)
+            elif sim > 0.45:
+                color = (0, 165, 255)
+            elif sim > 0.30:
+                color = (0, 100, 255)
+            else:
+                color = (0, 0, 150)
+            
+            cv2.rectangle(output, (start_x_sim, y), (start_x_sim + sim_len, y + bar_height), color, -1)
+            cv2.rectangle(output, (start_x_sim, y), (start_x_sim + bar_width_sim, y + bar_height), (200, 200, 200), 1)
+            cv2.putText(output, f"{sim:.2f}", (start_x_sim + 155, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+            
+            # Distance bar
+            dist_norm = min(dist / 2.0, 1.0)
+            dist_len = int(dist_norm * bar_width_dist)
+            if dist < 0.8:
+                color = (0, 200, 0)
+            elif dist < 1.2:
+                color = (0, 165, 255)
+            else:
+                color = (0, 0, 150)
+            
+            cv2.rectangle(output, (start_x_dist, y), (start_x_dist + dist_len, y + bar_height), color, -1)
+            cv2.rectangle(output, (start_x_dist, y), (start_x_dist + bar_width_dist, y + bar_height), (200, 200, 200), 1)
+            cv2.putText(output, f"{dist:.2f}", (start_x_dist + 105, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+            
+            data['comparisons'].append({
+                'id': ref_id,
+                'similarity': float(sim),
+                'euclidean_distance': float(dist)
+            })
+        
+        data['best_match'] = data['comparisons'][0]['id'] if data['comparisons'] else None
+        data['best_similarity'] = float(similarities[0]) if similarities else 0.0
+        
+        return output, data
+
 
 if __name__ == "__main__":
     extractor = ArcFaceEmbeddingExtractor()
