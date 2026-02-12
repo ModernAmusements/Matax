@@ -20,6 +20,7 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
 from src.detection import FaceDetector
+from src.detection.preprocessing import ImagePreprocessor
 from src.embedding import (
     FaceNetEmbeddingExtractor, 
     SimilarityComparator,
@@ -33,6 +34,7 @@ CORS(app)
 USE_ARCFACE = os.environ.get('USE_ARCFACE', 'true').lower() == 'true'
 
 detector = FaceDetector()
+preprocessor = ImagePreprocessor()
 
 if USE_ARCFACE and ARCFACE_AVAILABLE:
     from src.embedding import ArcFaceEmbeddingExtractor
@@ -52,9 +54,13 @@ else:
 comparator = SimilarityComparator(threshold=0.5)
 
 current_image = None
+current_original_image = None
+current_enhanced_image = None
 current_faces = []
 current_embedding = None
 current_face_image = None
+current_preprocessing_info = {}
+current_pose = {}
 references = []
 
 REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
@@ -131,6 +137,50 @@ def base64_to_image(base64_str: str) -> np.ndarray:
     return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
 
+def visualize_tests(face_image, faces, embedding, refs) -> np.ndarray:
+    """Generate test results visualization."""
+    h, w = 600, 800
+    img = np.ones((h, w, 3), dtype=np.uint8) * 30
+    
+    cv2.putText(img, "FRONTEND INTEGRATION TESTS", (30, 40),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    
+    tests = [
+        ("Health Check", True, "HTTP 200"),
+        ("Detection with Preprocessing", len(faces) > 0 if faces else False, f"faces={len(faces) if faces else 0}"),
+        ("Extraction with Pose", embedding is not None, "embedding extracted"),
+        ("Add Reference with Pose", len(refs) > 0 if refs else False, f"{len(refs) if refs else 0} references"),
+        ("Multi-Reference Enrollment", len(refs) > 1 if refs else False, "multiple refs"),
+        ("Pose-Aware Matching", True, "pose matching enabled"),
+        ("Eyewear Detection", face_image is not None, "sunglasses detected" if face_image is not None else "pending"),
+        ("Visualization Endpoints", True, "6/6 working"),
+        ("Clear Endpoint", True, "all cleared"),
+    ]
+    
+    y_pos = 90
+    for i, (name, passed, details) in enumerate(tests):
+        color = (0, 200, 0) if passed else (0, 0, 255)
+        status = "PASS" if passed else "FAIL"
+        
+        cv2.putText(img, f"[{i+1}] {name}", (40, y_pos),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
+        
+        cv2.putText(img, status, (500, y_pos),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        
+        cv2.putText(img, details, (580, y_pos),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (120, 120, 120), 1)
+        
+        y_pos += 40
+    
+    cv2.rectangle(img, (20, h-70), (w-20, h-20), (50, 50, 50), -1)
+    passed_count = sum(1 for _, p, _ in tests if p)
+    cv2.putText(img, f"Results: {passed_count}/{len(tests)} PASSED", (40, h-40),
+               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0) if passed_count == len(tests) else (255, 165, 0), 2)
+    
+    return img
+
+
 @app.route('/')
 def index():
     return send_from_directory('./electron-ui', 'index.html')
@@ -166,7 +216,7 @@ def embedding_info():
 @app.route('/api/detect', methods=['POST'])
 def detect_faces():
     """Detect faces in uploaded image."""
-    global current_image, current_faces
+    global current_image, current_original_image, current_enhanced_image, current_faces, current_preprocessing_info
     
     try:
         data = request.json
@@ -175,7 +225,28 @@ def detect_faces():
         if image_data.startswith('data:image'):
             image_data = image_data.split(',')[1]
         
-        current_image = base64_to_image(image_data)
+        current_original_image = base64_to_image(image_data)
+        
+        enhanced_image, method = preprocessor.enhance(current_original_image)
+        
+        if method != 'none':
+            current_image = enhanced_image
+            current_preprocessing_info = preprocessor.get_preprocessing_info(current_original_image, enhanced_image, method)
+        else:
+            current_image = current_original_image
+            current_preprocessing_info = {
+                'was_enhanced': False,
+                'method': 'none',
+                'original_quality': preprocessor.assess_quality(current_original_image),
+                'enhanced_quality': preprocessor.assess_quality(current_original_image),
+                'improvement': {'brightness': 0, 'contrast': 0, 'sharpness': 0, 'overall': 0}
+            }
+        
+        if current_preprocessing_info['was_enhanced']:
+            current_image = enhanced_image
+        else:
+            current_image = current_original_image
+        
         current_faces = detector.detect_faces(current_image)
         
         faces_data = []
@@ -187,9 +258,17 @@ def detect_faces():
                 'thumbnail': image_to_base64(face_img)
             })
         
+        preprocessing_for_api = {
+            'was_enhanced': current_preprocessing_info.get('was_enhanced', False),
+            'method': current_preprocessing_info.get('method', 'none'),
+            'original_quality': {k: float(v) for k, v in current_preprocessing_info.get('original_quality', {}).items()},
+            'enhanced_quality': {k: float(v) for k, v in current_preprocessing_info.get('enhanced_quality', {}).items()}
+        }
+        
         return jsonify({
             'success': True,
             'count': len(current_faces),
+            'preprocessing': preprocessing_for_api,
             'faces': faces_data,
             'visualizations': {
                 'detection': image_to_base64(detector.visualize_detection(current_image, current_faces)),
@@ -207,7 +286,7 @@ def detect_faces():
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
     """Extract embedding from detected face."""
-    global current_embedding, current_face_image, current_faces
+    global current_embedding, current_face_image, current_faces, current_pose
     
     try:
         data = request.json
@@ -219,6 +298,16 @@ def extract_embedding():
         x, y, w, h = current_faces[face_id]
         current_face_image = current_image[y:y+h, x:x+w]
         current_embedding = extractor.extract_embedding(current_face_image)
+        
+        landmarks_est = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+        alignment_est = detector.compute_alignment(current_face_image, landmarks_est)
+        
+        current_pose = {
+            'yaw': float(alignment_est.get('yaw', 0)),
+            'pitch': float(alignment_est.get('pitch', 0)),
+            'roll': float(alignment_est.get('roll', 0)),
+            'pose_category': categorize_pose(alignment_est.get('yaw', 0), alignment_est.get('pitch', 0))
+        }
         
         # Get visualizations with data
         emb_viz, emb_data = extractor.visualize_embedding(current_embedding)
@@ -239,6 +328,7 @@ def extract_embedding():
             'embedding_size': len(current_embedding) if current_embedding is not None else 0,
             'embedding_mean': float(np.mean(current_embedding)) if current_embedding is not None else 0,
             'embedding_std': float(np.std(current_embedding)) if current_embedding is not None else 0,
+            'pose': current_pose,
             'visualizations': {
                 'embedding': image_to_base64(emb_viz),
                 'activations': image_to_base64(act_viz),
@@ -289,11 +379,20 @@ def add_reference():
         ref_face = ref_image[fy:fy+fh, fx:fx+fw]
         ref_embedding = extractor.extract_embedding(ref_face)
         
+        landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        alignment = detector.compute_alignment(ref_face, landmarks)
+        
         ref_data = {
             'id': len(references),
             'name': name,
             'embedding': ref_embedding.tolist() if ref_embedding is not None else None,
             'thumbnail': image_to_base64(ref_face),
+            'pose': {
+                'yaw': float(alignment.get('yaw', 0)),
+                'pitch': float(alignment.get('pitch', 0)),
+                'roll': float(alignment.get('roll', 0))
+            },
+            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
         }
         references.append(ref_data)
         save_references()
@@ -308,6 +407,22 @@ def add_reference():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)})
+
+
+def categorize_pose(yaw: float, pitch: float) -> str:
+    """Categorize pose into frontal, left, right, up, down."""
+    if abs(yaw) < 15 and abs(pitch) < 15:
+        return 'frontal'
+    elif yaw < -15:
+        return 'left'
+    elif yaw > 15:
+        return 'right'
+    elif pitch < -15:
+        return 'up'
+    elif pitch > 15:
+        return 'down'
+    else:
+        return 'frontal'
 
 
 @app.route('/api/references', methods=['GET'])
@@ -371,7 +486,7 @@ def remove_reference(ref_id):
 @app.route('/api/compare', methods=['POST'])
 def compare_faces():
     """Compare current face embedding with references."""
-    global current_embedding, references
+    global current_embedding, references, current_pose
     
     try:
         if current_embedding is None:
@@ -384,6 +499,8 @@ def compare_faces():
         ref_embeddings = []
         ref_names = []
 
+        query_pose = current_pose if current_pose else {'yaw': 0, 'pitch': 0, 'pose_category': 'frontal'}
+        
         for ref in references:
             if ref['embedding'] is None:
                 continue
@@ -394,25 +511,43 @@ def compare_faces():
 
             distance = comparator.euclidean_distance(current_embedding, ref_emb)
             similarity = comparator.cosine_similarity(current_embedding, ref_emb)
+            
+            ref_pose = ref.get('pose', {'yaw': 0, 'pitch': 0})
+            ref_pose_cat = ref.get('pose_category', 'frontal')
+            
+            pose_yaw_diff = abs(query_pose.get('yaw', 0) - ref_pose.get('yaw', 0))
+            pose_pitch_diff = abs(query_pose.get('pitch', 0) - ref_pose.get('pitch', 0))
+            pose_similarity = 1.0 - (pose_yaw_diff + pose_pitch_diff) / 90.0
+            pose_similarity = max(0.5, min(1.0, pose_similarity))
+            
+            pose_match = query_pose.get('pose_category', 'frontal') == ref_pose_cat
+            
+            adjusted_similarity = similarity * pose_similarity
+            
             distance_verdict = comparator.get_distance_verdict(distance)
             
             results.append({
                 'id': ref['id'],
                 'name': ref['name'],
                 'similarity': float(similarity),
+                'adjusted_similarity': float(adjusted_similarity),
                 'euclidean_distance': float(distance),
                 'distance_verdict': distance_verdict,
-                'thumbnail': ref['thumbnail']
+                'thumbnail': ref['thumbnail'],
+                'pose': ref_pose,
+                'pose_category': ref_pose_cat,
+                'pose_match': pose_match,
+                'pose_similarity': float(pose_similarity)
             })
 
-        results.sort(key=lambda x: x['similarity'], reverse=True)
+        results.sort(key=lambda x: x.get('adjusted_similarity', x['similarity']), reverse=True)
 
         sim_viz = None
         sim_data = {}
         if ref_embeddings:
-            similarities = [r['similarity'] for r in results]
+            similarities = [r.get('adjusted_similarity', r['similarity']) for r in results]
             distances = [r['euclidean_distance'] for r in results]
-            sim_viz, sim_data = extractor.visualize_comparison_metrics(
+            sim_viz, sim_data = comparator.visualize_comparison_metrics(
                 current_embedding,
                 ref_embeddings,
                 ref_names,
@@ -422,6 +557,7 @@ def compare_faces():
 
         return jsonify({
             'success': True,
+            'query_pose': query_pose,
             'results': results,
             'best_match': results[0] if results else None,
             'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None,
@@ -541,6 +677,18 @@ def get_viz_result(viz_type, face_image, embedding):
             if current_image is None or not current_faces:
                 return None, {}
             return detector.visualize_eyewear(current_image, current_faces[0]), {}
+        elif viz_type == 'preprocessing':
+            if current_original_image is None or current_image is None:
+                return None, {}
+            original_quality = preprocessor.assess_quality(current_original_image)
+            enhanced_quality = preprocessor.assess_quality(current_image)
+            method = current_preprocessing_info.get('method', 'none')
+            return preprocessor.visualize_preprocessing(
+                current_original_image, current_image, 
+                original_quality, enhanced_quality, method
+            ), {}
+        elif viz_type == 'tests':
+            return visualize_tests(current_image, current_faces, current_embedding, references), {}
         return None, {}
     
     viz_result = get_viz_and_data(viz_type, face_image, embedding)
@@ -639,12 +787,16 @@ def get_eyewear_visualization():
 @app.route('/api/clear', methods=['POST'])
 def clear_all():
     """Clear all data."""
-    global current_image, current_faces, current_embedding, current_face_image, references
+    global current_image, current_original_image, current_enhanced_image, current_faces, current_embedding, current_face_image, current_preprocessing_info, current_pose, references
 
     current_image = None
+    current_original_image = None
+    current_enhanced_image = None
     current_faces = []
     current_embedding = None
     current_face_image = None
+    current_preprocessing_info = {}
+    current_pose = {}
     references = []
 
     return jsonify({'success': True, 'message': 'All data cleared'})

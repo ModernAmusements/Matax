@@ -293,6 +293,18 @@ async function detectFaces() {
             document.getElementById('detectStatus').className = 'status status-success';
             document.getElementById('extractBtn').disabled = false;
 
+            // Display preprocessing info
+            if (data.preprocessing) {
+                const prep = data.preprocessing;
+                if (prep.was_enhanced) {
+                    const msg = `Image enhanced: ${prep.method.toUpperCase()} (quality: ${(prep.enhanced_quality.overall * 100).toFixed(0)}%)`;
+                    logToTerminal('> ' + msg, 'info');
+                    document.getElementById('detectStatus').textContent = `Found ${data.count} face(s) - ${prep.method} enhanced`;
+                } else {
+                    logToTerminal('> Image quality OK (no enhancement needed)', 'info');
+                }
+            }
+
             // Check for eyewear (sunglasses/glasses)
             try {
                 const eyewearResponse = await fetch(`${API_BASE}/eyewear`);
