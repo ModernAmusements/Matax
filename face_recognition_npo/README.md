@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System
 
-**Version**: 0.2.0
-**Last Updated**: February 12, 2026
-**Status**: ✅ Fully Functional
+**Version**: 0.3.0  
+**Last Updated**: February 12, 2026  
+**Status**: ✅ Fully Functional - ArcFace Enabled
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
 
@@ -10,7 +10,7 @@ A Python-based facial image analysis system with Electron desktop UI for ethical
 
 ## Quick Start
 
-### Method 1: Interactive Menu (Recommended) ✅
+### Method 1: Interactive Menu (Recommended)
 ```bash
 cd face_recognition_npo
 ./start.sh
@@ -65,7 +65,7 @@ start.sh ──► Flask API (port 3000)
 ## Features
 
 - ✅ **Face Detection**: OpenCV DNN with Caffe model
-- ✅ **Embedding Extraction**: 128-dimensional vectors (FaceNet) or 512-dim (ArcFace)
+- ✅ **Embedding Extraction**: 512-dimensional (ArcFace) or 128-dim (FaceNet)
 - ✅ **Similarity Comparison**: Cosine similarity with confidence bands
 - ✅ **Reference Management**: Store references with real embeddings
 - ✅ **Persistent Storage**: References saved to `reference_images/embeddings.json`
@@ -73,7 +73,7 @@ start.sh ──► Flask API (port 3000)
 - ✅ **Electron Desktop UI**: Ultra minimal design with MANTAX branding
 - ✅ **Flask API Server**: 11 REST endpoints
 - ✅ **End-to-End Tests**: All 6/6 passing
-- ✅ **ArcFace Integration**: Optional 512-dim embeddings for better discrimination
+- ✅ **ArcFace Integration**: 512-dim embeddings for better discrimination
 
 ---
 
@@ -93,17 +93,18 @@ Step 5: Compare          → Click "Compare"
 
 ## Models
 
-### FaceNet (Default)
+### ArcFace (Default - Better Discrimination)
+- 512-dimensional embeddings
+- ResNet100 backbone
+- Better discrimination between different people
+- Different people show <30% similarity (correct!)
+- Same person shows ~70-85% similarity
+
+### FaceNet (Optional)
 - 128-dimensional embeddings
 - ResNet18 backbone
 - Faster inference
-- Default model
-
-### ArcFace (Optional)
-- 512-dimensional embeddings
-- ResNet100 backbone
-- Better discrimination
-- Enable: `USE_ARCFACE=true ./start.sh`
+- Enable: `USE_FACENET=true ./start.sh`
 
 **ArcFace Thresholds**:
 - ≥70% = Very High - Likely same person
@@ -119,7 +120,11 @@ Step 5: Compare          → Click "Compare"
 |----------|---------|---------|
 | Same image | ~100% | ~100% |
 | Same person | 85-99% | ~70-85% |
-| Different person | <70% | <30% |
+| Different person | 50-70% | <30% |
+
+**Why ArcFace is Better**:
+- Different people show ~9-25% similarity (correctly indicates different people)
+- FaceNet was showing 65-70% for different people (false positives!)
 
 **Confidence Bands** (ArcFace):
 - 🟢 **Very High**: ≥70% - Likely same person
@@ -133,9 +138,9 @@ Step 5: Compare          → Click "Compare"
 ## MANTAX Branding
 
 The application now includes MANTAX branding in the navbar:
-- Left: MANTAX logo (SVG)
+- Left: MANTAX logo (SVG with red #D20A11 and white)
 - Right: "Ihrem Partner für Autokrane und Schwerlastlogistik"
-- Clean, professional design
+- Clean, professional design with white background
 
 ---
 
@@ -185,8 +190,11 @@ The application now includes MANTAX branding in the navbar:
 # End-to-end pipeline test (uses test_subject.jpg and reference_subject.jpg)
 python test_e2e_pipeline.py
 
-# With ArcFace
-USE_ARCFACE=true python test_e2e_pipeline.py
+# With ArcFace (default)
+python test_e2e_pipeline.py
+
+# With FaceNet
+USE_FACENET=true python test_e2e_pipeline.py
 
 # Unit tests
 python -m pytest tests/
@@ -200,6 +208,8 @@ find . -name "*.pyc" -delete
 ```
 E2E Tests: 6/6 PASSED
 Unit Tests: 30/30 PASSED
+ArcFace Different Person: ~9-25% (correctly different!)
+FaceNet Different Person: ~65-70% (false positives!)
 ```
 
 ---
@@ -281,7 +291,17 @@ fetch(`${API_BASE}/clear`, { method: 'POST' }).catch(err => console.log(err));
 
 ## Lessons Learned (Don't Repeat!)
 
-### 1. Dynamic Array Sizes
+### 1. ArcFace vs FaceNet Discrimination
+
+**Problem**: FaceNet showed 65-70% similarity for different people (false positives!)
+
+**Solution**: ArcFace with 512-dim embeddings shows <30% for different people:
+```
+Different people: ~9-25% (correctly indicates different!)
+Same person: ~70-85% (correctly indicates same!)
+```
+
+### 2. Dynamic Array Sizes
 ```python
 # WRONG: Hardcoded size
 output = np.zeros((150, 300, 3))
@@ -291,7 +311,7 @@ output_size = max(150, n * cell_size)
 output = np.zeros((output_size, output_size, 3))
 ```
 
-### 2. Real Embeddings
+### 3. Real Embeddings
 ```python
 # WRONG
 embedding = np.random.rand(128)
@@ -300,17 +320,20 @@ embedding = np.random.rand(128)
 embedding = extractor.extract_embedding(face_roi)
 ```
 
-### 3. Clear Cache After Editing
+### 4. Clear Cache After Editing
 ```bash
 find . -type d -name "__pycache__" -exec rm -rf {} +
 find . -name "*.pyc" -delete
 ```
 
-### 4. Restart Server After Changes
+### 5. Restart Server After Changes
 Old Python processes don't load new code. Always restart with `./start.sh`.
 
-### 5. Port Conflicts
+### 6. Port Conflicts
 Best practice: Flask runs once, Electron connects to it. Don't spawn Python from Electron.
+
+### 7. ArcFace ONNX Model
+ArcFace uses ONNX runtime - no direct layer access for visualizations. Use placeholder visualizations that show useful info instead of raw CNN activations.
 
 ---
 
@@ -336,16 +359,40 @@ face_recognition_npo/
 │   └── README.md
 ├── src/
 │   ├── detection/            # Face detection (OpenCV DNN)
-│   ├── embedding/             # 128-dim or 512-dim extraction
+│   ├── embedding/            # 128-dim or 512-dim extraction
 │   │   ├── __init__.py      # FaceNet extractor
-│   │   └── arcface_extractor.py  # ArcFace extractor
-│   └── reference/             # Reference management
+│   │   └── arcface_extractor.py  # ArcFace extractor (ONNX)
+│   └── reference/            # Reference management
 ├── electron-ui/               # Desktop UI
 │   ├── index.html            # HTML with MANTAX navbar
 │   ├── renderer/app.js
 │   └── package.json
-├── tests/                      # Unit tests (30 tests)
-└── gui/                        # Tkinter fallback GUI
+├── tests/                    # Unit tests (30 tests)
+└── gui/                      # Tkinter fallback GUI
+```
+
+---
+
+## ArcFace Integration Details
+
+### Model Architecture
+- **Backbone**: ResNet100 (ONNX format)
+- **Embedding**: 512-dimensional, L2 normalized
+- **Runtime**: ONNX Runtime (no PyTorch dependency for inference)
+
+### Files
+- `src/embedding/arcface_extractor.py` - ArcFace implementation
+- `arcface_model.onnx` - ONNX model file
+
+### API Response (ArcFace)
+```json
+{
+  "success": true,
+  "embedding_size": 512,
+  "embedding_mean": 0.0321,
+  "embedding_std": 0.0452,
+  "model": "ArcFaceEmbeddingExtractor"
+}
 ```
 
 ---

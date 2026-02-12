@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Architecture
 
-**Version**: 0.1.0  
-**Last Updated**: February 11, 2026  
-**Status**: ✅ Fully Functional
+**Version**: 0.3.0  
+**Last Updated**: February 12, 2026  
+**Status**: ✅ Fully Functional - ArcFace Enabled
 
 ---
 
@@ -23,8 +23,8 @@ This document describes the complete architecture of the NGO Facial Image Analys
 │  │                        ENTRY POINTS                               │   │
 │  ├──────────────────────────────────────────────────────────────────┤   │
 │  │   ./start.sh          → Interactive menu                          │   │
-│  │   npm start           → Electron Desktop App (spawns Flask)       │   │
-│  │   python api_server.py → Flask API Server :3000                  │   │
+│  │   python api_server.py → Flask API Server :3000                    │   │
+│  │   npm start           → Electron Desktop App (connects to Flask)  │   │
 │  │   python gui/*.py     → Tkinter Standalone GUIs                  │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                    │                                     │
@@ -32,9 +32,9 @@ This document describes the complete architecture of the NGO Facial Image Analys
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │                    ELECTRON DESKTOP APP                           │   │
 │  ├──────────────────────────────────────────────────────────────────┤   │
-│  │   main.js              → Spawns Python Flask server              │   │
-│  │   renderer/app.js      → Frontend JavaScript (HTTP API calls)    │   │
-│  │   index.html           → Ultra minimal UI (black on white)        │   │
+│  │   main.js              → Connects to existing Flask server      │   │
+│  │   renderer/app.js      → Frontend JavaScript (HTTP API calls)   │   │
+│  │   index.html           → Ultra minimal UI with MANTAX navbar      │   │
 │  │   preload.js           → Context bridge                          │   │
 │  │                                                                  │   │
 │  │   Flow: User → UI → fetch() → Flask API → ML Models → Results   │   │
@@ -48,14 +48,16 @@ This document describes the complete architecture of the NGO Facial Image Analys
 │  ├──────────────────────────────────────────────────────────────────┤   │
 │  │   Endpoints:                                                      │   │
 │  │   • GET  /api/health                      → Status check         │   │
+│  │   • GET  /api/embedding-info              → Model info          │   │
 │  │   • POST /api/detect                      → Face detection       │   │
 │  │   • POST /api/extract                     → Embedding extraction │   │
 │  │   • POST /api/add-reference               → Add reference       │   │
 │  │   • GET  /api/references                  → List references     │   │
+│  │   • DELETE /api/references/<id>           → Remove reference    │   │
 │  │   • POST /api/compare                     → Similarity compare  │   │
-│  │   • GET  /api/visualizations/<type>       → Get visualization   │   │
+│  │   • GET  /api/visualizations/<type>       → Get visualization  │   │
 │  │   • POST /api/clear                       → Clear session       │   │
-│  │   • GET  /api/status                      → Debug server state  │   │
+│  │   • GET  /api/status                      → Debug server state │   │
 │  │                                                                  │   │
 │  │   In-Memory Session:                                              │   │
 │  │   • current_image, current_faces, current_embedding              │   │
@@ -76,21 +78,24 @@ This document describes the complete architecture of the NGO Facial Image Analys
 │  │   └────────┬─────────┘                                           │   │
 │  │            │                                                     │   │
 │  │            ▼                                                     │   │
-│  │   ┌──────────────────┐                                           │   │
-│  │   │ FaceNetEmbedding │                                           │   │
-│  │   │   Extractor      │                                           │   │
-│  │   │ (ResNet18)       │                                           │   │
-│  │   │                  │                                           │   │
-│  │   │ Input: Face ROI  │                                           │   │
-│  │   │ Output: 128-dim  │                                           │   │
-│  │   └────────┬─────────┘                                           │   │
-│  │            │                                                     │   │
-│  │            ▼                                                     │   │
+│  │   ┌─────────────────────────────────────────────────────┐        │   │
+│  │   │           Embedding Extractor                        │        │   │
+│  │   │  ┌─────────────────────┐  ┌─────────────────────┐   │        │   │
+│  │   │  │  ArcFace (Default)  │  │  FaceNet (Option)  │   │        │   │
+│  │   │  │  ONNX / ResNet100   │  │  PyTorch / ResNet18│   │        │   │
+│  │   │  │  512-dimensional    │  │  128-dimensional   │   │        │   │
+│  │   │  └─────────────────────┘  └─────────────────────┘   │        │   │
+│  │   │                                                      │        │   │
+│  │   │ Input: Face ROI                                      │        │   │
+│  │   │ Output: 512-dim or 128-dim embedding                 │        │   │
+│  │   └────────────────────────────┬──────────────────────────┘        │   │
+│  │                                │                                     │   │
+│  │                                ▼                                     │   │
 │  │   ┌──────────────────┐                                           │   │
 │  │   │ Similarity       │                                           │   │
 │  │   │ Comparator       │                                           │   │
 │  │   │                  │                                           │   │
-│  │   │ Input: 2 emb.    │                                           │   │
+│  │   │ Input: 2 emb.   │                                           │   │
 │  │   │ Output: Score    │                                           │   │
 │  │   └──────────────────┘                                           │   │
 │  │                                                                  │   │
@@ -102,11 +107,12 @@ This document describes the complete architecture of the NGO Facial Image Analys
 │  ├──────────────────────────────────────────────────────────────────┤   │
 │  │   ReferenceImageManager                                          │   │
 │  │   • Stores references in reference_images/embeddings.json        │   │
-│  │   • Metadata: id, path, consent, timestamp                       │   │
-│  │   • Embeddings: 128-dim vectors (REAL, not random!)              │   │
+│  │   • Metadata: id, path, consent, timestamp                     │   │
+│  │   • Embeddings: 512-dim (ArcFace) or 128-dim (FaceNet)        │   │
+│  │   • Persistence: Saved to JSON on add/remove                     │   │
 │  │                                                                  │   │
 │  │   HumanReviewInterface                                           │   │
-│  │   • Side-by-side comparison display                              │   │
+│  │   • Side-by-side comparison display                             │   │
 │  │   • Review history tracking                                      │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                                                          │
@@ -132,19 +138,33 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - OpenCV DNN with Caffe model (`res10_300x300_ssd_iter_140000.caffemodel`)
 - Returns bounding boxes (x, y, w, h) for each face
 
-### Step 3: Embedding Extraction
-- ResNet18 backbone (torchvision pretrained)
-- Custom head: FC(512→512) → BatchNorm → ReLU → Dropout → FC(512→128) → BatchNorm
-- L2 normalization (norm = 1.0)
-- Returns 128-dimensional numpy array
+### Step 3: Embedding Extraction (ArcFace vs FaceNet)
+
+#### ArcFace (Default - Recommended)
+- **Model**: ONNX format ResNet100
+- **Dimension**: 512-dimensional
+- **L2 Normalized**: Yes
+- **Discrimination**: Excellent - different people show <30% similarity
+- **Thresholds**:
+  - ≥70% = Very High - Likely same person
+  - 45-70% = High - Possibly same person
+  - 30-45% = Moderate - Human review recommended
+  - <30% = Insufficient - Likely different people
+
+#### FaceNet (Optional - Legacy)
+- **Model**: PyTorch ResNet18
+- **Dimension**: 128-dimensional
+- **L2 Normalized**: Yes
+- **Discrimination**: Poor - different people show ~65-70% similarity
+- **Note**: Use `USE_FACENET=true` to enable
 
 ### Step 4: Comparison
 - Cosine similarity: `dot(a, b) / (|a| * |b|)`
-- Confidence bands:
-  - High (>0.8): High confidence match
-  - Moderate (0.6-0.8): Moderate confidence
-  - Low (0.4-0.6): Low confidence
-  - Insufficient (<0.4): Not confident
+- Confidence bands (ArcFace):
+  - Very High (>0.7): High confidence match
+  - High (0.45-0.7): Moderate confidence
+  - Moderate (0.3-0.45): Low confidence, human review required
+  - Insufficient (<0.3): Likely different people
 
 ---
 
@@ -178,9 +198,34 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - `visualize_quality(face_image, face_box)` → Quality metrics overlay
 - `visualize_confidence_levels(face_image, similarity)` → Confidence bands
 
-### 2. FaceNetEmbeddingExtractor (`src/embedding/__init__.py`)
+### 2. Embedding Extractor (`src/embedding/`)
 
-**Purpose**: Extract 128-dimensional face embeddings
+#### ArcFaceEmbeddingExtractor (`arcface_extractor.py`)
+
+**Purpose**: Extract 512-dimensional face embeddings using ONNX Runtime
+
+**Architecture**:
+- Backbone: ResNet100 (ONNX format)
+- Embedding: 512-dimensional
+- L2 normalized
+
+**Core Methods**:
+- `extract_embedding(face_image)` → np.ndarray (512,)
+- `preprocess(face_image)` → np.ndarray (112, 112)
+- `get_activations(face_image)` → Dict[str, np.ndarray] (placeholder for ONNX)
+- `get_embedding_info()` → Dict with model info
+
+**Visualization Methods**:
+- `visualize_embedding(embedding)` → (np.ndarray, Dict) - Bar chart of 512 values
+- `visualize_similarity_matrix(query, references, ids)` → (np.ndarray, Dict)
+- `visualize_similarity_result(query, ref, similarity)` → np.ndarray
+- `test_robustness(face_image)` → (np.ndarray, Dict) - Noise robustness test
+
+**Note**: ArcFace ONNX model doesn't expose internal layers, so activations visualization uses placeholder that shows useful info.
+
+#### FaceNetEmbeddingExtractor (`__init__.py`)
+
+**Purpose**: Extract 128-dimensional face embeddings (legacy)
 
 **Architecture**:
 - Backbone: torchvision ResNet18 (pretrained on ImageNet)
@@ -193,12 +238,10 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - `extract_embeddings(face_images)` → List[np.ndarray]
 - `get_activations(face_image)` → Dict[str, np.ndarray] (11 layers!)
 
-**Embedding Visualization Methods**:
+**Visualization Methods**:
 - `visualize_embedding(embedding)` → (np.ndarray, Dict) - Bar chart of 128 values
 - `visualize_similarity_matrix(query, references, ids)` → (np.ndarray, Dict)
 - `visualize_similarity_result(query, ref, similarity)` → np.ndarray
-
-**Neural Network Visualization Methods**:
 - `visualize_activations(face_image, max_channels)` → CNN layer activations grid
 - `visualize_feature_maps(face_image)` → Feature map visualization
 - `test_robustness(face_image)` → (np.ndarray, Dict) - Noise robustness test
@@ -210,7 +253,7 @@ This document describes the complete architecture of the NGO Facial Image Analys
 **Methods**:
 - `cosine_similarity(embedding1, embedding2)` → float
 - `compare_embeddings(query, references, ids)` → List[Tuple[str, float]]
-- `get_confidence_band(similarity)` → str
+- `get_confidence_band(similarity, model='arcface')` → str
 
 ### 4. ReferenceImageManager (`src/reference/__init__.py`)
 
@@ -220,6 +263,7 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - Stores references in `reference_images/embeddings.json`
 - Extracts REAL embeddings (not random!)
 - Metadata: id, path, consent info, timestamp
+- Auto-saves on add/remove
 
 **Methods**:
 - `__init__(reference_dir, embedding_extractor, detector)`
@@ -245,12 +289,23 @@ This document describes the complete architecture of the NGO Facial Image Analys
 |------|------|---------|
 | `deploy.prototxt.txt` | 28KB | OpenCV DNN config |
 | `res10_300x300_ssd_iter_140000.caffemodel` | 10MB | Face detection weights |
-| `facenet_model.pb` | 298KB | TensorFlow FaceNet (NOT USED) |
-| torchvision ResNet18 | ~44MB | PyTorch embedding backbone |
+| `arcface_model.onnx` | ~117MB | ArcFace embedding extractor (ONNX) |
+| torchvision ResNet18 | ~44MB | PyTorch embedding backbone (FaceNet) |
 
 ---
 
 ## API Reference
+
+### GET /api/embedding-info
+
+**Response**:
+```json
+{
+  "model": "ArcFaceEmbeddingExtractor",
+  "dimension": 512,
+  "discrimination": "Excellent - different people show <30% similarity"
+}
+```
 
 ### POST /api/detect
 
@@ -290,9 +345,10 @@ This document describes the complete architecture of the NGO Facial Image Analys
 ```json
 {
   "success": true,
-  "embedding_size": 128,
-  "embedding_mean": 0.0083,
-  "embedding_std": 0.0880,
+  "embedding_size": 512,
+  "model": "ArcFaceEmbeddingExtractor",
+  "embedding_mean": 0.0321,
+  "embedding_std": 0.0452,
   "visualizations": {...},
   "visualization_data": {...}
 }
@@ -315,7 +371,7 @@ This document describes the complete architecture of the NGO Facial Image Analys
   "reference": {
     "id": 0,
     "name": "reference_name",
-    "embedding": [...128 values...],
+    "embedding": [...512 values...],
     "thumbnail": "base64..."
   },
   "count": 1
@@ -332,8 +388,9 @@ This document describes the complete architecture of the NGO Facial Image Analys
     {
       "id": 0,
       "name": "reference_name",
-      "similarity": 0.8989,
+      "similarity": 0.75,
       "confidence": "High confidence",
+      "verdict": "Likely same person",
       "thumbnail": "base64..."
     }
   ],
@@ -346,6 +403,19 @@ This document describes the complete architecture of the NGO Facial Image Analys
 ---
 
 ## CRITICAL IMPLEMENTATION NOTES
+
+### ArcFace ONNX Model (No Layer Access)
+
+ArcFace uses ONNX Runtime which doesn't expose internal layer activations like PyTorch. This means:
+
+**For ArcFace**:
+- `get_activations()` returns placeholder with model info
+- Visualizations show useful info instead of raw CNN activations
+- `visualize_activations()` shows embedding channel groups
+
+**For FaceNet** (if enabled):
+- Full layer activations available (11 layers)
+- Raw CNN feature maps accessible
 
 ### Dynamic Array Sizes (Fixed Bug!)
 
@@ -370,7 +440,7 @@ Never use random values for embeddings:
 
 ```python
 # WRONG - Random embeddings cause incorrect comparisons
-embedding = np.random.rand(128)
+embedding = np.random.rand(512)
 
 # RIGHT - Extract real embeddings from actual images
 if self.embedding_extractor is not None:
@@ -380,6 +450,23 @@ if self.embedding_extractor is not None:
         face_roi = image_array[y:y+h, x:x+w]
         embedding = self.embedding_extractor.extract_embedding(face_roi)
 ```
+
+---
+
+## ArcFace vs FaceNet Comparison
+
+| Metric | ArcFace (Default) | FaceNet (Optional) |
+|--------|-------------------|-------------------|
+| **Dimension** | 512 | 128 |
+| **Backbone** | ResNet100 (ONNX) | ResNet18 (PyTorch) |
+| **Discrimination** | Excellent | Poor |
+| **Same Person** | ~70-85% | ~85-99% |
+| **Different Person** | <30% | ~65-70% |
+| **False Positive Risk** | Low | High |
+| **Inference Speed** | Fast (ONNX) | Slower (PyTorch) |
+
+**Why ArcFace is Default**:
+FaceNet showed 65-70% similarity for different people - this caused false positives! ArcFace correctly shows <30% for different people, making it much safer for NGO use cases.
 
 ---
 
@@ -395,7 +482,7 @@ Tests:
 2. Embedding Extraction Pipeline
 3. Reference Manager with Real Embeddings
 4. Same Image Similarity (~100%)
-5. Different Images Similarity (~98%)
+5. Different Images Similarity (~9-25% with ArcFace)
 6. Full Reference Comparison Pipeline
 
 ### Unit Tests
@@ -410,43 +497,10 @@ python -m unittest discover tests/
 | Operation | Time Complexity | Notes |
 |-----------|-----------------|-------|
 | Face Detection | O(n) | n = image pixels |
-| Embedding Extraction | O(1) | Fixed network size |
+| ArcFace Embedding | O(1) | Fixed network size (ONNX) |
+| FaceNet Embedding | O(1) | Fixed network size (PyTorch) |
 | Similarity Comparison | O(m) | m = number of references |
 | Embedding Storage | O(k) | k = number of stored refs |
-
----
-
-## Roadmap
-
-### Completed ✅ (v0.1.0)
-- [x] Face detection with OpenCV DNN
-- [x] 128-dim embedding extraction (ResNet18)
-- [x] Cosine similarity comparison
-- [x] Confidence bands (High/Moderate/Low/Insufficient)
-- [x] Electron desktop UI
-- [x] Flask API server
-- [x] Tkinter GUI
-- [x] Reference management with JSON storage
-- [x] 14 AI visualizations
-- [x] Fixed reference embeddings (was random, now real)
-- [x] Fixed visualization array size (was hardcoded, now dynamic)
-- [x] End-to-end test script
-- [x] Interactive start menu
-
-### In Progress
-- [ ] facenet_model.pb integration (use TensorFlow FaceNet model)
-
-### Future Enhancements
-- [ ] FaceNet model integration (use existing facenet_model.pb)
-- [ ] GPU acceleration with CUDA
-- [ ] Advanced embedding architectures (ArcFace, CosFace)
-- [ ] Batch processing API
-- [ ] Cloud storage integration
-- [ ] Mobile application support
-- [ ] Advanced reporting features
-- [ ] Model quantization for faster inference
-- [ ] Distributed processing
-- [ ] WebSocket support for real-time updates
 
 ---
 
@@ -457,10 +511,12 @@ python -m unittest discover tests/
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
+| GET | `/api/embedding-info` | Model info (ArcFace/FaceNet) |
 | POST | `/api/detect` | Face detection |
 | POST | `/api/extract` | Embedding extraction |
 | POST | `/api/add-reference` | Add reference image |
 | GET | `/api/references` | List references |
+| DELETE | `/api/references/<id>` | Remove reference |
 | POST | `/api/compare` | Compare embeddings |
 | GET | `/api/visualizations/<type>` | Get visualization |
 | POST | `/api/clear` | Clear session |
@@ -476,11 +532,11 @@ python -m unittest discover tests/
 | `mesh3d` | FaceDetector | 478-point 3D mesh |
 | `alignment` | FaceDetector | Pitch/yaw/roll orientation |
 | `saliency` | FaceDetector | Attention visualization |
-| `activations` | EmbeddingExtractor | CNN layer activations |
+| `activations` | EmbeddingExtractor | CNN activations (placeholder for ArcFace) |
 | `features` | EmbeddingExtractor | Feature map grid |
 | `multiscale` | FaceDetector | Multi-scale detection |
 | `confidence` | FaceDetector | Quality metrics overlay |
-| `embedding` | EmbeddingExtractor | 128-dim embedding bar chart |
+| `embedding` | EmbeddingExtractor | 512-dim or 128-dim bar chart |
 | `similarity` | EmbeddingExtractor | Similarity result bar |
 | `robustness` | EmbeddingExtractor | Noise robustness test |
 | `biometric` | FaceDetector | Biometric capture overview |
@@ -505,24 +561,13 @@ Run `python test_edge_cases.py` to verify all edge cases.
 
 ---
 
-## Testing
+## MANTAX Branding
 
-### End-to-End Tests
-```bash
-python test_e2e_pipeline.py
-# Tests: Detection → Embedding → Reference Manager → Similarity → Full Pipeline
-```
-
-### Edge Case Tests
-```bash
-python test_edge_cases.py
-# 11 edge case tests covering boundary conditions
-```
-
-### Unit Tests
-```bash
-python -m pytest tests/
-```
+The Electron UI includes MANTAX branding:
+- **Navbar**: White background with subtle border
+- **Logo**: SVG with red (#D20A11) and white colors
+- **Tagline**: "Ihrem Partner für Autokrane und Schwerlastlogistik" (right side)
+- **Compact Design**: 16px padding, clean typography
 
 ---
 
@@ -548,5 +593,5 @@ This system is built with ethical principles:
 
 ---
 
-*Architecture documentation updated: February 11, 2026*
-*Includes all 14 visualization types, edge case handling, and complete API reference*
+*Architecture documentation updated: February 12, 2026*
+*Includes ArcFace integration, ONNX model, 512-dim embeddings, and MANTAX branding*

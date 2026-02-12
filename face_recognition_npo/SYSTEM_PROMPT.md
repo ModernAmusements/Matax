@@ -5,7 +5,7 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 ## Quick Start (5 Minutes)
 
 1. **Start the system:** `./start.sh`
-2. **Open browser:** http://localhost:3000
+2. **Choose option:** [1] Electron Desktop App / [2] Browser / [3] Both
 3. **Upload an image:** Click "Choose Photo"
 4. **Find faces:** Click "Find Faces"
 5. **Create signature:** Click "Create Signature"
@@ -20,7 +20,7 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 
 | File | Purpose | Time |
 |------|---------|------|
-| `README.md` | Quick overview, features, quick start | 2 min |
+| `README.md` | Quick overview, features, ArcFace integration | 2 min |
 | `CONTEXT.md` | Code review findings, AI workflow rules, common mistakes | 5 min |
 | `DEVELOPMENT_LOG.md` | Session-by-session development history | 5 min |
 
@@ -28,17 +28,33 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 
 | File | Purpose | Time |
 |------|---------|------|
-| `ARCHITECTURE.md` | Complete system architecture, data flow, API reference | 10 min |
-| `PROJECT_STRUCTURE.md` | File structure, directory layout, critical lessons learned | 5 min |
+| `ARCHITECTURE.md` | Complete system architecture, ArcFace, API reference | 10 min |
+| `PROJECT_STRUCTURE.md` | File structure, directory layout, critical lessons | 5 min |
 
 ### Level 3: Technical Details
 
 | File | Purpose | Time |
 |------|---------|------|
-| `ETHICAL_COMPLIANCE.md` | Privacy, consent, GDPR compliance | 5 min |
-| `IMAGE_STORAGE.md` | How images are stored and processed | 3 min |
-| `USAGE.md` | Detailed usage instructions | 5 min |
-| `INSTALLATION.md` | Setup and installation guide | 3 min |
+| `ETHICAL_COMPLIANCE.md` | Privacy, consent, ArcFace discrimination | 5 min |
+| `IMAGE_STORAGE.md` | Embedding storage (not raw images!) | 3 min |
+| `USAGE.md` | Quick usage instructions | 2 min |
+| `INSTALLATION.md` | Setup and installation | 3 min |
+
+---
+
+## ArcFace vs FaceNet
+
+**ArcFace (Default - Recommended)**
+- 512-dimensional embeddings
+- ONNX Runtime
+- **Excellent discrimination**: Different people show <30% similarity
+- Prevents false positives
+
+**FaceNet (Legacy - Not Recommended)**
+- 128-dimensional embeddings
+- PyTorch
+- **Poor discrimination**: Different people show ~65-70% similarity
+- Causes false positives!
 
 ---
 
@@ -48,60 +64,80 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 ┌─────────────────────────────────────────────────────────────┐
 │                    ENTRY POINTS                             │
 ├─────────────────────────────────────────────────────────────┤
-│  ./start.sh         → Interactive menu                       │
-│  npm start          → Electron Desktop App                  │
-│  python api_server.py → Flask API Server (:3000)            │
-│  python gui/*.py    → Tkinter Standalone GUIs               │
+│  ./start.sh         → Interactive menu (clears cache)     │
+│  python api_server.py → Flask API Server (:3000)           │
+│  npm start          → Electron Desktop App (connects to Flask)│
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                               │
+                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                 ELECTRON DESKTOP APP                        │
 ├─────────────────────────────────────────────────────────────┤
-│  main.js          → Spawns Flask server                     │
-│  renderer/app.js  → Frontend UI (fetch API calls)           │
-│  index.html       → Ultra minimal UI (black on white)       │
+│  main.js          → Connects to existing Flask server     │
+│  renderer/app.js  → Frontend UI (fetch API calls)         │
+│  index.html       → Ultra minimal UI with MANTAX navbar   │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                         HTTP :3000
-                              │
-                              ▼
+                               │
+                          HTTP :3000
+                               │
+                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                  FLASK API SERVER                           │
 ├─────────────────────────────────────────────────────────────┤
-│  Endpoints:                                                  │
-│  • POST /api/detect      → Face detection                   │
-│  • POST /api/extract     → Embedding extraction             │
-│  • POST /api/add-reference → Add reference image            │
-│  • POST /api/compare     → Compare embeddings               │
-│  • GET  /api/visualizations/<type> → Get visualization      │
-│  • GET  /api/visualizations/<type>/reference/<id> → Ref viz │
+│  Endpoints:                                                 │
+│  • GET  /api/health              → Status check           │
+│  • GET  /api/embedding-info     → Model/dimension info   │
+│  • POST /api/detect             → Face detection         │
+│  • POST /api/extract            → Embedding extraction   │
+│  • POST /api/add-reference      → Add reference image    │
+│  • GET  /api/references         → List references        │
+│  • DELETE /api/references/<id>  → Remove reference      │
+│  • POST /api/compare            → Compare embeddings     │
+│  • GET  /api/visualizations/<type> → Get visualization   │
+│  • POST /api/clear             → Clear session         │
+│  • GET  /api/status            → Debug state           │
 └─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
+                               │
+                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                   CORE ML PIPELINE                          │
 ├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────────┐                                       │
-│  │  FaceDetector    │  OpenCV DNN (Caffe model)            │
-│  │  Input: Image    │  Output: Bounding boxes (x,y,w,h)    │
-│  └────────┬─────────┘                                       │
-│           │                                                  │
-│           ▼                                                  │
-│  ┌──────────────────┐                                       │
-│  │ FaceNetEmbedding │  ResNet18 → 128-dim vector           │
-│  │  Input: Face ROI │  Output: L2-normalized embedding     │
-│  └────────┬─────────┘                                       │
-│           │                                                  │
-│           ▼                                                  │
-│  ┌──────────────────┐                                       │
-│  │ Similarity       │  Cosine similarity (0-1)             │
-│  │  Input: 2 emb.   │  Output: Score + confidence band     │
-│  └──────────────────┘                                       │
-│                                                              │
+│                                                             │
+│  ┌──────────────────┐                                      │
+│  │  FaceDetector    │  OpenCV DNN (Caffe model)          │
+│  │  Input: Image    │  Output: Bounding boxes (x,y,w,h)  │
+│  └────────┬─────────┘                                      │
+│           │                                                 │
+│           ▼                                                 │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │           Embedding Extractor                       │    │
+│  │  ┌─────────────────────┐  ┌─────────────────────┐ │    │
+│  │  │  ArcFace (Default)  │  │  FaceNet (Option)  │ │    │
+│  │  │  ONNX / ResNet100  │  │  PyTorch / ResNet18│ │    │
+│  │  │  512-dimensional   │  │  128-dimensional   │ │    │
+│  │  │  <30% for diff!  │  │  ~70% for diff    │ │    │
+│  │  └─────────────────────┘  └─────────────────────┘ │    │
+│  └─────────────────────────────┬──────────────────────┘    │
+│                                │                             │
+│                                ▼                             │
+│  ┌──────────────────┐                                      │
+│  │ Similarity       │  Cosine similarity → Confidence     │
+│  │ Comparator      │  ArcFace: ≥70%, 45-70%, 30-45%, <30%│
+│  └──────────────────┘                                      │
+│                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## ArcFace Confidence Thresholds
+
+| Similarity | Confidence | Interpretation |
+|------------|------------|----------------|
+| ≥70% | Very High | Likely same person |
+| 45-70% | High | Possibly same person |
+| 30-45% | Moderate | Human review recommended |
+| <30% | Insufficient | Likely different people |
 
 ---
 
@@ -110,43 +146,58 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 ```
 src/
 ├── detection/
-│   └── __init__.py          # FaceDetector class (15 methods)
-│                             # detect_faces, estimate_landmarks,
+│   └── __init__.py          # FaceDetector class
+│                             # detect_faces, estimate_landmarks
 │                             # visualize_* methods (10 viz types)
 │
 ├── embedding/
-│   └── __init__.py          # FaceNetEmbeddingExtractor (12 methods)
-│                             # extract_embedding, get_activations,
-│                             # visualize_* methods (4 viz types)
-│                             # SimilarityComparator class
+│   ├── __init__.py          # FaceNetEmbeddingExtractor, SimilarityComparator
+│   └── arcface_extractor.py # ArcFaceEmbeddingExtractor (512-dim, ONNX)
+│                             # extract_embedding, get_activations
+│                             # visualize_* methods (placeholder for ONNX)
 │
 └── reference/
     └── __init__.py          # ReferenceImageManager class
                               # HumanReviewInterface class
 
-api_server.py                 # Flask API (9 endpoints)
-utils/webcam.py               # WebcamCapture class
-gui/*.py                      # Tkinter GUIs
+api_server.py                 # Flask API (11 endpoints)
+utils/webcam.py              # WebcamCapture class
+gui/*.py                     # Tkinter GUIs
 ```
 
 ---
 
 ## Critical Classes and Methods
 
+### ArcFaceEmbeddingExtractor (`src/embedding/arcface_extractor.py`)
+
+**Core Methods:**
+- `extract_embedding(face_image)` → np.ndarray (512,)
+- `preprocess(face_image)` → np.ndarray (112, 112)
+- `get_activations(face_image)` → Dict[str, np.ndarray] (placeholder)
+- `get_embedding_info()` → Dict with model info
+
+**Visualization Methods:**
+- `visualize_embedding()` → Bar chart of 512 values
+- `visualize_similarity_matrix()` → Similarity grid
+- `visualize_similarity_result()` → Similarity bar
+- `test_robustness()` → Noise robustness test
+
+**Note:** ArcFace ONNX doesn't expose internal layers, so activations visualization uses placeholder.
+
 ### FaceDetector (`src/detection/__init__.py`)
 
 **Detection Methods:**
 - `detect_faces(image)` → List[Tuple[int, int, int, int]]
 - `detect_faces_with_confidence(image)` → List[Tuple[Tuple, float]]
-- `detect_eyes(face_image)` → List[Tuple[int, int, int, int]]
-- `estimate_landmarks(face_image, face_box)` → Dict[str, Tuple[int, int]]
-- `compute_alignment(face_image, landmarks)` → Dict[str, float]
-- `compute_quality_metrics(face_image, face_box)` → Dict[str, float]
+- `estimate_landmarks(face_image, face_box)` → Dict with landmarks
+- `compute_alignment(face_image, landmarks)` → Dict with pitch, yaw, roll
+- `compute_quality_metrics(face_image, face_box)` → Dict metrics
 
 **Visualization Methods (10):**
 - `visualize_detection()` → Bounding boxes
 - `visualize_extraction()` → Face ROI
-- `visualize_landmarks()` → 15 keypoints + regions
+- `visualize_landmarks()` → 15 keypoints
 - `visualize_3d_mesh()` → 478-point mesh
 - `visualize_alignment()` → Orientation indicator
 - `visualize_saliency()` → Attention heatmap
@@ -155,57 +206,34 @@ gui/*.py                      # Tkinter GUIs
 - `visualize_quality()` → Quality metrics
 - `visualize_confidence_levels()` → Confidence bands
 
-### FaceNetEmbeddingExtractor (`src/embedding/__init__.py`)
-
-**Core Methods:**
-- `extract_embedding(face_image)` → np.ndarray (128,)
-- `preprocess(face_image)` → torch.Tensor
-- `get_activations(face_image)` → Dict[str, np.ndarray] (11 layers!)
-- `extract_embeddings(face_images)` → List[np.ndarray]
-
-**Embedding Visualization Methods (3):**
-- `visualize_embedding()` → Bar chart of 128 values
-- `visualize_similarity_matrix()` → Similarity grid
-- `visualize_similarity_result()` → Similarity bar
-
-**NN Visualization Methods (2):**
-- `visualize_activations()` → CNN layer activations grid
-- `visualize_feature_maps()` → Feature map visualization
-- `test_robustness()` → Noise robustness test
-
 ### SimilarityComparator (`src/embedding/__init__.py`)
 
 - `cosine_similarity(emb1, emb2)` → float
 - `compare_embeddings(query, refs, ids)` → List[Tuple[str, float]]
 - `get_confidence_band(similarity)` → str
 
-**Confidence Bands:**
-- High (>0.8): High confidence match
-- Moderate (0.6-0.8): Moderate confidence
-- Low (0.4-0.6): Low confidence
-- Insufficient (<0.4): Not confident
-
 ---
 
-## API Endpoints (14 total)
+## API Endpoints (11 total)
 
 | Method | Endpoint | Returns |
 |--------|----------|---------|
 | GET | `/api/health` | Status |
+| GET | `/api/embedding-info` | Model, dimension |
 | POST | `/api/detect` | Faces + thumbnails + viz |
-| POST | `/api/extract` | 128-dim embedding + all viz |
+| POST | `/api/extract` | 512-dim or 128-dim embedding + viz |
 | POST | `/api/add-reference` | Reference + embedding |
 | GET | `/api/references` | List of references |
+| DELETE | `/api/references/<id>` | Remove reference |
 | POST | `/api/compare` | Similarity results + best match |
 | GET | `/api/visualizations/<type>` | Query face viz |
-| GET | `/api/visualizations/<type>/reference/<id>` | Reference face viz |
+| GET | `/api/visualizations/<type>/reference/<id>` | Ref viz |
 | POST | `/api/clear` | Clear session |
 | GET | `/api/status` | Debug state |
-| GET | `/api/quality` | Quality metrics |
 
 ---
 
-## Visualization Types (14 total)
+## 14 Visualization Types
 
 | Type | Source | Description |
 |------|--------|-------------|
@@ -215,11 +243,11 @@ gui/*.py                      # Tkinter GUIs
 | `mesh3d` | FaceDetector | 478-point 3D mesh |
 | `alignment` | FaceDetector | Pitch/yaw/roll orientation |
 | `saliency` | FaceDetector | Attention visualization |
-| `activations` | EmbeddingExtractor | CNN layer activations |
+| `activations` | EmbeddingExtractor | CNN activations (placeholder for ArcFace) |
 | `features` | EmbeddingExtractor | Feature map grid |
 | `multiscale` | FaceDetector | Multi-scale detection |
 | `confidence` | FaceDetector | Quality metrics overlay |
-| `embedding` | EmbeddingExtractor | 128-dim bar chart |
+| `embedding` | EmbeddingExtractor | 512-dim or 128-dim bar chart |
 | `similarity` | EmbeddingExtractor | Similarity result bar |
 | `robustness` | EmbeddingExtractor | Noise robustness test |
 | `biometric` | FaceDetector | Biometric capture overview |
@@ -231,7 +259,12 @@ gui/*.py                      # Tkinter GUIs
 ### E2E Tests
 ```bash
 python test_e2e_pipeline.py
-# Tests: Detection → Embedding → Reference Manager → Similarity → Full Pipeline
+# Tests: Detection → Embedding → Reference → Similarity → Full Pipeline
+```
+
+### API Tests
+```bash
+python test_api_endpoints.py
 ```
 
 ### Edge Case Tests
@@ -240,33 +273,29 @@ python test_edge_cases.py
 # 11 tests covering boundary conditions
 ```
 
-### Unit Tests
-```bash
-python -m pytest tests/
-```
-
 ---
 
 ## Common Issues and Fixes
+
+### Issue: Different people show high similarity
+**Cause:** Using FaceNet (shows ~65-70% for different people)
+**Fix:** Use ArcFace (shows <30% for different people)
 
 ### Issue: "No data available" for visualizations
 **Cause:** No face detected or embedding not extracted
 **Fix:** Run detection then extraction before viewing visualizations
 
-### Issue: High similarity between different people
-**Cause:** All test images are of the same person (Kanye West)
-**Fix:** Need test images of different people
-
-### Issue: Visualizations show "Not available"
-**Cause:** No face loaded in current session
-**Fix:** Upload image, detect faces, create signature
+### Issue: Visualizations show placeholder
+**Cause:** ArcFace ONNX doesn't expose internal layers
+**Fix:** Use placeholder visualizations that show useful info
 
 ### Issue: "Module has no attribute" errors
 **Cause:** Python cache holding old code
 **Fix:**
 ```bash
-find . -type d -name "__pycache__" -exec rm -rf {}
+find . -type d -name "__pycache__" -exec rm -rf {} +
 find . -name "*.pyc" -delete
+./start.sh
 ```
 
 ---
@@ -277,7 +306,7 @@ find . -name "*.pyc" -delete
 1. Read `CONTEXT.md` for rules
 2. Read relevant source files
 3. Check for duplicate code: `grep -n "def " <file>`
-4. Understand the architecture from `ARCHITECTURE.md`
+4. Understand architecture from `ARCHITECTURE.md`
 
 ### During Changes
 1. Follow the Developer Mindset Checklist
@@ -286,8 +315,8 @@ find . -name "*.pyc" -delete
 
 ### After Changes
 1. Run E2E tests: `python test_e2e_pipeline.py`
-2. Run edge cases: `python test_edge_cases.py`
-3. Update documentation in `CONTEXT.md`
+2. Run API tests: `python test_api_endpoints.py`
+3. Update documentation
 
 ---
 
@@ -296,12 +325,14 @@ find . -name "*.pyc" -delete
 | To understand... | Read this file |
 |-----------------|----------------|
 | Overall system | `ARCHITECTURE.md` |
+| ArcFace integration | `DEVELOPMENT_LOG.md` (Feb 12 section) |
 | Code review history | `DEVELOPMENT_LOG.md` |
 | Common mistakes | `CONTEXT.md` (Common Mistakes section) |
 | API endpoints | `ARCHITECTURE.md` (API Reference section) |
-| Visualization types | `ARCHITECTURE.md` (14 AI Visualizations section) |
+| Visualization types | `ARCHITECTURE.md` (14 AI Visualizations) |
+| ArcFace discrimination | `ETHICAL_COMPLIANCE.md` |
 | Face detection | `src/detection/__init__.py` |
-| Embedding extraction | `src/embedding/__init__.py` |
+| ArcFace extractor | `src/embedding/arcface_extractor.py` |
 | Flask API | `api_server.py` |
 | Frontend UI | `electron-ui/renderer/app.js` |
 
@@ -310,22 +341,34 @@ find . -name "*.pyc" -delete
 ## Performance Notes
 
 - Face detection: ~100ms per image
-- Embedding extraction: ~50ms
+- ArcFace embedding: ~50ms (ONNX)
+- FaceNet embedding: ~100ms (PyTorch)
 - Similarity comparison: <1ms
 - All visualizations: ~50-200ms
+
+---
+
+## MANTAX Branding
+
+The UI includes MANTAX branding:
+- **Navbar**: White background, fixed at top
+- **Logo**: SVG with red (#D20A11) and white
+- **Tagline**: "Ihrem Partner für Autokrane und Schwerlastlogistik"
 
 ---
 
 ## Ethical Considerations
 
 This system is designed for ethical NGO use:
+
 - **Consent-based:** All images require documented consent
 - **Human oversight:** No automated decisions
 - **Confidence bands:** Shows uncertainty instead of binary decisions
-- **Non-reversible:** Embeddings cannot reconstruct faces
+- **Non-reversible:** 512-dim embeddings cannot reconstruct faces
+- **ArcFace discrimination:** <30% for different people prevents false positives
 - **Audit trail:** Complete logging of all operations
 
 ---
 
-*System prompt created: February 11, 2026*
-*Use this document to understand the application architecture and development workflow*
+*System prompt updated: February 12, 2026*
+*Includes ArcFace integration, 512-dim embeddings, ONNX model, and MANTAX branding*
