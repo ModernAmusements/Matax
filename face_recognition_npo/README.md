@@ -1,6 +1,6 @@
 # NGO Facial Image Analysis System
 
-**Version**: 0.1.0
+**Version**: 0.2.0
 **Last Updated**: February 12, 2026
 **Status**: ✅ Fully Functional
 
@@ -65,15 +65,15 @@ start.sh ──► Flask API (port 3000)
 ## Features
 
 - ✅ **Face Detection**: OpenCV DNN with Caffe model
-- ✅ **Embedding Extraction**: 128-dimensional vectors (ResNet18 backbone)
+- ✅ **Embedding Extraction**: 128-dimensional vectors (FaceNet) or 512-dim (ArcFace)
 - ✅ **Similarity Comparison**: Cosine similarity with confidence bands
 - ✅ **Reference Management**: Store references with real embeddings
 - ✅ **Persistent Storage**: References saved to `reference_images/embeddings.json`
 - ✅ **14 AI Visualizations**: Detection, landmarks, mesh, activations, etc.
-- ✅ **Electron Desktop UI**: Ultra minimal design
+- ✅ **Electron Desktop UI**: Ultra minimal design with MANTAX branding
 - ✅ **Flask API Server**: 11 REST endpoints
 - ✅ **End-to-End Tests**: All 6/6 passing
-- ✅ **Unit Tests**: All 30/30 passing
+- ✅ **ArcFace Integration**: Optional 512-dim embeddings for better discrimination
 
 ---
 
@@ -91,33 +91,51 @@ Step 5: Compare          → Click "Compare"
 
 ---
 
-## Expected Results
+## Models
 
-| Scenario | Similarity Score |
-|----------|-----------------|
-| Same image | ~100% |
-| Same person, different photo | 85-99% |
-| Different person | <70% |
+### FaceNet (Default)
+- 128-dimensional embeddings
+- ResNet18 backbone
+- Faster inference
+- Default model
 
-**Confidence Bands**:
-- 🟢 **Very High**: ≥99% - Likely same person
-- 🟢 **High**: 95-98% - Possibly same person
-- 🟡 **Moderate**: 85-94% - Human review recommended
-- 🟡 **Low**: 70-84% - Human review required
-- 🔴 **Insufficient**: <70% - Likely different people
+### ArcFace (Optional)
+- 512-dimensional embeddings
+- ResNet100 backbone
+- Better discrimination
+- Enable: `USE_ARCFACE=true ./start.sh`
+
+**ArcFace Thresholds**:
+- ≥70% = Very High - Likely same person
+- 45-70% = High - Possibly same person
+- 30-45% = Moderate - Human review recommended
+- <30% = Insufficient - Likely different people
 
 ---
 
-## Architecture
+## Expected Results
 
-```
-User → Electron UI → Flask API → ML Pipeline → Results
-                     │
-                     ├── FaceDetector (OpenCV DNN)
-                     ├── EmbeddingExtractor (ResNet18)
-                     ├── SimilarityComparator
-                     └── ReferenceManager
-```
+| Scenario | FaceNet | ArcFace |
+|----------|---------|---------|
+| Same image | ~100% | ~100% |
+| Same person | 85-99% | ~70-85% |
+| Different person | <70% | <30% |
+
+**Confidence Bands** (ArcFace):
+- 🟢 **Very High**: ≥70% - Likely same person
+- 🟢 **High**: 45-70% - Possibly same person
+- 🟡 **Moderate**: 30-45% - Human review recommended
+- 🟡 **Low**: 20-30% - Human review required
+- 🔴 **Insufficient**: <20% - Likely different people
+
+---
+
+## MANTAX Branding
+
+The application now includes MANTAX branding in the navbar:
+- Left: MANTAX logo (SVG)
+- Right: "Ihrem Partner für Autokrane und Schwerlastlogistik"
+- Clean, professional design
 
 ---
 
@@ -126,6 +144,7 @@ User → Electron UI → Flask API → ML Pipeline → Results
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
+| GET | `/api/embedding-info` | Model info (FaceNet/ArcFace) |
 | POST | `/api/detect` | Detect faces |
 | POST | `/api/extract` | Extract embedding |
 | POST | `/api/add-reference` | Add reference |
@@ -153,7 +172,7 @@ User → Electron UI → Flask API → ML Pipeline → Results
 | `features` | EmbeddingExtractor | Feature maps |
 | `multiscale` | FaceDetector | Multi-scale detection |
 | `confidence` | FaceDetector | Quality metrics |
-| `embedding` | EmbeddingExtractor | 128-dim bar chart |
+| `embedding` | EmbeddingExtractor | Dim bar chart |
 | `similarity` | EmbeddingExtractor | Similarity comparison |
 | `robustness` | EmbeddingExtractor | Noise robustness test |
 | `biometric` | FaceDetector | Biometric overview |
@@ -165,6 +184,9 @@ User → Electron UI → Flask API → ML Pipeline → Results
 ```bash
 # End-to-end pipeline test (uses test_subject.jpg and reference_subject.jpg)
 python test_e2e_pipeline.py
+
+# With ArcFace
+USE_ARCFACE=true python test_e2e_pipeline.py
 
 # Unit tests
 python -m pytest tests/
@@ -189,15 +211,15 @@ References are stored in `reference_images/embeddings.json`:
 ```json
 {
   "metadata": [
-    {"id": 0, "name": "subject.jpg", "path": "...", "added_at": "..."}
+    {"id": "name", "path": "path/to/image.jpg", "metadata": {...}, "added_at": "timestamp"}
   ],
   "embeddings": [
-    {"id": 0, "embedding": [0.1, 0.5, ...]}  // 128-dim vector
+    {"id": "name", "embedding": [0.1, 0.5, ...]}  // 128-dim or 512-dim vector
   ]
 }
 ```
 
-**Note**: Only embeddings (128 floats) are stored, not images. The JSON references original image paths.
+**Note**: Only embeddings (128 or 512 floats) are stored, not images. The JSON references original image paths.
 
 ---
 
@@ -236,7 +258,6 @@ grep -n "function " electron-ui/renderer/app.js | wc -l
 
 ### Rule 5: HTML-JS Cross-Check (CRITICAL!)
 ```bash
-# Verify all HTML onclick/onchange handlers exist in app.js
 for func in $(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u); do
     grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js || echo "MISSING: $func"
 done
@@ -288,6 +309,9 @@ find . -name "*.pyc" -delete
 ### 4. Restart Server After Changes
 Old Python processes don't load new code. Always restart with `./start.sh`.
 
+### 5. Port Conflicts
+Best practice: Flask runs once, Electron connects to it. Don't spawn Python from Electron.
+
 ---
 
 ## Ethical Guidelines
@@ -304,22 +328,24 @@ Old Python processes don't load new code. Always restart with `./start.sh`.
 
 ```
 face_recognition_npo/
-├── api_server.py           # Flask API (11 endpoints)
-├── start.sh               # Startup script (clears cache, starts servers)
-├── test_e2e_pipeline.py   # End-to-end tests
-├── reference_images/      # Persistent storage
-│   ├── embeddings.json    # Stored references
+├── api_server.py              # Flask API (11 endpoints)
+├── start.sh                   # Startup script (clears cache, starts servers)
+├── test_e2e_pipeline.py       # End-to-end tests
+├── reference_images/           # Persistent storage
+│   ├── embeddings.json       # Stored references
 │   └── README.md
 ├── src/
-│   ├── detection/         # Face detection (OpenCV DNN)
-│   ├── embedding/         # 128-dim extraction (ResNet18)
-│   └── reference/         # Reference management
-├── electron-ui/           # Desktop UI
-│   ├── index.html
+│   ├── detection/            # Face detection (OpenCV DNN)
+│   ├── embedding/             # 128-dim or 512-dim extraction
+│   │   ├── __init__.py      # FaceNet extractor
+│   │   └── arcface_extractor.py  # ArcFace extractor
+│   └── reference/             # Reference management
+├── electron-ui/               # Desktop UI
+│   ├── index.html            # HTML with MANTAX navbar
 │   ├── renderer/app.js
 │   └── package.json
-├── tests/                 # Unit tests (30 tests)
-└── gui/                   # Tkinter fallback GUI
+├── tests/                      # Unit tests (30 tests)
+└── gui/                        # Tkinter fallback GUI
 ```
 
 ---
