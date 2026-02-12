@@ -31,12 +31,16 @@ class ArcFaceEmbeddingExtractor:
         """Extract 512-dim embedding from face image.
         
         Args:
-            face_image: Face crop in BGR format
+            face_image: Full image in BGR format (detection included)
+                    or pre-cropped face (112x112 BGR)
             
         Returns:
             512-dim embedding vector or None on error
         """
         try:
+            # ArcFace FaceAnalysis app handles both detection and embedding
+            # If image is large, it will detect and extract
+            # If image is small (face crop), it will extract directly
             faces = self.app.get(face_image)
             if len(faces) > 0:
                 embedding = faces[0]['embedding']
