@@ -29,6 +29,15 @@ source venv/bin/activate
 USE_ARCFACE=true python api_server.py &
 API_PID=$!
 
+# Wait for API to start
+sleep 2
+
+# Start Electron UI
+echo "Starting Electron UI..."
+cd "$(dirname "$0")/electron-ui"
+npm start &
+ELECTRON_PID=$!
+
 echo ""
 echo "=========================================="
 echo "Face Recognition System Running"
@@ -37,8 +46,5 @@ echo ""
 echo "API Server: http://localhost:3000"
 echo "ArcFace Mode: ENABLED (512-dim)"
 echo ""
-echo "Press Ctrl+C to stop"
+echo "To stop: Ctrl+C"
 echo "=========================================="
-
-# Wait for API server
-wait $API_PID
