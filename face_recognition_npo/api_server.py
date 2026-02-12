@@ -358,27 +358,32 @@ def compare_faces():
             ref_embeddings.append(ref_emb)
             ref_names.append(ref['name'])
 
+            distance = comparator.euclidean_distance(current_embedding, ref_emb)
             similarity = comparator.cosine_similarity(current_embedding, ref_emb)
-            confidence = comparator.get_confidence_band(similarity)
+            distance_verdict = comparator.get_distance_verdict(distance)
             
             results.append({
                 'id': ref['id'],
                 'name': ref['name'],
                 'similarity': float(similarity),
-                'confidence': confidence,
+                'euclidean_distance': float(distance),
+                'distance_verdict': distance_verdict,
                 'thumbnail': ref['thumbnail']
             })
 
         results.sort(key=lambda x: x['similarity'], reverse=True)
 
-        # Generate similarity visualization
         sim_viz = None
         sim_data = {}
         if ref_embeddings:
-            sim_viz, sim_data = extractor.visualize_similarity_matrix(
+            similarities = [r['similarity'] for r in results]
+            distances = [r['euclidean_distance'] for r in results]
+            sim_viz, sim_data = extractor.model.visualize_comparison_metrics(
                 current_embedding,
                 ref_embeddings,
-                ref_names
+                ref_names,
+                similarities,
+                distances
             )
 
         return jsonify({

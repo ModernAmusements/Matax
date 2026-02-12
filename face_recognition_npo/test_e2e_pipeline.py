@@ -276,15 +276,18 @@ def test_reference_comparison():
     
     print(f"\n  Query: {TEST_IMAGE}")
     print(f"  Comparisons:")
-    for ref_id, sim in results:
-        conf = comparator.get_confidence_band(sim)
+    for result in results:
+        ref_id = result['id']
+        sim = result['similarity']
+        conf = result['confidence']
         print(f"    vs {ref_id}: {sim:.4f} ({conf})")
     
     if len(results) == 0:
         print("  ✗ No matches above threshold")
         return False
     
-    best_match_id, best_similarity = results[0]
+    best_match_id = results[0]['id']
+    best_similarity = results[0]['similarity']
     print(f"\n  ✓ Best match: {best_match_id} with {best_similarity:.2%} similarity")
     
     if best_match_id == "kanye_west_1":

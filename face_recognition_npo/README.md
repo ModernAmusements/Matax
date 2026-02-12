@@ -67,13 +67,15 @@ Step 5: Compare          → Click "Compare"
 | Scenario | Similarity Score |
 |----------|-----------------|
 | Same image | ~100% |
-| Same person, different photo | 70-99% |
-| Different person | 20-60% |
+| Same person, different photo | 85-99% |
+| Different person | <70% |
 
 **Confidence Bands**:
-- 🟢 **High**: >80% similarity
-- 🟡 **Medium**: 60-80% similarity
-- 🔴 **Low**: <60% similarity
+- 🟢 **Very High**: ≥99% - Likely same person
+- 🟢 **High**: 95-98% - Possibly same person
+- 🟡 **Moderate**: 85-94% - Human review recommended
+- 🟡 **Low**: 70-84% - Human review required
+- 🔴 **Insufficient**: <70% - Likely different people
 
 ---
 

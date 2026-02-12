@@ -243,11 +243,11 @@ class FaceNetEmbeddingExtractor:
             
             bar_len = int(similarity * bar_width)
             
-            if similarity > 0.8:
+            if similarity > 0.95:
                 color = (0, 200, 0)
-            elif similarity > 0.6:
+            elif similarity > 0.85:
                 color = (0, 165, 255)
-            elif similarity > 0.4:
+            elif similarity > 0.70:
                 color = (0, 100, 255)
             else:
                 color = (0, 0, 150)
@@ -283,11 +283,11 @@ class FaceNetEmbeddingExtractor:
         start_x = 50
         start_y = 50
         
-        if similarity > 0.8:
+        if similarity > 0.95:
             color = (0, 200, 0)
-        elif similarity > 0.6:
+        elif similarity > 0.85:
             color = (0, 165, 255)
-        elif similarity > 0.4:
+        elif similarity > 0.70:
             color = (0, 100, 255)
         else:
             color = (0, 0, 150)
@@ -296,11 +296,11 @@ class FaceNetEmbeddingExtractor:
         cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
         cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
         
-        if similarity > 0.8:
+        if similarity > 0.95:
             confidence = "High confidence"
-        elif similarity > 0.6:
+        elif similarity > 0.85:
             confidence = "Moderate confidence"
-        elif similarity > 0.4:
+        elif similarity > 0.70:
             confidence = "Low confidence"
         else:
             confidence = "Insufficient confidence"
@@ -508,197 +508,175 @@ class SimilarityComparator:
         similarity = dot_product / norm_product
         return float(similarity)
 
-    def compare_embeddings(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> List[Tuple[str, float]]:
+    def compare_embeddings(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> List[Dict]:
         results = []
         for ref_id, ref_embedding in zip(reference_ids, reference_embeddings):
             if ref_embedding is None:
                 continue
             similarity = self.cosine_similarity(query_embedding, ref_embedding)
-            if similarity > self.threshold:
-                results.append((ref_id, similarity))
-        results.sort(key=lambda x: x[1], reverse=True)
+            distance = self.euclidean_distance(query_embedding, ref_embedding)
+            confidence = self.get_confidence_band(similarity)
+            verdict = self.get_verdict(similarity)
+            distance_verdict = self.get_distance_verdict(distance)
+            results.append({
+                'id': ref_id,
+                'similarity': similarity,
+                'euclidean_distance': distance,
+                'confidence': confidence,
+                'verdict': verdict,
+                'distance_verdict': distance_verdict
+            })
+        results.sort(key=lambda x: x['similarity'], reverse=True)
         return results
 
-    def get_confidence_band(self, similarity: float) -> str:
-        if similarity > 0.8:
-            return "High confidence"
-        elif similarity > 0.6:
-            return "Moderate confidence"
-        elif similarity > 0.4:
-            return "Low confidence"
+    def get_confidence_band(self, similarity: float, threshold_high: float = 0.99, threshold_moderate: float = 0.95, threshold_low: float = 0.85) -> str:
+        if similarity >= threshold_high:
+            return "Very High"
+        elif similarity >= threshold_moderate:
+            return "High"
+        elif similarity >= threshold_low:
+            return "Moderate"
+        elif similarity >= 0.70:
+            return "Low"
         else:
-            return "Insufficient confidence"
+            return "Insufficient"
 
-    def visualize_embedding(self, embedding: np.ndarray) -> Tuple[np.ndarray, Dict]:
-        """
-        Visualize the embedding as a heatmap/bar chart.
-        
-        Args:
-            embedding: 128-dimensional face embedding
-            
-        Returns:
-            Tuple of (visualization_image, data_dict)
-        """
-        output = np.zeros((200, 400, 3), dtype=np.uint8)
-        output.fill(245)
-        
-        data = {}
-        
-        if embedding is None:
-            cv2.putText(output, "No embedding available", (20, 100),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
-            return output, data
-        
-        data['mean'] = float(np.mean(embedding))
-        data['std'] = float(np.std(embedding))
-        data['norm'] = float(np.linalg.norm(embedding))
-        data['min'] = float(np.min(embedding))
-        data['max'] = float(np.max(embedding))
-        
-        cv2.putText(output, "128-Dim Face Embedding", (20, 25),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
-        
-        cv2.putText(output, f"Mean: {data['mean']:.4f}  Std: {data['std']:.4f}", (20, 55),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
-        
-        bar_height = 12
-        bar_width = 280
-        start_x = 50
-        start_y = 80
-        
-        num_values = len(embedding)
-        step = max(1, num_values // 16)
-        
-        for i in range(0, num_values, step):
-            value = embedding[i]
-            normalized = (value - embedding.min()) / (embedding.max() - embedding.min() + 1e-8)
-            bar_len = int(normalized * bar_width)
-            
-            y = start_y + (i // step) * (bar_height + 2)
-            if y > 180:
-                break
-                
-            color_val = int(normalized * 255)
-            color = (255 - color_val, color_val, 100)
-            
-            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
-        
-        return output, data
+    def get_verdict(self, similarity: float, threshold_high: float = 0.99, threshold_moderate: float = 0.95) -> str:
+        if similarity >= threshold_high:
+            return "Likely same person"
+        elif similarity >= threshold_moderate:
+            return "Possibly same person"
+        elif similarity >= 0.70:
+            return "Uncertain - human review required"
+        else:
+            return "Likely different people"
 
-    def visualize_similarity_matrix(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> Tuple[np.ndarray, Dict]:
-        """
-        Visualize similarity scores between query and references as a matrix.
-        
-        Args:
-            query_embedding: The query embedding to compare
-            reference_embeddings: List of reference embeddings
-            reference_ids: List of reference identifiers
-            
-        Returns:
-            Tuple of (visualization_image, data_dict)
-        """
-        n = len(reference_embeddings)
-        if n == 0:
-            output = np.zeros((100, 200, 3), dtype=np.uint8)
-            output.fill(245)
-            cv2.putText(output, "No references", (30, 55),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 0, 0), 2)
-            return output, {}
-        
-        output_size = max(150, n * 50)
-        output = np.zeros((output_size, output_size, 3), dtype=np.uint8)
-        output.fill(245)
-        
-        data = {'similarities': [], 'best_match': None, 'best_score': 0}
-        
-        similarities = []
-        for i, (ref_emb, ref_id) in enumerate(zip(reference_embeddings, reference_ids)):
-            if ref_emb is None:
-                similarity = 0.0
-            else:
-                similarity = self.cosine_similarity(query_embedding, ref_emb)
-            similarities.append((ref_id, similarity))
-            
-            if similarity > data['best_score']:
-                data['best_score'] = similarity
-                data['best_match'] = ref_id
-        
-        data['similarities'] = similarities
-        
-        cv2.putText(output, "Similarity Matrix", (10, 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-        
-        bar_height = 30
-        bar_width = output_size - 120
-        start_x = 110
-        start_y = 50
-        
-        for i, (ref_id, similarity) in enumerate(similarities):
-            y = start_y + i * (bar_height + 5)
-            
-            cv2.putText(output, ref_id[:12], (10, y + 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
-            
-            bar_len = int(similarity * bar_width)
-            
-            if similarity > 0.8:
-                color = (0, 200, 0)
-            elif similarity > 0.6:
-                color = (0, 165, 255)
-            elif similarity > 0.4:
-                color = (0, 100, 255)
-            else:
-                color = (0, 0, 150)
-            
-            cv2.rectangle(output, (start_x, y), (start_x + bar_len, y + bar_height), color, -1)
-            cv2.rectangle(output, (start_x, y), (start_x + bar_width, y + bar_height), (200, 200, 200), 1)
-            
-            cv2.putText(output, f"{similarity:.2f}", (start_x + bar_width + 10, y + 20),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
-        
-        return output, data
+    def euclidean_distance(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
+        distance = np.linalg.norm(embedding1 - embedding2)
+        return float(distance)
 
-    def visualize_similarity_result(self, query_embedding: np.ndarray, reference_embedding: np.ndarray = None, similarity: float = 0.75) -> np.ndarray:
+    def get_distance_verdict(self, distance: float, threshold_low: float = 0.15, threshold_moderate: float = 0.35) -> str:
+        if distance <= threshold_low:
+            return "MATCH (same person likely)"
+        elif distance <= threshold_moderate:
+            return "POSSIBLE (human review recommended)"
+        else:
+            return "NO MATCH (different people)"
+    
+    def cosine_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
+        dot_product = np.dot(embedding1, embedding2)
+        norm_product = np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
+        if norm_product == 0:
+            return 0.0
+        similarity = dot_product / norm_product
+        return float(similarity)
+
+    def compare_embeddings(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> List[Dict]:
+        results = []
+        for ref_id, ref_embedding in zip(reference_ids, reference_embeddings):
+            if ref_embedding is None:
+                continue
+            similarity = self.cosine_similarity(query_embedding, ref_embedding)
+            distance = self.euclidean_distance(query_embedding, ref_embedding)
+            confidence = self.get_confidence_band(similarity)
+            verdict = self.get_verdict(similarity)
+            distance_verdict = self.get_distance_verdict(distance)
+            results.append({
+                'id': ref_id,
+                'similarity': similarity,
+                'euclidean_distance': distance,
+                'confidence': confidence,
+                'verdict': verdict,
+                'distance_verdict': distance_verdict
+            })
+        results.sort(key=lambda x: x['similarity'], reverse=True)
+        return results
+
+    def visualize_comparison_metrics(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], 
+                                      reference_ids: List[str], similarities: List[float],
+                                      distances: List[float]) -> Tuple[np.ndarray, Dict]:
         """
-        Visualize a single similarity result.
+        Visualize both cosine similarity and euclidean distance for all comparisons.
         
         Args:
             query_embedding: The query embedding
-            reference_embedding: The reference embedding (optional)
-            similarity: Similarity score
+            reference_embeddings: List of reference embeddings
+            reference_ids: List of reference IDs
+            similarities: List of cosine similarity scores
+            distances: List of euclidean distances
             
         Returns:
-            Visualization image
+            Tuple of (visualization_image, data_dict)
         """
-        output = np.zeros((100, 300, 3), dtype=np.uint8)
+        n = len(reference_ids)
+        height = max(150, n * 50 + 80)
+        output = np.zeros((height, 500, 3), dtype=np.uint8)
         output.fill(245)
         
-        cv2.putText(output, "Similarity Result", (20, 25),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        cv2.putText(output, "Comparison Metrics", (20, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
         
-        bar_width = 200
-        bar_height = 25
-        start_x = 50
-        start_y = 50
+        cv2.putText(output, "Cosine Similarity", (20, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 100, 0), 1)
+        cv2.putText(output, "Euclidean Distance", (250, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 100, 0), 1)
         
-        if similarity > 0.8:
-            color = (0, 200, 0)
-        elif similarity > 0.6:
-            color = (0, 165, 255)
-        elif similarity > 0.4:
-            color = (0, 100, 255)
-        else:
-            color = (0, 0, 150)
+        data = {'comparisons': []}
         
-        bar_len = int(similarity * bar_width)
-        cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
-        cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
+        bar_width_sim = 150
+        bar_width_dist = 100
+        bar_height = 20
+        start_x_sim = 20
+        start_x_dist = 250
+        start_y = 70
         
-        confidence = self.get_confidence_band(similarity)
-        cv2.putText(output, f"{similarity:.2f} - {confidence}", (start_x, start_y + 50),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (60, 60, 60), 1)
+        for i, (ref_id, sim, dist) in enumerate(zip(reference_ids, similarities, distances)):
+            y = start_y + i * 45
+            
+            cv2.putText(output, ref_id[:15], (20, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+            
+            sim_bar_len = int(sim * bar_width_sim)
+            if sim >= 0.95:
+                sim_color = (0, 180, 0)
+            elif sim >= 0.85:
+                sim_color = (0, 200, 100)
+            elif sim >= 0.70:
+                sim_color = (0, 165, 255)
+            else:
+                sim_color = (0, 50, 200)
+            
+            cv2.rectangle(output, (start_x_sim, y), (start_x_sim + sim_bar_len, y + bar_height), sim_color, -1)
+            cv2.rectangle(output, (start_x_sim, y), (start_x_sim + bar_width_sim, y + bar_height), (200, 200, 200), 1)
+            cv2.putText(output, f"{sim:.3f}", (start_x_sim + bar_width_sim + 5, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 0), 1)
+            
+            dist_normalized = min(dist * bar_width_dist, bar_width_dist)
+            if dist <= 0.35:
+                dist_color = (0, 180, 0)
+            elif dist <= 0.60:
+                dist_color = (0, 165, 255)
+            else:
+                dist_color = (0, 50, 200)
+            
+            cv2.rectangle(output, (start_x_dist, y), (start_x_dist + int(dist_normalized), y + bar_height), dist_color, -1)
+            cv2.rectangle(output, (start_x_dist, y), (start_x_dist + bar_width_dist, y + bar_height), (200, 200, 200), 1)
+            cv2.putText(output, f"{dist:.3f}", (start_x_dist + bar_width_dist + 5, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 0, 0), 1)
+            
+            confidence = self.get_confidence_band(sim)
+            data['comparisons'].append({
+                'id': ref_id,
+                'similarity': float(sim),
+                'euclidean_distance': float(dist),
+                'confidence': confidence,
+                'verdict': self.get_verdict(sim),
+                'distance_verdict': self.get_distance_verdict(dist)
+            })
         
-        return output
+        cv2.line(output, (230, 60), (230, height - 10), (200, 200, 200), 1)
+        
+        return output, data
 
 
 if __name__ == "__main__":
