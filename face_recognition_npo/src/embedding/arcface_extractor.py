@@ -123,7 +123,7 @@ class ArcFaceEmbeddingExtractor:
     def get_confidence_band(self, similarity: float, 
                            threshold_high: float = 0.70,
                            threshold_moderate: float = 0.45,
-                           threshold_low: float = 0.30) -> str:
+                           threshold_low: float = 0.20) -> str:
         """ArcFace uses lower thresholds since embeddings are more discriminative.
         
         Expected scores:
@@ -136,7 +136,7 @@ class ArcFaceEmbeddingExtractor:
             return "High"
         elif similarity >= threshold_low:
             return "Moderate"
-        elif similarity >= 0.20:
+        elif similarity >= 0.15:
             return "Low"
         else:
             return "Insufficient"
