@@ -1,13 +1,9 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const http = require('http');
-const { spawn } = require('child_process');
 
 let mainWindow;
-let pythonProcess;
 const API_PORT = 3000;
-
-const PYTHON_PATH = path.join(__dirname, '../venv/bin/python');
 
 function isPortInUse(port) {
     return new Promise((resolve) => {
@@ -25,38 +21,16 @@ function isPortInUse(port) {
     });
 }
 
-async function startPythonServer() {
+async function checkApiServer() {
     const portInUse = await isPortInUse(API_PORT);
     if (portInUse) {
-        console.log(`Python: Using existing server on port ${API_PORT}`);
-        return Promise.resolve();
+        console.log(`Electron: Connected to existing API server on port ${API_PORT}`);
+        return true;
+    } else {
+        console.error(`Electron Error: API server not found on port ${API_PORT}`);
+        console.error('Please start the API server first: python api_server.py');
+        return false;
     }
-    
-    console.log(`Python: Starting new server on port ${API_PORT}`);
-    return new Promise((resolve, reject) => {
-        pythonProcess = spawn(PYTHON_PATH, ['api_server.py'], {
-            cwd: path.join(__dirname, '..'),
-            stdio: ['pipe', 'pipe', 'pipe']
-        });
-
-        pythonProcess.stdout.on('data', (data) => {
-            console.log(`Python: ${data}`);
-            if (data.toString().includes('Starting Face Recognition API Server')) {
-                resolve();
-            }
-        });
-
-        pythonProcess.stderr.on('data', (data) => {
-            console.error(`Python Error: ${data}`);
-        });
-
-        pythonProcess.on('error', (err) => {
-            console.error('Failed to start Python server:', err);
-            reject(err);
-        });
-
-        setTimeout(() => resolve(), 2000);
-    });
 }
 
 function createWindow() {
@@ -153,19 +127,16 @@ function showAbout() {
 }
 
 app.whenReady().then(async () => {
-    try {
-        await startPythonServer();
+    const serverRunning = await checkApiServer();
+    if (serverRunning) {
         createWindow();
-    } catch (err) {
-        console.error('Failed to start:', err);
+    } else {
+        // Still create window but it will show connection error
         createWindow();
     }
 });
 
 app.on('window-all-closed', () => {
-    if (pythonProcess) {
-        pythonProcess.kill();
-    }
     if (process.platform !== 'darwin') {
         app.quit();
     }

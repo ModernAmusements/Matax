@@ -1,7 +1,7 @@
 # NGO Facial Image Analysis System
 
 **Version**: 0.1.0
-**Last Updated**: February 11, 2026
+**Last Updated**: February 12, 2026
 **Status**: ✅ Fully Functional
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
@@ -10,26 +10,55 @@ A Python-based facial image analysis system with Electron desktop UI for ethical
 
 ## Quick Start
 
-### Option 1: Interactive Menu (Recommended)
+### Method 1: Interactive Menu (Recommended) ✅
 ```bash
 cd face_recognition_npo
 ./start.sh
 ```
 
-### Option 2: Electron Desktop App
-```bash
-cd face_recognition_npo/electron-ui
-npm install
-npm start
-```
+This starts the Flask API server and lets you choose how to open:
+- [1] Electron Desktop App
+- [2] Browser
+- [3] Both
 
-### Option 3: Flask API Server
+### Method 2: Manual Startup
+
+**Terminal 1: Start Flask API**
 ```bash
 cd face_recognition_npo
 source venv/bin/activate
 python api_server.py
-# Open http://localhost:3000 in browser
 ```
+
+**Terminal 2: Start Electron**
+```bash
+cd face_recognition_npo/electron-ui
+npm start
+```
+
+> **Note**: Electron will connect to the existing Flask server on port 3000.
+
+### Method 3: Browser Only
+```bash
+cd face_recognition_npo
+source venv/bin/activate
+python api_server.py
+# Open http://localhost:3000 in your browser
+```
+
+---
+
+## Architecture
+
+```
+start.sh ──► Flask API (port 3000)
+                 │
+                 ├── Browser ──► http://localhost:3000
+                 │
+                 └── Electron ──► Connects to Flask (no Python spawn)
+```
+
+**Best Practice**: Flask runs once, Electron connects to it.
 
 ---
 
