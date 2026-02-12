@@ -40,10 +40,29 @@ async function checkAPI() {
         if (data.status === 'ok') {
             logToTerminal('> API connected', 'success');
             loadReferences();
+            checkEmbeddingInfo();
         }
     } catch (err) {
         logToTerminal('> Cannot connect to API server', 'error');
         showToast('Cannot connect to API server. Make sure api_server.py is running.', 'error');
+    }
+}
+
+async function checkEmbeddingInfo() {
+    try {
+        const response = await fetch(`${API_BASE}/embedding-info`);
+        const data = await response.json();
+        if (data.model) {
+            const modelName = data.model.replace('EmbeddingExtractor', '');
+            const dimInfo = `(${data.dimension}-dim)`;
+            if (data.use_arcface) {
+                logToTerminal(`> Model: ArcFace ${dimInfo}`, 'success');
+            } else {
+                logToTerminal(`> Model: FaceNet ${dimInfo}`, 'info');
+            }
+        }
+    } catch (err) {
+        logToTerminal('> Could not fetch model info', 'warning');
     }
 }
 
