@@ -563,34 +563,6 @@ class SimilarityComparator:
         else:
             return "NO MATCH (different people)"
     
-    def cosine_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
-        dot_product = np.dot(embedding1, embedding2)
-        norm_product = np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
-        if norm_product == 0:
-            return 0.0
-        similarity = dot_product / norm_product
-        return float(similarity)
-
-    def compare_embeddings(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], reference_ids: List[str]) -> List[Dict]:
-        results = []
-        for ref_id, ref_embedding in zip(reference_ids, reference_embeddings):
-            if ref_embedding is None:
-                continue
-            similarity = self.cosine_similarity(query_embedding, ref_embedding)
-            distance = self.euclidean_distance(query_embedding, ref_embedding)
-            confidence = self.get_confidence_band(similarity)
-            verdict = self.get_verdict(similarity)
-            distance_verdict = self.get_distance_verdict(distance)
-            results.append({
-                'id': ref_id,
-                'similarity': similarity,
-                'euclidean_distance': distance,
-                'confidence': confidence,
-                'verdict': verdict,
-                'distance_verdict': distance_verdict
-            })
-        results.sort(key=lambda x: x['similarity'], reverse=True)
-        return results
 
     def visualize_comparison_metrics(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], 
                                       reference_ids: List[str], similarities: List[float],
