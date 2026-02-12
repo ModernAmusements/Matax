@@ -1,25 +1,31 @@
 import numpy as np
 import cv2
 from typing import Optional, Dict, Tuple, List
-import insightface
-from insightface.model_zoo import get_model
+from insightface.app import FaceAnalysis
 
 
 class ArcFaceEmbeddingExtractor:
-    """ArcFace-based embedding extractor using InsightFace.
+    """ArcFace-based embedding extractor using InsightFace FaceAnalysis app.
     
     Model options:
-        - 'buffalo_l': ResNet100, 512-dim, most accurate
+        - 'buffalo_l': ResNet100, 512-dim, most accurate (default)
         - 'buffalo_m': ResNet50, 512-dim, faster
+    
+    Uses FaceAnalysis app which provides:
+        - Face detection
+        - Face recognition (512-dim embedding)
+        - Face alignment
+        - Gender/Age estimation
     """
     
     MODEL_NAME = 'buffalo_l'
     
     def __init__(self, model_name: str = MODEL_NAME):
         self.model_name = model_name
-        self.model = get_model(model_name)
+        self.app = FaceAnalysis(name=model_name)
+        self.app.prepare(ctx_id=0, det_size=(640, 640))
         self.embedding_dim = 512
-        self.device = 'cpu'
+        self.detector = None  # Uses built-in detection
         
     def extract_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
         """Extract 512-dim embedding from face image.
@@ -31,8 +37,11 @@ class ArcFaceEmbeddingExtractor:
             512-dim embedding vector or None on error
         """
         try:
-            embedding = self.model.get_embedding(face_image)
-            return embedding.flatten()
+            faces = self.app.get(face_image)
+            if len(faces) > 0:
+                embedding = faces[0]['embedding']
+                return embedding.flatten()
+            return None
         except Exception as e:
             print(f"ArcFace extraction error: {e}")
             return None
@@ -41,18 +50,27 @@ class ArcFaceEmbeddingExtractor:
         """Extract embeddings from multiple face images."""
         return [self.extract_embedding(img) for img in face_images]
         
-    def preprocess(self, face_image: np.ndarray) -> np.ndarray:
-        """Preprocess for ArcFace (112x112 RGB).
+    def detect_faces(self, image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+        """Detect faces in image using InsightFace detector.
         
         Args:
-            face_image: Face crop in BGR format
+            image: Full image in BGR format
             
         Returns:
-            Preprocessed image in RGB format
+            List of (x, y, w, h) bounding boxes
         """
-        face = cv2.resize(face_image, (112, 112))
-        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
-        return face
+        try:
+            faces = self.app.get(image)
+            bboxes = []
+            for face in faces:
+                bbox = face['bbox']  # [x1, y1, x2, y2]
+                x, y, x2, y2 = int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])
+                w, h = x2 - x, y2 - y
+                bboxes.append((x, y, w, h))
+            return bboxes
+        except Exception as e:
+            print(f"Face detection error: {e}")
+            return []
         
     def cosine_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """Calculate cosine similarity between two embeddings."""
@@ -91,30 +109,38 @@ class ArcFaceEmbeddingExtractor:
         return results
         
     def get_confidence_band(self, similarity: float, 
-                           threshold_high: float = 0.7,
-                           threshold_moderate: float = 0.5,
-                           threshold_low: float = 0.35) -> str:
-        """ArcFace uses lower thresholds since embeddings are more discriminative."""
+                           threshold_high: float = 0.70,
+                           threshold_moderate: float = 0.45,
+                           threshold_low: float = 0.30) -> str:
+        """ArcFace uses lower thresholds since embeddings are more discriminative.
+        
+        Expected scores:
+        - Same person: ~70-80%
+        - Different people: ~20-30%
+        """
         if similarity >= threshold_high:
             return "Very High"
         elif similarity >= threshold_moderate:
             return "High"
         elif similarity >= threshold_low:
             return "Moderate"
-        elif similarity >= 0.25:
+        elif similarity >= 0.20:
             return "Low"
         else:
             return "Insufficient"
             
     def get_verdict(self, similarity: float,
-                   threshold_high: float = 0.7,
-                   threshold_moderate: float = 0.5) -> str:
-        """Return human-readable verdict."""
+                   threshold_high: float = 0.70,
+                   threshold_moderate: float = 0.45) -> str:
+        """Return human-readable verdict.
+        
+        ArcFace is more discriminative, so lower thresholds are appropriate.
+        """
         if similarity >= threshold_high:
             return "Likely same person"
         elif similarity >= threshold_moderate:
             return "Possibly same person"
-        elif similarity >= 0.25:
+        elif similarity >= 0.20:
             return "Uncertain - human review required"
         else:
             return "Likely different people"
@@ -205,11 +231,11 @@ class ArcFaceEmbeddingExtractor:
             
             bar_len = int(similarity * bar_width)
             
-            if similarity > 0.6:
+            if similarity > 0.70:
                 color = (0, 200, 0)
-            elif similarity > 0.5:
+            elif similarity > 0.45:
                 color = (0, 165, 255)
-            elif similarity > 0.4:
+            elif similarity > 0.30:
                 color = (0, 100, 255)
             else:
                 color = (0, 0, 150)
@@ -237,11 +263,11 @@ class ArcFaceEmbeddingExtractor:
         start_x = 50
         start_y = 50
         
-        if similarity > 0.6:
+        if similarity > 0.70:
             color = (0, 200, 0)
-        elif similarity > 0.5:
+        elif similarity > 0.45:
             color = (0, 165, 255)
-        elif similarity > 0.4:
+        elif similarity > 0.30:
             color = (0, 100, 255)
         else:
             color = (0, 0, 150)
@@ -250,11 +276,11 @@ class ArcFaceEmbeddingExtractor:
         cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
         cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
         
-        if similarity > 0.6:
+        if similarity > 0.70:
             confidence = "High confidence"
-        elif similarity > 0.5:
+        elif similarity > 0.45:
             confidence = "Moderate confidence"
-        elif similarity > 0.4:
+        elif similarity > 0.30:
             confidence = "Low confidence"
         else:
             confidence = "Insufficient confidence"
