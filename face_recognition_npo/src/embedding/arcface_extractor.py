@@ -31,21 +31,29 @@ class ArcFaceEmbeddingExtractor:
         """Extract 512-dim embedding from face image.
         
         Args:
-            face_image: Full image in BGR format (detection included)
-                    or pre-cropped face (112x112 BGR)
+            face_image: Face crop in BGR format (any size)
+                        The API passes cropped face ROIs
             
         Returns:
             512-dim embedding vector or None on error
         """
         try:
-            # ArcFace FaceAnalysis app handles both detection and embedding
-            # If image is large, it will detect and extract
-            # If image is small (face crop), it will extract directly
-            faces = self.app.get(face_image)
-            if len(faces) > 0:
-                embedding = faces[0]['embedding']
-                return embedding.flatten()
-            return None
+            h, w = face_image.shape[:2]
+            
+            # Always use recognition model forward pass for pre-cropped faces
+            # This avoids re-detection which may fail on cropped images
+            
+            # Resize to 112x112 (ArcFace input size)
+            face_resized = cv2.resize(face_image, (112, 112))
+            face_rgb = cv2.cvtColor(face_resized, cv2.COLOR_BGR2RGB)
+            face_input = np.transpose(face_rgb, (2, 0, 1))  # HWC to CHW
+            face_input = np.expand_dims(face_input, axis=0).astype(np.float32)
+            
+            # Use recognition model forward pass
+            rec_model = self.app.models['recognition']
+            embedding = rec_model.forward(face_input)
+            return embedding.flatten()
+            
         except Exception as e:
             print(f"ArcFace extraction error: {e}")
             return None
