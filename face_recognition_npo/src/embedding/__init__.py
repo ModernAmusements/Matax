@@ -651,7 +651,32 @@ class SimilarityComparator:
         return output, data
 
 
+# ArcFace Integration
+try:
+    from .arcface_extractor import ArcFaceEmbeddingExtractor
+    ARCFACE_AVAILABLE = True
+except ImportError:
+    ARCFACE_AVAILABLE = False
+    print("Warning: ArcFace unavailable, using FaceNetEmbeddingExtractor")
+
+
+def get_embedding_extractor(use_arcface: bool = False) -> 'FaceNetEmbeddingExtractor':
+    """Get embedding extractor instance.
+    
+    Args:
+        use_arcface: If True, try to return ArcFace extractor
+        
+    Returns:
+        Embedding extractor instance
+    """
+    if use_arcface and ARCFACE_AVAILABLE:
+        return ArcFaceEmbeddingExtractor()
+    return FaceNetEmbeddingExtractor()
+
+
 if __name__ == "__main__":
     extractor = FaceNetEmbeddingExtractor()
     comparator = SimilarityComparator()
     print("Embedding modules loaded successfully")
+    if ARCFACE_AVAILABLE:
+        print("ArcFace available: use get_embedding_extractor(use_arcface=True)")

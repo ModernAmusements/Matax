@@ -1,0 +1,272 @@
+import numpy as np
+import cv2
+from typing import Optional, Dict, Tuple, List
+import insightface
+from insightface.model_zoo import get_model
+
+
+class ArcFaceEmbeddingExtractor:
+    """ArcFace-based embedding extractor using InsightFace.
+    
+    Model options:
+        - 'buffalo_l': ResNet100, 512-dim, most accurate
+        - 'buffalo_m': ResNet50, 512-dim, faster
+    """
+    
+    MODEL_NAME = 'buffalo_l'
+    
+    def __init__(self, model_name: str = MODEL_NAME):
+        self.model_name = model_name
+        self.model = get_model(model_name)
+        self.embedding_dim = 512
+        self.device = 'cpu'
+        
+    def extract_embedding(self, face_image: np.ndarray) -> Optional[np.ndarray]:
+        """Extract 512-dim embedding from face image.
+        
+        Args:
+            face_image: Face crop in BGR format
+            
+        Returns:
+            512-dim embedding vector or None on error
+        """
+        try:
+            embedding = self.model.get_embedding(face_image)
+            return embedding.flatten()
+        except Exception as e:
+            print(f"ArcFace extraction error: {e}")
+            return None
+            
+    def extract_embeddings(self, face_images: List[np.ndarray]) -> List[Optional[np.ndarray]]:
+        """Extract embeddings from multiple face images."""
+        return [self.extract_embedding(img) for img in face_images]
+        
+    def preprocess(self, face_image: np.ndarray) -> np.ndarray:
+        """Preprocess for ArcFace (112x112 RGB).
+        
+        Args:
+            face_image: Face crop in BGR format
+            
+        Returns:
+            Preprocessed image in RGB format
+        """
+        face = cv2.resize(face_image, (112, 112))
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        return face
+        
+    def cosine_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
+        """Calculate cosine similarity between two embeddings."""
+        dot_product = np.dot(embedding1, embedding2)
+        norm_product = np.linalg.norm(embedding1) * np.linalg.norm(embedding2)
+        if norm_product == 0:
+            return 0.0
+        return float(dot_product / norm_product)
+        
+    def euclidean_distance(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
+        """Calculate Euclidean distance between two embeddings."""
+        return float(np.linalg.norm(embedding1 - embedding2))
+        
+    def compare_embeddings(self, query_embedding: np.ndarray, 
+                          reference_embeddings: List[np.ndarray], 
+                          reference_ids: List[str]) -> List[Dict]:
+        """Compare query embedding against references."""
+        results = []
+        for ref_id, ref_embedding in zip(reference_ids, reference_embeddings):
+            if ref_embedding is None:
+                continue
+            similarity = self.cosine_similarity(query_embedding, ref_embedding)
+            distance = self.euclidean_distance(query_embedding, ref_embedding)
+            confidence = self.get_confidence_band(similarity)
+            verdict = self.get_verdict(similarity)
+            distance_verdict = self.get_distance_verdict(distance)
+            results.append({
+                'id': ref_id,
+                'similarity': similarity,
+                'euclidean_distance': distance,
+                'confidence': confidence,
+                'verdict': verdict,
+                'distance_verdict': distance_verdict
+            })
+        results.sort(key=lambda x: x['similarity'], reverse=True)
+        return results
+        
+    def get_confidence_band(self, similarity: float, 
+                           threshold_high: float = 0.7,
+                           threshold_moderate: float = 0.5,
+                           threshold_low: float = 0.35) -> str:
+        """ArcFace uses lower thresholds since embeddings are more discriminative."""
+        if similarity >= threshold_high:
+            return "Very High"
+        elif similarity >= threshold_moderate:
+            return "High"
+        elif similarity >= threshold_low:
+            return "Moderate"
+        elif similarity >= 0.25:
+            return "Low"
+        else:
+            return "Insufficient"
+            
+    def get_verdict(self, similarity: float,
+                   threshold_high: float = 0.7,
+                   threshold_moderate: float = 0.5) -> str:
+        """Return human-readable verdict."""
+        if similarity >= threshold_high:
+            return "Likely same person"
+        elif similarity >= threshold_moderate:
+            return "Possibly same person"
+        elif similarity >= 0.25:
+            return "Uncertain - human review required"
+        else:
+            return "Likely different people"
+            
+    def get_distance_verdict(self, distance: float,
+                            threshold_low: float = 0.8,
+                            threshold_moderate: float = 1.2) -> str:
+        """Return verdict based on Euclidean distance."""
+        if distance <= threshold_low:
+            return "MATCH (same person likely)"
+        elif distance <= threshold_moderate:
+            return "POSSIBLE (human review recommended)"
+        else:
+            return "NO MATCH (different people)"
+            
+    def visualize_embedding(self, embedding: np.ndarray) -> Tuple[np.ndarray, Dict]:
+        """Visualize 512-dim embedding as heatmap.
+        
+        Args:
+            embedding: 512-dim embedding vector
+            
+        Returns:
+            Tuple of (visualization_image, data_dict)
+        """
+        dim = len(embedding)
+        
+        output = np.zeros((200, 600, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, f"ArcFace {dim}-Dim Embedding", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
+        
+        cv2.putText(output, f"Mean: {np.mean(embedding):.4f}  Std: {np.std(embedding):.4f}", (20, 55),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (80, 80, 80), 1)
+        
+        if dim == 512:
+            embedding_2d = embedding.reshape((16, 32))
+            embedding_norm = (embedding_2d - embedding_2d.min()) / (embedding_2d.max() - embedding_2d.min() + 1e-8)
+            viz = (embedding_norm * 255).astype(np.uint8)
+            viz_color = cv2.applyColorMap(viz, cv2.COLORMAP_VIRIDIS)
+            viz_resized = cv2.resize(viz_color, (560, 120))
+            output[60:180, 20:580] = viz_resized
+            
+        data = {
+            'mean': float(np.mean(embedding)),
+            'std': float(np.std(embedding)),
+            'norm': float(np.linalg.norm(embedding)),
+            'min': float(np.min(embedding)),
+            'max': float(np.max(embedding)),
+            'dim': dim
+        }
+        
+        return output, data
+        
+    def visualize_similarity_matrix(self, query_embedding: np.ndarray,
+                                   reference_embeddings: List[np.ndarray],
+                                   reference_ids: List[str]) -> Tuple[np.ndarray, Dict]:
+        """Visualize similarity scores as a matrix."""
+        n = len(reference_ids)
+        height = max(150, n * 50 + 80)
+        output = np.zeros((height, 500, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Similarity Comparison", (20, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
+        
+        bar_width = 280
+        bar_height = 20
+        
+        data = {'comparisons': [], 'best_score': 0.0}
+        
+        for i, (ref_id, ref_emb) in enumerate(zip(reference_ids, reference_embeddings)):
+            if ref_emb is None:
+                continue
+            similarity = self.cosine_similarity(query_embedding, ref_emb)
+            data['comparisons'].append({'id': ref_id, 'similarity': similarity})
+            if similarity > data['best_score']:
+                data['best_score'] = similarity
+                
+        for i, (ref_id, ref_emb) in enumerate(zip(reference_ids, reference_embeddings)):
+            if ref_emb is None:
+                continue
+            similarity = self.cosine_similarity(query_embedding, ref_emb)
+            y = 60 + i * 45
+            
+            cv2.putText(output, ref_id[:18], (10, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (60, 60, 60), 1)
+            
+            bar_len = int(similarity * bar_width)
+            
+            if similarity > 0.6:
+                color = (0, 200, 0)
+            elif similarity > 0.5:
+                color = (0, 165, 255)
+            elif similarity > 0.4:
+                color = (0, 100, 255)
+            else:
+                color = (0, 0, 150)
+                
+            cv2.rectangle(output, (100, y), (100 + bar_len, y + bar_height), color, -1)
+            cv2.rectangle(output, (100, y), (100 + bar_width, y + bar_height), (200, 200, 200), 1)
+            
+            cv2.putText(output, f"{similarity:.2f}", (390, y + 15),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+            
+        return output, data
+        
+    def visualize_similarity_result(self, query_embedding: np.ndarray,
+                                   reference_embedding: np.ndarray = None,
+                                   similarity: float = 0.75) -> np.ndarray:
+        """Visualize a single similarity result."""
+        output = np.zeros((100, 300, 3), dtype=np.uint8)
+        output.fill(245)
+        
+        cv2.putText(output, "Similarity Result", (20, 25),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+        
+        bar_width = 200
+        bar_height = 25
+        start_x = 50
+        start_y = 50
+        
+        if similarity > 0.6:
+            color = (0, 200, 0)
+        elif similarity > 0.5:
+            color = (0, 165, 255)
+        elif similarity > 0.4:
+            color = (0, 100, 255)
+        else:
+            color = (0, 0, 150)
+            
+        bar_len = int(similarity * bar_width)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_len, start_y + bar_height), color, -1)
+        cv2.rectangle(output, (start_x, start_y), (start_x + bar_width, start_y + bar_height), (200, 200, 200), 1)
+        
+        if similarity > 0.6:
+            confidence = "High confidence"
+        elif similarity > 0.5:
+            confidence = "Moderate confidence"
+        elif similarity > 0.4:
+            confidence = "Low confidence"
+        else:
+            confidence = "Insufficient confidence"
+            
+        cv2.putText(output, f"{similarity:.2f} - {confidence}", (start_x, start_y + 50),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (60, 60, 60), 1)
+        
+        return output
+
+
+if __name__ == "__main__":
+    extractor = ArcFaceEmbeddingExtractor()
+    print(f"ArcFace model loaded: {extractor.model_name}")
+    print(f"Embedding dimension: {extractor.embedding_dim}")
+    print("ArcFace extractor module loaded successfully")

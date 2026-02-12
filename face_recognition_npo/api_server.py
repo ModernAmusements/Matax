@@ -20,13 +20,31 @@ from PIL import Image
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)) + '/..')
 
 from src.detection import FaceDetector
-from src.embedding import FaceNetEmbeddingExtractor, SimilarityComparator
+from src.embedding import (
+    FaceNetEmbeddingExtractor, 
+    SimilarityComparator,
+    get_embedding_extractor,
+    ARCFACE_AVAILABLE
+)
 
 app = Flask(__name__, static_folder='./electron-ui')
 CORS(app)
 
+USE_ARCFACE = os.environ.get('USE_ARCFACE', 'false').lower() == 'true'
+
 detector = FaceDetector()
-extractor = FaceNetEmbeddingExtractor()
+
+if USE_ARCFACE and ARCFACE_AVAILABLE:
+    from src.embedding import ArcFaceEmbeddingExtractor
+    extractor = ArcFaceEmbeddingExtractor()
+    print("=" * 60)
+    print("USING ARCFACE EXTRACTOR (512-dim)")
+    print("=" * 60)
+else:
+    extractor = FaceNetEmbeddingExtractor()
+    if USE_ARCFACE:
+        print("WARNING: ArcFace requested but unavailable, using FaceNet")
+
 comparator = SimilarityComparator(threshold=0.5)
 
 current_image = None
@@ -127,6 +145,18 @@ def serve_renderer(path):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'ok', 'message': 'Face Recognition API running'})
+
+
+@app.route('/api/embedding-info', methods=['GET'])
+def embedding_info():
+    """Get information about the current embedding extractor."""
+    dim = getattr(extractor, 'embedding_dim', 128)
+    model_type = type(extractor).__name__
+    return jsonify({
+        'model': model_type,
+        'dimension': dim,
+        'use_arcface': USE_ARCFACE
+    })
 
 
 @app.route('/api/detect', methods=['POST'])
