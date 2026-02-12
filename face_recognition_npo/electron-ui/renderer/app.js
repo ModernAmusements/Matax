@@ -293,6 +293,22 @@ async function detectFaces() {
             document.getElementById('detectStatus').className = 'status status-success';
             document.getElementById('extractBtn').disabled = false;
 
+            // Check for eyewear (sunglasses/glasses)
+            try {
+                const eyewearResponse = await fetch(`${API_BASE}/eyewear`);
+                const eyewearData = await eyewearResponse.json();
+                if (eyewearData.success && eyewearData.eyewear && eyewearData.eyewear.has_eyewear) {
+                    const ew = eyewearData.eyewear;
+                    const warningMsg = `⚠️ ${ew.type.toUpperCase()} detected (${Math.round(ew.confidence * 100)}% confidence) - may affect accuracy`;
+                    logToTerminal('> ' + warningMsg, 'warning');
+                    document.getElementById('detectStatus').textContent = `Found ${data.count} face(s) - ${ew.type} detected!`;
+                    document.getElementById('detectStatus').className = 'status status-warning';
+                    showToast(warningMsg, 'warning');
+                }
+            } catch (ewErr) {
+                console.log('[EYEWEAR] Check failed:', ewErr.message);
+            }
+
             const gallery = document.getElementById('facesGallery');
             gallery.innerHTML = '';
             currentFaceThumbnails = data.faces;

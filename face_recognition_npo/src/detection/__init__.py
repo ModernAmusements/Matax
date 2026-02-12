@@ -129,6 +129,212 @@ class FaceDetector:
         eyes = self.eye_cascade.detectMultiScale(gray, 1.1, 5)
         return [(x, y, w, h) for (x, y, w, h) in eyes]
 
+    def detect_eyewear(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Dict[str, any]:
+        """
+        Detect sunglasses or glasses that may interfere with face recognition.
+        
+        Returns dict with:
+            - has_eyewear: bool - True if eyewear detected
+            - eyewear_type: str - 'sunglasses', 'glasses', 'none', or 'unknown'
+            - confidence: float - Detection confidence (0-1)
+            - occlusion_level: float - How much the eyes are occluded (0-1)
+            - warnings: list - List of warning messages
+        """
+        x, y, w, h = face_box
+        face_h, face_w = face_image.shape[:2]
+        
+        left_eye_pos = (int(face_w * 0.30), int(face_h * 0.35))
+        right_eye_pos = (int(face_w * 0.70), int(face_h * 0.35))
+        
+        eye_region_h = int(h * 0.25)
+        eye_region_w = int(w * 0.40)
+        
+        left_eye_region = face_image[
+            left_eye_pos[1] - eye_region_h//2:left_eye_pos[1] + eye_region_h//2,
+            left_eye_pos[0] - eye_region_w//2:left_eye_pos[0] + eye_region_w//2
+        ]
+        
+        right_eye_region = face_image[
+            right_eye_pos[1] - eye_region_h//2:right_eye_pos[1] + eye_region_h//2,
+            right_eye_pos[0] - eye_region_w//2:right_eye_pos[0] + eye_region_w//2
+        ]
+        
+        warnings = []
+        eyewear_detected = False
+        eyewear_type = 'none'
+        confidence = 0.0
+        occlusion_level = 0.0
+        
+        eyes_detected = self.detect_eyes(face_image)
+        eye_count = len(eyes_detected)
+        
+        if eye_count == 0:
+            warnings.append("No eyes detected - possible sunglasses")
+            occlusion_level = 0.9
+            eyewear_detected = True
+            eyewear_type = 'sunglasses'
+            confidence = 0.85
+        elif eye_count == 1:
+            warnings.append("Only one eye detected - possible partial occlusion")
+            occlusion_level = 0.5
+            eyewear_detected = True
+            eyewear_type = 'glasses'
+            confidence = 0.6
+        
+        if left_eye_region.size > 0 and right_eye_region.size > 0:
+            left_gray = cv2.cvtColor(left_eye_region, cv2.COLOR_BGR2GRAY)
+            right_gray = cv2.cvtColor(right_eye_region, cv2.COLOR_BGR2GRAY)
+            
+            left_brightness = np.mean(left_gray)
+            right_brightness = np.mean(right_gray)
+            avg_eye_brightness = (left_brightness + right_brightness) / 2
+            
+            face_gray = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
+            face_brightness = np.mean(face_gray)
+            
+            brightness_ratio = avg_eye_brightness / (face_brightness + 1)
+            
+            if brightness_ratio < 0.4:
+                warnings.append(f"Eye region very dark (ratio: {brightness_ratio:.2f}) - likely sunglasses")
+                if not eyewear_detected or confidence < 0.8:
+                    eyewear_detected = True
+                    eyewear_type = 'sunglasses'
+                    confidence = max(confidence, 0.85)
+                occlusion_level = max(occlusion_level, 0.85)
+            elif brightness_ratio < 0.6:
+                warnings.append(f"Eye region darker than average (ratio: {brightness_ratio:.2f}) - possible sunglasses")
+                if not eyewear_detected:
+                    eyewear_detected = True
+                    eyewear_type = 'sunglasses'
+                    confidence = max(confidence, 0.6)
+                occlusion_level = max(occlusion_level, 0.5)
+            
+            left_edges = cv2.Canny(left_gray, 50, 150)
+            right_edges = cv2.Canny(right_gray, 50, 150)
+            left_edge_density = np.sum(left_edges > 0) / left_edges.size
+            right_edge_density = np.sum(right_edges > 0) / right_edges.size
+            avg_edge_density = (left_edge_density + right_edge_density) / 2
+            
+            if avg_edge_density > 0.15:
+                warnings.append(f"High edge density in eye region - possible glasses frames")
+                if not eyewear_detected:
+                    eyewear_detected = True
+                    eyewear_type = 'glasses'
+                    confidence = max(confidence, 0.7)
+        
+        if not eyewear_detected and eye_count >= 2:
+            confidence = 0.1
+        
+        return {
+            'has_eyewear': eyewear_detected,
+            'eyewear_type': eyewear_type if eyewear_detected else 'none',
+            'confidence': confidence,
+            'occlusion_level': occlusion_level,
+            'warnings': warnings,
+            'eye_count': eye_count
+        }
+
+    def compute_eyewear_metrics(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Dict[str, float]:
+        """
+        Compute detailed metrics about eyewear/occlusion in the eye region.
+        """
+        metrics = self.detect_eyewear(face_image, face_box)
+        
+        x, y, w, h = face_box
+        face_h, face_w = face_image.shape[:2]
+        
+        left_eye_pos = (int(face_w * 0.30), int(face_h * 0.35))
+        right_eye_pos = (int(face_w * 0.70), int(face_h * 0.35))
+        
+        eye_region_h = int(h * 0.25)
+        eye_region_w = int(w * 0.40)
+        
+        eye_regions = []
+        for eye_pos in [left_eye_pos, right_eye_pos]:
+            region = face_image[
+                eye_pos[1] - eye_region_h//2:eye_pos[1] + eye_region_h//2,
+                eye_pos[0] - eye_region_w//2:eye_pos[0] + eye_region_w//2
+            ]
+            if region.size > 0:
+                eye_regions.append(region)
+        
+        if eye_regions:
+            brightness_values = []
+            contrast_values = []
+            for region in eye_regions:
+                gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+                brightness_values.append(np.mean(gray))
+                contrast_values.append(np.std(gray))
+            
+            metrics['avg_brightness'] = np.mean(brightness_values) / 255.0
+            metrics['avg_contrast'] = np.mean(contrast_values) / 128.0
+        else:
+            metrics['avg_brightness'] = 0.0
+            metrics['avg_contrast'] = 0.0
+        
+        return metrics
+
+    def visualize_eyewear(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> np.ndarray:
+        """
+        Visualize eyewear detection results with colored overlays.
+        """
+        output = face_image.copy()
+        x, y, w, h = face_box
+        face_h, face_w = face_image.shape[:2]
+        
+        eyewear = self.detect_eyewear(face_image, face_box)
+        
+        left_eye_pos = (int(face_w * 0.30), int(face_h * 0.35))
+        right_eye_pos = (int(face_w * 0.70), int(face_h * 0.35))
+        eye_region_h = int(h * 0.25)
+        eye_region_w = int(w * 0.40)
+        
+        left_eye_box = (
+            left_eye_pos[0] - eye_region_w//2,
+            left_eye_pos[1] - eye_region_h//2,
+            eye_region_w,
+            eye_region_h
+        )
+        right_eye_box = (
+            right_eye_pos[0] - eye_region_w//2,
+            right_eye_pos[1] - eye_region_h//2,
+            eye_region_w,
+            eye_region_h
+        )
+        
+        if eyewear['has_eyewear']:
+            if eyewear['eyewear_type'] == 'sunglasses':
+                color = (0, 0, 255)
+                label = "SUNGLASSES"
+            else:
+                color = (0, 165, 255)
+                label = "GLASSES"
+            
+            for eye_box in [left_eye_box, right_eye_box]:
+                ex, ey, ew, eh = eye_box
+                cv2.rectangle(output, (ex, ey), (ex + ew, ey + eh), color, 2)
+            
+            cv2.putText(output, f"{label} DETECTED", (x, y - 25),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+            cv2.putText(output, f"Confidence: {eyewear['confidence']:.0%}", (x, y - 5),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1)
+            
+            if eyewear['warnings']:
+                warning_y = y + h + 20
+                for warning in eyewear['warnings'][:2]:
+                    cv2.putText(output, warning, (x, warning_y),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+                    warning_y += 15
+        else:
+            for eye_box in [left_eye_box, right_eye_box]:
+                ex, ey, ew, eh = eye_box
+                cv2.rectangle(output, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 1)
+            
+            cv2.putText(output, "No eyewear detected", (x, y - 10),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        
+        return output
+
     def estimate_landmarks(self, face_image: np.ndarray, face_box: Tuple[int, int, int, int]) -> Dict[str, Tuple[int, int]]:
         """
         Detect facial landmarks using MediaPipe Face Mesh (468 real landmarks).

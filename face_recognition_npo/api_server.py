@@ -537,6 +537,10 @@ def get_viz_result(viz_type, face_image, embedding):
             return extractor.test_robustness(face_image)
         elif viz_type == 'biometric':
             return (detector.visualize_biometric_capture(current_image, current_faces) if current_image is not None and current_faces else None), {}
+        elif viz_type == 'eyewear':
+            if current_image is None or not current_faces:
+                return None, {}
+            return detector.visualize_eyewear(current_image, current_faces[0]), {}
         return None, {}
     
     viz_result = get_viz_and_data(viz_type, face_image, embedding)
@@ -571,6 +575,59 @@ def get_quality_metrics():
         return jsonify({
             'success': True,
             'quality': {k: float(v) if isinstance(v, np.floating) else v for k, v in quality.items()}
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/eyewear', methods=['GET'])
+def get_eyewear_detection():
+    """Get eyewear detection for current face."""
+    global current_image, current_faces
+    
+    try:
+        if not current_faces:
+            return jsonify({'success': False, 'error': 'No faces detected'})
+        
+        face_box = current_faces[0]
+        eyewear = detector.detect_eyewear(current_image, face_box)
+        
+        return jsonify({
+            'success': True,
+            'eyewear': {
+                'has_eyewear': eyewear.get('has_eyewear', False),
+                'type': eyewear.get('eyewear_type', 'none'),
+                'confidence': float(eyewear.get('confidence', 0.0)),
+                'occlusion_level': float(eyewear.get('occlusion_level', 0.0)),
+                'warnings': eyewear.get('warnings', []),
+                'eye_count': eyewear.get('eye_count', 0)
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/visualizations/eyewear', methods=['GET'])
+def get_eyewear_visualization():
+    """Get eyewear visualization for current face."""
+    global current_image, current_faces
+    
+    try:
+        if not current_faces:
+            return jsonify({'success': False, 'error': 'No faces detected'})
+        
+        face_box = current_faces[0]
+        viz = detector.visualize_eyewear(current_image, face_box)
+        
+        return jsonify({
+            'success': True,
+            'visualization': image_to_base64(viz)
         })
         
     except Exception as e:
