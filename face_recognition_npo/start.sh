@@ -1,62 +1,44 @@
 #!/bin/bash
 # Start script for Face Recognition API and Electron UI
+# ArcFace enabled by default
 
 echo "=========================================="
 echo "Face Recognition System Startup"
 echo "=========================================="
 
-# Check for ArcFace flag
-USE_ARCFACE=false
-if [ "$1" = "--arcface" ] || [ "$1" = "-a" ]; then
-    USE_ARCFACE=true
-    echo "[0/4] ArcFace mode enabled"
-fi
-
-# Kill any existing API server
-pkill -f "python api_server.py" 2>/dev/null
-echo "[1/4] Stopped existing API server (if any)"
+# Kill any existing servers (aggressive)
+echo "Stopping existing servers..."
+pkill -9 -f "python.*api_server" 2>/dev/null
+pkill -9 -f "electron" 2>/dev/null
+sleep 1
+lsof -ti :3000 | xargs -r kill -9 2>/dev/null
+sleep 1
+echo "✓ Existing servers stopped"
 
 # Clear Python cache
+echo "Clearing Python cache..."
 find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
 find . -name "*.pyc" -delete 2>/dev/null
 find . -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null
-echo "[2/4] Cleared Python cache"
+echo "✓ Cache cleared"
 
-# Start API server in background
+# Start API server with ArcFace
+echo "Starting API server with ArcFace..."
 cd "$(dirname "$0")"
-if [ "$USE_ARCFACE" = true ]; then
-    echo "[3/4] Starting API server with ArcFace..."
-    USE_ARCFACE=true python api_server.py &
-else
-    echo "[3/4] Starting API server with FaceNet..."
-    python api_server.py &
-fi
+source venv/bin/activate
+USE_ARCFACE=true python api_server.py &
 API_PID=$!
 
 echo ""
-echo "API Server: http://localhost:5000"
-echo "Health Check: http://localhost:5000/api/health"
-echo "Embedding Info: http://localhost:5000/api/embedding-info"
-echo ""
-
-# Start Electron UI
-echo "[4/4] Starting Electron UI..."
-cd "$(dirname "$0")/electron-ui"
-npm start &
-ELECTRON_PID=$!
-
-echo ""
 echo "=========================================="
-echo "Both servers are running!"
+echo "Face Recognition System Running"
+echo "=========================================="
 echo ""
-if [ "$USE_ARCFACE" = true ]; then
-    echo "Mode: ArcFace (512-dim)"
-else
-    echo "Mode: FaceNet (128-dim)"
-fi
+echo "API Server: http://localhost:3000"
+echo "ArcFace Mode: ENABLED (512-dim)"
 echo ""
-echo "To stop: Ctrl+C"
+echo "Press Ctrl+C to stop"
 echo "=========================================="
 
-# Wait for both servers
-wait $API_PID $ELECTRON_PID
+# Wait for API server
+wait $API_PID

@@ -30,7 +30,7 @@ from src.embedding import (
 app = Flask(__name__, static_folder='./electron-ui')
 CORS(app)
 
-USE_ARCFACE = os.environ.get('USE_ARCFACE', 'false').lower() == 'true'
+USE_ARCFACE = os.environ.get('USE_ARCFACE', 'true').lower() == 'true'
 
 detector = FaceDetector()
 
@@ -44,6 +44,10 @@ else:
     extractor = FaceNetEmbeddingExtractor()
     if USE_ARCFACE:
         print("WARNING: ArcFace requested but unavailable, using FaceNet")
+    else:
+        print("=" * 60)
+        print("USING FACENET EXTRACTOR (128-dim)")
+        print("=" * 60)
 
 comparator = SimilarityComparator(threshold=0.5)
 
@@ -606,6 +610,8 @@ def get_status():
 
 
 if __name__ == '__main__':
+    import os
+    PORT = int(os.environ.get('PORT', 3000))
     print("Starting Face Recognition API Server...")
-    print("Open http://localhost:3000 in your Electron app")
-    app.run(host='0.0.0.0', port=3000, debug=False)
+    print(f"Open http://localhost:{PORT} in your Electron app")
+    app.run(host='0.0.0.0', port=PORT, debug=False)
