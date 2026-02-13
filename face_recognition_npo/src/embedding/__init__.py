@@ -529,27 +529,55 @@ class SimilarityComparator:
         results.sort(key=lambda x: x['similarity'], reverse=True)
         return results
 
-    def get_confidence_band(self, similarity: float, threshold_high: float = 0.99, threshold_moderate: float = 0.95, threshold_low: float = 0.85) -> str:
+    def get_confidence_band(self, similarity: float, threshold_high: float = 0.65, threshold_moderate: float = 0.40, threshold_low: float = 0.25) -> str:
+        """Return confidence band with adjusted thresholds."""
         if similarity >= threshold_high:
             return "Very High"
         elif similarity >= threshold_moderate:
-            return "High"
+            return "Possible"
         elif similarity >= threshold_low:
-            return "Moderate"
-        elif similarity >= 0.70:
             return "Low"
+        elif similarity >= 0.15:
+            return "Very Low"
         else:
-            return "Insufficient"
+            return "No Match"
 
-    def get_verdict(self, similarity: float, threshold_high: float = 0.99, threshold_moderate: float = 0.95) -> str:
+    def get_verdict(self, similarity: float, threshold_high: float = 0.65,
+                   threshold_moderate: float = 0.40) -> str:
+        """Return human-readable verdict with adjusted thresholds."""
         if similarity >= threshold_high:
-            return "Likely same person"
+            return "MATCH"
         elif similarity >= threshold_moderate:
-            return "Possibly same person"
-        elif similarity >= 0.70:
-            return "Uncertain - human review required"
+            return "POSSIBLE"
+        elif similarity >= 0.25:
+            return "LOW_CONFIDENCE"
         else:
-            return "Likely different people"
+            return "NO_MATCH"
+
+    def get_match_reasons(self, similarity: float, pose_similarity: float = 1.0, face_quality: float = 0.0) -> list:
+        """Generate reasons for the match result."""
+        reasons = []
+        
+        if similarity >= 0.65:
+            reasons.append(f"High similarity ({similarity*100:.1f}%)")
+        elif similarity >= 0.40:
+            reasons.append(f"Moderate similarity ({similarity*100:.1f}%)")
+        else:
+            reasons.append(f"Low similarity ({similarity*100:.1f}%)")
+        
+        if pose_similarity < 1.0:
+            pose_diff = (1.0 - pose_similarity) * 90
+            reasons.append(f"Pose difference: {pose_diff:.1f}°")
+        
+        if face_quality > 0:
+            if face_quality >= 0.8:
+                reasons.append(f"High face quality ({face_quality*100:.0f}%)")
+            elif face_quality >= 0.5:
+                reasons.append(f"Medium face quality ({face_quality*100:.0f}%)")
+            else:
+                reasons.append(f"Low face quality ({face_quality*100:.0f}%)")
+        
+        return reasons
 
     def euclidean_distance(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         distance = np.linalg.norm(embedding1 - embedding2)

@@ -128,6 +128,18 @@ print_step "2" "4" "Clearing Python cache... " "done"
 # Step 3: Start Flask API
 print_step "3" "4" "Starting Flask API server... " "running"
 cd "$(dirname "$0")"
+
+# Verify virtual environment
+if [ ! -f "venv/bin/python" ]; then
+    echo -e "${RED}ERROR: Virtual environment not found at venv/bin/python${NC}"
+    echo -e "${RED}Please create it with: python3 -m venv venv${NC}"
+    exit 1
+fi
+
+# Verify we're using the right Python
+PYTHON_VERSION=$(venv/bin/python --version 2>&1)
+echo -e "${GRAY}Using Python: ${PYTHON_VERSION}${NC}"
+
 source venv/bin/activate
 python api_server.py > /tmp/api_server.log 2>&1 &
 API_PID=$!

@@ -2,7 +2,7 @@
 
 **Review Date**: February 13, 2026  
 **Reviewer**: AI Code Review (with Developer Mindset)  
-**Status**: ✅ ALL ISSUES FIXED - EYWEAR DETECTION FALSE POSITIVES FIXED
+**Status**: ✅ ALL ISSUES FIXED - MULTI-SIGNAL COMPARISON IMPLEMENTED - TEST TABS WORKING
 
 ---
 
@@ -1239,6 +1239,91 @@ if eye_count == 0 and not eyewear_detected:
 
 **Frontend Test Script**: `test_eyewear_frontend.js`
 
+### Lesson 18: Always Use the Python Wrapper Script
+
+**Problem**: Running `python` command uses wrong Python, causing module errors.
+
+**Solution**: Use the project's Python wrapper:
+```bash
+# WRONG - uses system Python
+python api_server.py
+
+# CORRECT - uses venv Python
+./python api_server.py
+# OR
+source venv/bin/activate && python api_server.py
+```
+
+**The wrapper** (`./python`) automatically:
+1. Checks that venv exists
+2. Uses venv Python
+3. Fails if venv is missing
+
+**start.sh** also verifies the Python version before starting.
+
+### Lesson 19: Test Tabs Blocked by Face Requirements
+
+**Problem**: Test tabs (Health, Detection, Extraction, etc.) showed "No face detected" even though they don't require an uploaded image. They should show system/API state immediately.
+
+**Root Cause**: The `showVisualization()` function checked for `currentFaceThumbnails` and `currentQueryEmbedding` at the beginning, blocking ALL tabs including test tabs.
+
+**Solution**: Check for test tabs FIRST, before the face/embedding requirements:
+
+```javascript
+async function showVisualization(vizType) {
+    // Check if this is a test tab FIRST
+    const isTestViz = vizType === 'tests' || vizType.startsWith('test-');
+    
+    if (isTestViz) {
+        // For test tabs: skip face checks, fetch directly from API
+        // ... fetch and display
+        return;
+    }
+    
+    // For non-test tabs: require face and embedding
+    if (!currentFaceThumbnails || currentFaceThumbnails.length === 0) {
+        // ... show error
+        return;
+    }
+    // ... rest of function
+}
+```
+
+**Key Insight**: Test tabs show system state (API health, detection status, etc.) and don't need user-uploaded images. Separate the concerns!
+
+### Lesson 20: Multi-Signal Comparison Architecture
+
+**Problem**: Single cosine similarity wasn't enough - needed multiple signals for robust matching.
+
+**Solution**: Implemented weighted multi-signal comparison:
+
+```python
+# Weights
+weights = {
+    'cosine': 0.50,      # Embedding similarity
+    'landmark': 0.25,    # Facial feature positions
+    'quality': 0.15,     # Image quality metrics
+    'activations': 0.10  # CNN layer outputs (reserved)
+}
+
+# Combine scores
+combined = (cosine * weights['cosine'] + 
+            landmark * weights['landmark'] + 
+            quality * weights['quality'])
+```
+
+**Data Flow**:
+1. Store landmarks during extraction (normalized coordinates)
+2. Store quality metrics during extraction
+3. Compare all signals during match
+4. Display individual scores with reasons
+
+**Verdict System**:
+- MATCH: ≥60%
+- POSSIBLE: 50-60%
+- LOW_CONFIDENCE: 40-50%
+- NO_MATCH: <40%
+
 ---
 
 ## Common Mistakes Summary
@@ -1258,6 +1343,8 @@ if eye_count == 0 and not eyewear_detected:
 | 11 | Test viz returning empty data | Return actual data dict as second tuple element |
 | 12 | Using wrong Python environment | Always use `source venv/bin/activate` before running |
 | 13 | Eyewear detection false positives | Use brightness analysis as primary, eye cascade as secondary |
+| 14 | Test tabs blocked by requirements | Check test tab type BEFORE face/embedding checks |
+| 15 | Single signal comparison | Use multi-signal with weights for robust matching |
 
 ---
 

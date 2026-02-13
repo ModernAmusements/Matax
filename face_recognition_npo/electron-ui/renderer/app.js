@@ -253,6 +253,9 @@ async function saveReference(imageData, name) {
             logToTerminal(`> Reference "${name}" added successfully`, 'success');
             references.push(data.reference);
             updateReferenceList();
+            
+            // Clear visualization cache so Tests tab shows fresh data
+            visualizationData = {};
 
             if (currentQueryEmbedding !== null) {
                 await compareFaces();
@@ -568,26 +571,83 @@ async function compareFaces() {
 
         if (data.success && data.best_match) {
             const best = data.best_match;
+            
+            // Get verdict and reasons from API response
+            const verdict = best.verdict || 'UNKNOWN';
+            const reasons = best.reasons || [];
+            const percentage = Math.round(best.similarity * 100);
+            const combinedPercentage = Math.round((best.combined_similarity || best.similarity) * 100);
+            const landmarkPercentage = best.landmark_score ? Math.round(best.landmark_score * 100) : 0;
+            const qualityPercentage = best.quality_score ? Math.round(best.quality_score * 100) : 0;
 
             logToTerminal(`> Best match: ${best.name}`, 'success');
-            logToTerminal(`> Similarity score: ${(best.similarity * 100).toFixed(1)}%`, 'success');
-            logToTerminal(`> Confidence: ${best.confidence}`, 'info');
+            logToTerminal(`> Verdict: ${verdict}`, 'success');
+            logToTerminal(`> Similarity: ${percentage}%`, 'success');
 
             document.getElementById('queryImage').src = `data:image/png;base64,${currentFaceThumbnails[0]?.thumbnail || ''}`;
             document.getElementById('refImage').src = `data:image/png;base64,${best.thumbnail}`;
             document.getElementById('refLabel').textContent = best.name;
-            document.getElementById('matchScore').textContent = `${Math.round(best.similarity * 100)}%`;
-            document.getElementById('confidenceBadge').textContent = best.confidence;
-
-            // Set badge color
-            const badge = document.getElementById('confidenceBadge');
-            if (best.similarity > 0.8) {
-                badge.className = 'badge badge-success';
-            } else if (best.similarity > 0.6) {
-                badge.className = 'badge badge-warning';
+            
+            // Display verdict as badge with percentage below
+            const verdictBadge = document.getElementById('confidenceBadge');
+            verdictBadge.textContent = verdict;
+            
+            // Set badge color based on verdict
+            let badgeColor = '#888';
+            if (verdict === 'MATCH') {
+                badgeColor = '#27ae60'; // green
+            } else if (verdict === 'POSSIBLE') {
+                badgeColor = '#f39c12'; // orange
+            } else if (verdict === 'LOW_CONFIDENCE') {
+                badgeColor = '#e67e22'; // darker orange
             } else {
-                badge.className = 'badge badge-error';
+                badgeColor = '#e74c3c'; // red
             }
+            verdictBadge.style.backgroundColor = badgeColor;
+            verdictBadge.style.color = 'white';
+            verdictBadge.style.padding = '8px 16px';
+            verdictBadge.style.borderRadius = '4px';
+            verdictBadge.style.fontWeight = '600';
+            
+            // Show percentage below verdict
+            document.getElementById('matchScore').textContent = `${percentage}%`;
+            document.getElementById('matchScore').style.fontSize = '24px';
+            document.getElementById('matchScore').style.fontWeight = '700';
+            document.getElementById('matchScore').style.color = badgeColor;
+            
+            // Show reasons if available
+            let reasonsHtml = '';
+            if (reasons && reasons.length > 0) {
+                reasonsHtml = '<div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">';
+                reasonsHtml += '<div style="font-weight: 600; margin-bottom: 8px; color: #333;">Reasons:</div>';
+                reasonsHtml += '<ul style="margin: 0; padding-left: 20px; color: #666;">';
+                reasons.forEach(reason => {
+                    reasonsHtml += `<li style="margin-bottom: 4px;">${reason}</li>`;
+                });
+                reasonsHtml += '</ul></div>';
+            }
+            
+            // Update status with verdict and all scores
+            let statusHtml = `<div>`;
+            statusHtml += `<div style="font-size: 18px; font-weight: 600; color: ${badgeColor};">${verdict}</div>`;
+            statusHtml += `<div style="font-size: 32px; font-weight: 700; color: ${badgeColor}; margin: 5px 0;">${combinedPercentage}%</div>`;
+            
+            // Show individual scores
+            statusHtml += `<div style="margin: 10px 0; font-size: 12px; color: #666;">`;
+            statusHtml += `<div>Cosine: ${percentage}%</div>`;
+            if (landmarkPercentage > 0) {
+                statusHtml += `<div>Landmarks: ${landmarkPercentage}%</div>`;
+            }
+            if (qualityPercentage > 0) {
+                statusHtml += `<div>Quality: ${qualityPercentage}%</div>`;
+            }
+            statusHtml += `</div>`;
+            
+            statusHtml += reasonsHtml;
+            statusHtml += `</div>`;
+            
+            document.getElementById('compareStatus').innerHTML = statusHtml;
+            document.getElementById('compareStatus').className = 'status';
 
             document.getElementById('comparisonResult').style.display = 'block';
             document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.similarity * 100)}%)`;
@@ -622,7 +682,56 @@ async function showVisualization(vizType) {
     
     console.log('[VIZ] Requested:', vizType);
     
-    // Check if we have the required data
+    // Check if this is a test visualization tab (includes 'tests' and 'test-*')
+    const isTestViz = vizType === 'tests' || vizType.startsWith('test-');
+    
+    // For test tabs: bypass face/embedding requirements and fetch directly
+    if (isTestViz) {
+        logToTerminal(`> Loading test data: ${vizType}`, 'info');
+        
+        try {
+            console.log('[VIZ] Fetching test data from API:', `${API_BASE}/visualizations/${vizType}`);
+            const response = await fetch(`${API_BASE}/visualizations/${vizType}`);
+            const data = await response.json();
+            console.log('[VIZ] API response:', data);
+
+            if (data.success && data.data && Object.keys(data.data).length > 0) {
+                const testName = getTestDisplayName(vizType);
+                let html = `<h3 style="margin: 0 0 15px 0; color: var(--primary);">${testName}</h3>`;
+                
+                if (vizType === 'tests') {
+                    html += formatIntegrationTests(data.data);
+                } else {
+                    html += formatTestDataAsList(data.data);
+                }
+                
+                content.innerHTML = html;
+                logToTerminal(`> Displayed ${vizType}`, 'success');
+                return;
+            } else {
+                console.log('[VIZ] API returned no data:', data);
+                content.innerHTML = `
+                    <div class="viz-placeholder">
+                        <p style="color: #e74c3c;">No ${vizType} data available</p>
+                        <p>API may be initializing...</p>
+                    </div>
+                `;
+                return;
+            }
+        } catch (err) {
+            logToTerminal(`> Failed to fetch ${vizType}: ${err.message}`, 'error');
+            console.log('[VIZ] Fetch error:', err);
+            content.innerHTML = `
+                <div class="viz-placeholder">
+                    <p style="color: #e74c3c;">Error loading ${vizType}</p>
+                    <p>${err.message}</p>
+                </div>
+            `;
+            return;
+        }
+    }
+    
+    // For non-test tabs: Check if we have the required data
     if (!currentFaceThumbnails || currentFaceThumbnails.length === 0) {
         content.innerHTML = `
             <div class="viz-placeholder">
@@ -666,9 +775,8 @@ async function showVisualization(vizType) {
                     visualizationData[vizType + '_data'] = data.data;
                 }
                 logToTerminal(`> Received ${data.visualization.length} chars for ${vizType}`, 'success');
-            } 
-            
-            if (!data.visualization && (!data.data || Object.keys(data.data).length === 0)) {
+                // Return so it can be displayed (will render on next call or continue below)
+            } else if (!data.visualization && (!data.data || Object.keys(data.data).length === 0)) {
                 console.log('[VIZ] API returned no/invalid data:', data);
                 content.innerHTML = `
                     <div class="viz-placeholder">
@@ -691,13 +799,17 @@ async function showVisualization(vizType) {
             return;
         }
     }
-
-    if (visualizationData[vizType]) {
-        const length = visualizationData[vizType].length;
+    
+    // Continue with displaying non-test visualizations
+    if (visualizationData[vizType] || visualizationData[vizType + '_data']) {
+        const length = visualizationData[vizType] ? visualizationData[vizType].length : 0;
         console.log('[VIZ] Displaying:', vizType, 'length:', length);
+        
+        let html = '';
+        
+        // For non-test tabs: show image + data table
         logToTerminal(`> Displaying ${vizType} (${length} chars)`, 'success');
-
-        let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
+        html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
 
         // Add data table if available
         const dataKey = vizType + '_data';
@@ -707,22 +819,119 @@ async function showVisualization(vizType) {
 
         content.innerHTML = html;
     } else {
-        // Check if we have data without image
-        const dataKey = vizType + '_data';
-        if (visualizationData[dataKey]) {
-            logToTerminal(`> Displaying data only for ${vizType}`, 'success');
-            content.innerHTML = formatDataAsTable(visualizationData[dataKey]);
-        } else {
-            logToTerminal(`> No data for ${vizType}`, 'warning');
-            console.log('[VIZ] No data found for:', vizType);
-            content.innerHTML = `
-                <div class="viz-placeholder">
-                    <p>No ${vizType} data available</p>
-                    <p>Run: Upload → Find Faces → Create Signature</p>
-                </div>
-            `;
+        logToTerminal(`> No data for ${vizType}`, 'warning');
+        console.log('[VIZ] No data found for:', vizType);
+        content.innerHTML = `
+            <div class="viz-placeholder">
+                <p>No ${vizType} data available</p>
+                <p>Run: Upload → Find Faces → Create Signature</p>
+            </div>
+        `;
+    }
+}
+
+function getTestDisplayName(vizType) {
+    const names = {
+        'tests': 'Frontend Integration Tests',
+        'test-health': 'Health Check',
+        'test-detection': 'Detection + Preprocessing',
+        'test-extraction': 'Extraction + Pose',
+        'test-reference': 'Add Reference + Pose',
+        'test-multi': 'Multi-Reference',
+        'test-pose': 'Pose-Aware Matching',
+        'test-eyewear': 'Eyewear Detection',
+        'test-viz': 'Visualizations',
+        'test-clear': 'Clear + Reset'
+    };
+    return names[vizType] || vizType;
+}
+
+function formatIntegrationTests(data) {
+    if (!data || Object.keys(data).length === 0) return '';
+    
+    // Skip 'overall' key for individual tests
+    const tests = Object.entries(data).filter(([key]) => key !== 'overall');
+    
+    let html = '<div style="font-size: 14px; line-height: 2;">';
+    
+    for (const [key, value] of tests) {
+        const testName = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        const status = value.status || 'WAIT';
+        const details = value.details || '';
+        const passed = value.passed;
+        
+        const statusColor = passed ? '#27ae60' : '#f39c12';
+        
+        html += `<div style="margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 4px;">`;
+        html += `<div style="font-weight: 600; color: #333;">${testName}</div>`;
+        html += `<div style="color: ${statusColor}; font-weight: 500;">${status}</div>`;
+        if (details) {
+            html += `<div style="color: #666; font-size: 12px;">${details}</div>`;
+        }
+        html += `</div>`;
+    }
+    
+    // Add overall summary
+    if (data.overall) {
+        const { passed, total, status } = data.overall;
+        const allPassed = passed === total;
+        const summaryColor = allPassed ? '#27ae60' : '#f39c12';
+        
+        html += `<div style="margin-top: 20px; padding: 15px; background: ${summaryColor}; color: white; border-radius: 4px; font-weight: 600; text-align: center;">`;
+        html += `${status} (${passed}/${total})`;
+        html += `</div>`;
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+function formatTestDataAsList(data) {
+    if (!data || Object.keys(data).length === 0) return '';
+    
+    let html = '<div style="font-size: 14px; line-height: 1.8;">';
+    
+    if (typeof data === 'object' && !Array.isArray(data)) {
+        for (const [key, value] of Object.entries(data)) {
+            const displayKey = formatKey(key);
+            const displayValue = formatValue(value);
+            
+            // Check for pass/fail status
+            const isPass = value === true || value === 'PASS' || value === 'available' || value === 'working';
+            const isFail = value === false || value === 'FAIL' || value === 'no query' || value === 'not extracted';
+            const isWait = value === 'WAIT' || value === 'no face detected';
+            
+            let statusText = '';
+            let statusColor = '#888';
+            
+            if (isPass) {
+                statusText = 'PASS';
+                statusColor = '#27ae60';
+            } else if (isFail) {
+                statusText = 'FAIL';
+                statusColor = '#e74c3c';
+            } else if (isWait) {
+                statusText = 'WAIT';
+                statusColor = '#f39c12';
+            }
+            
+            if (statusText) {
+                html += `<div><span style="color: #888;">${displayKey}:</span> <span style="color: ${statusColor}; font-weight: 500;">${displayValue} (${statusText})</span></div>`;
+            } else {
+                html += `<div><span style="color: #888;">${displayKey}:</span> <span style="color: #333;">${displayValue}</span></div>`;
+            }
         }
     }
+    
+    html += '</div>';
+    return html;
+}
+
+function formatValue(value) {
+    if (value === true) return 'PASS';
+    if (value === false) return 'FAIL';
+    if (typeof value === 'object' && value !== null) return JSON.stringify(value);
+    return String(value);
 }
 
 function formatDataAsTable(data) {

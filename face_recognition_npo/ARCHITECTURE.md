@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Architecture
 
-**Version**: 0.3.0  
-**Last Updated**: February 12, 2026  
-**Status**: ✅ Fully Functional - ArcFace Enabled
+**Version**: 2.0  
+**Last Updated**: February 13, 2026  
+**Status**: ✅ Fully Functional - Multi-Signal Comparison
 
 ---
 
@@ -158,13 +158,41 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - **Discrimination**: Poor - different people show ~65-70% similarity
 - **Note**: Use `USE_FACENET=true` to enable
 
-### Step 4: Comparison
-- Cosine similarity: `dot(a, b) / (|a| * |b|)`
-- Confidence bands (ArcFace):
-  - Very High (>0.7): High confidence match
-  - High (0.45-0.7): Moderate confidence
-  - Moderate (0.3-0.45): Low confidence, human review required
-  - Insufficient (<0.3): Likely different people
+### Step 4: Multi-Signal Comparison
+
+**Combined Score Calculation**:
+```
+Combined = 50% × Cosine + 25% × Landmarks + 15% × Quality
+```
+
+**Signal Details**:
+1. **Cosine Similarity** (50%): 512-dim ArcFace embedding similarity
+2. **Landmark Comparison** (25%): 10 keypoint positions (eyes, nose, mouth)
+3. **Quality Metrics** (15%): Brightness, contrast, sharpness, SNR matching
+
+**Verdict System**:
+- **MATCH** (≥60%): Same person likely
+- **POSSIBLE** (50-60%): May be same person
+- **LOW_CONFIDENCE** (40-50%): Human review needed
+- **NO_MATCH** (<40%): Different people
+
+### Step 5: Test Tabs (System Diagnostics)
+
+**Purpose**: System health checks without requiring uploaded images
+
+**10 Test Tabs**:
+1. **Health**: API status, port, version
+2. **Detection**: Face detection count, preprocessing info
+3. **Extraction**: Embedding size, pose extraction status
+4. **Reference**: Number of stored references, latest pose
+5. **Multi**: Multi-reference matching capability
+6. **Pose**: Pose-aware matching status
+7. **Eyewear**: Sunglasses/glasses detection (requires image)
+8. **Viz**: Available visualization types
+9. **Clear**: Session management functionality
+10. **Tests**: Complete integration test suite
+
+**Key Feature**: Test tabs bypass face/embedding requirements and fetch data directly from API, showing system state immediately.
 
 ---
 
