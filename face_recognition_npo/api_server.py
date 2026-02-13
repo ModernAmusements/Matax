@@ -36,20 +36,31 @@ USE_ARCFACE = os.environ.get('USE_ARCFACE', 'true').lower() == 'true'
 detector = FaceDetector()
 preprocessor = ImagePreprocessor()
 
+print("=" * 60)
+print("INITIALIZING FACE EMBEDDING EXTRACTORS")
+print("=" * 60)
+
+# Always initialize FaceNet extractor (for dual-model and activations)
+from src.embedding import FaceNetEmbeddingExtractor
+facenet_extractor = FaceNetEmbeddingExtractor()
+print("- FaceNet: 128-dim (always loaded)")
+
+# Initialize ArcFace if available
+arcface_extractor = None
 if USE_ARCFACE and ARCFACE_AVAILABLE:
     from src.embedding import ArcFaceEmbeddingExtractor
-    extractor = ArcFaceEmbeddingExtractor()
-    print("=" * 60)
-    print("USING ARCFACE EXTRACTOR (512-dim)")
-    print("=" * 60)
+    arcface_extractor = ArcFaceEmbeddingExtractor()
+    print("- ArcFace: 512-dim (loaded)")
 else:
-    extractor = FaceNetEmbeddingExtractor()
     if USE_ARCFACE:
-        print("WARNING: ArcFace requested but unavailable, using FaceNet")
-    else:
-        print("=" * 60)
-        print("USING FACENET EXTRACTOR (128-dim)")
-        print("=" * 60)
+        print("WARNING: ArcFace requested but unavailable")
+    print("- ArcFace: not loaded")
+
+# Primary extractor for backwards compatibility
+extractor = arcface_extractor if arcface_extractor else facenet_extractor
+print(f"Primary: {type(extractor).__name__}")
+print(f"Dual-model: ENABLED (ArcFace + FaceNet)")
+print("=" * 60)
 
 comparator = SimilarityComparator(threshold=0.5)
 
@@ -58,9 +69,12 @@ current_original_image = None
 current_enhanced_image = None
 current_faces = []
 current_embedding = None
+current_embeddings = {}
 current_face_image = None
 current_preprocessing_info = {}
 current_pose = {}
+current_landmarks = None
+current_quality = None
 references = []
 
 REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
@@ -221,6 +235,88 @@ def visualize_test_detail(test_name, result_data) -> np.ndarray:
     return img
 
 
+def extract_landmark_features(landmarks: Dict) -> Optional[Dict[str, float]]:
+    """
+    Extract geometric features from landmarks for comparison.
+    Uses ratios between key facial points that are scale-invariant.
+    """
+    if not landmarks:
+        return None
+    
+    key_points = ['left_eye', 'right_eye', 'nose', 'mouth', 'left_cheek', 'right_cheek', 'chin', 'forehead']
+    points = {}
+    for key in key_points:
+        if key in landmarks:
+            points[key] = landmarks[key]
+    
+    if len(points) < 4:
+        return None
+    
+    # Calculate face size for normalization
+    min_x = min(p[0] for p in points.values())
+    max_x = max(p[0] for p in points.values())
+    min_y = min(p[1] for p in points.values())
+    max_y = max(p[1] for p in points.values())
+    face_width = max(max_x - min_x, 1)
+    face_height = max(max_y - min_y, 1)
+    
+    features = {}
+    
+    # Eye-related ratios
+    if 'left_eye' in points and 'right_eye' in points:
+        eye_dist = ((points['left_eye'][0] - points['right_eye'][0])**2 + 
+                   (points['left_eye'][1] - points['right_eye'][1])**2)**0.5
+        features['eye_distance'] = eye_dist / face_width
+    else:
+        features['eye_distance'] = 0.3
+    
+    # Eye to nose ratio
+    if 'left_eye' in points and 'nose' in points:
+        eye_nose = ((points['left_eye'][0] - points['nose'][0])**2 + 
+                   (points['left_eye'][1] - points['nose'][1])**2)**0.5
+        features['eye_nose_ratio'] = eye_nose / face_width
+    else:
+        features['eye_nose_ratio'] = 0.25
+    
+    # Nose to mouth ratio
+    if 'nose' in points and 'mouth' in points:
+        nose_mouth = ((points['nose'][0] - points['mouth'][0])**2 + 
+                     (points['nose'][1] - points['mouth'][1])**2)**0.5
+        features['nose_mouth_ratio'] = nose_mouth / face_width
+    else:
+        features['nose_mouth_ratio'] = 0.15
+    
+    # Face width to height ratio
+    features['width_height_ratio'] = face_width / face_height
+    
+    # Eye horizontal position (asymmetry)
+    if 'left_eye' in points and 'right_eye' in points and 'nose' in points:
+        eye_center_x = (points['left_eye'][0] + points['right_eye'][0]) / 2
+        features['eye_nose_x_diff'] = abs(eye_center_x - points['nose'][0]) / face_width
+    else:
+        features['eye_nose_x_diff'] = 0.0
+    
+    # Vertical position of eyes (should be roughly 1/3 from top)
+    if 'left_eye' in points:
+        features['eye_vertical_pos'] = points['left_eye'][1] / face_height
+    else:
+        features['eye_vertical_pos'] = 0.35
+    
+    # Mouth vertical position
+    if 'mouth' in points:
+        features['mouth_vertical_pos'] = points['mouth'][1] / face_height
+    else:
+        features['mouth_vertical_pos'] = 0.75
+    
+    # Eye-nose-mouth alignment
+    if 'left_eye' in points and 'nose' in points and 'mouth' in points:
+        features['face_symmetry'] = abs(points['nose'][0] - (points['left_eye'][0] + points['right_eye'][0]) / 2) / face_width
+    else:
+        features['face_symmetry'] = 0.0
+    
+    return features
+
+
 @app.route('/')
 def index():
     return send_from_directory('./electron-ui', 'index.html')
@@ -250,6 +346,23 @@ def embedding_info():
         'model': model_type,
         'dimension': dim,
         'use_arcface': USE_ARCFACE
+    })
+
+
+@app.route('/api/diagnostics', methods=['GET'])
+def diagnostics():
+    """Get diagnostic information about the system."""
+    from src.detection import _MEDIAPIPE_AVAILABLE
+    
+    mediapipe_status = "available" if _MEDIAPIPE_AVAILABLE else "not_available"
+    model_exists = os.path.exists('face_landmark.task')
+    
+    return jsonify({
+        'mediapipe': mediapipe_status,
+        'model_file_exists': model_exists,
+        'arcface_extractor': 'loaded' if arcface_extractor else 'not_loaded',
+        'facenet_extractor': 'loaded',
+        'dual_model_mode': True
     })
 
 
@@ -325,8 +438,8 @@ def detect_faces():
 
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
-    """Extract embedding from detected face."""
-    global current_embedding, current_face_image, current_faces, current_pose
+    """Extract embedding from detected face using both models."""
+    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality
     
     try:
         data = request.json
@@ -337,10 +450,29 @@ def extract_embedding():
         
         x, y, w, h = current_faces[face_id]
         current_face_image = current_image[y:y+h, x:x+w]
-        current_embedding = extractor.extract_embedding(current_face_image)
+        
+        # Extract ArcFace embedding (primary)
+        arcface_emb = None
+        if arcface_extractor:
+            arcface_emb = arcface_extractor.extract_embedding(current_face_image)
+        
+        # Extract FaceNet embedding (secondary, also for activations)
+        facenet_emb = facenet_extractor.extract_embedding(current_face_image)
+        
+        # Store both embeddings
+        current_embeddings = {
+            'arcface': arcface_emb,
+            'facenet': facenet_emb
+        }
+        # For backwards compatibility
+        current_embedding = arcface_emb if arcface_emb is not None else facenet_emb
+        
+        # Get FaceNet activations (for visualization)
+        current_activations = facenet_extractor.get_activations(current_face_image)
         
         landmarks_est = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
         alignment_est = detector.compute_alignment(current_face_image, landmarks_est)
+        quality_est = detector.compute_quality_metrics(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
         
         current_pose = {
             'yaw': float(alignment_est.get('yaw', 0)),
@@ -348,6 +480,10 @@ def extract_embedding():
             'roll': float(alignment_est.get('roll', 0)),
             'pose_category': categorize_pose(alignment_est.get('yaw', 0), alignment_est.get('pitch', 0))
         }
+        
+        # Store landmarks as geometric features for comparison
+        current_landmarks = extract_landmark_features(landmarks_est)
+        current_quality = quality_est
         
         # Get visualizations with data
         emb_viz, emb_data = extractor.visualize_embedding(current_embedding)
@@ -366,6 +502,10 @@ def extract_embedding():
         response_data = {
             'success': True,
             'embedding_size': len(current_embedding) if current_embedding is not None else 0,
+            'embedding_type': type(extractor).__name__,
+            'arcface_available': arcface_extractor is not None,
+            'arcface_size': len(arcface_emb) if arcface_emb is not None else 0,
+            'facenet_size': len(facenet_emb) if facenet_emb is not None else 0,
             'embedding_mean': float(np.mean(current_embedding)) if current_embedding is not None else 0,
             'embedding_std': float(np.std(current_embedding)) if current_embedding is not None else 0,
             'pose': current_pose,
@@ -417,22 +557,35 @@ def add_reference():
         
         fx, fy, fw, fh = ref_faces[0]
         ref_face = ref_image[fy:fy+fh, fx:fx+fw]
-        ref_embedding = extractor.extract_embedding(ref_face)
+        
+        # Extract both embeddings
+        arcface_emb = arcface_extractor.extract_embedding(ref_face) if arcface_extractor else None
+        facenet_emb = facenet_extractor.extract_embedding(ref_face)
+        
+        # Store as dict with both models
+        embeddings_dict = {
+            'arcface': arcface_emb.tolist() if arcface_emb is not None else None,
+            'facenet': facenet_emb.tolist() if facenet_emb is not None else None
+        }
         
         landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
         alignment = detector.compute_alignment(ref_face, landmarks)
+        quality = detector.compute_quality_metrics(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        landmark_features = extract_landmark_features(landmarks)
         
         ref_data = {
             'id': len(references),
             'name': name,
-            'embedding': ref_embedding.tolist() if ref_embedding is not None else None,
+            'embedding': embeddings_dict,
             'thumbnail': image_to_base64(ref_face),
             'pose': {
                 'yaw': float(alignment.get('yaw', 0)),
                 'pitch': float(alignment.get('pitch', 0)),
                 'roll': float(alignment.get('roll', 0))
             },
-            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
+            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0)),
+            'landmarks': landmark_features,
+            'quality': {k: float(v) if isinstance(v, (int, float)) else v for k, v in quality.items()} if quality else None
         }
         references.append(ref_data)
         save_references()
@@ -522,82 +675,138 @@ def remove_reference(ref_id):
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
-
 @app.route('/api/compare', methods=['POST'])
 def compare_faces():
-    """Compare current face embedding with references."""
-    global current_embedding, references, current_pose
+    """Compare current face embedding with references using dual-model scoring."""
+    global current_embedding, current_embeddings, references, current_pose, current_landmarks, current_quality
     
     try:
-        if current_embedding is None:
+        if current_embedding is None and not current_embeddings:
             return jsonify({'success': False, 'error': 'No embedding extracted'})
         
         if not references:
             return jsonify({'success': False, 'error': 'No references added'})
 
         results = []
-        ref_embeddings = []
-        ref_names = []
-
-        query_pose = current_pose if current_pose else {'yaw': 0, 'pitch': 0, 'pose_category': 'frontal'}
+        
+        # Get current query embeddings
+        q_arcface = current_embeddings.get('arcface') if current_embeddings else None
+        q_facenet = current_embeddings.get('facenet') if current_embeddings else None
+        
+        # Fallback for backwards compatibility
+        if q_arcface is None and q_facenet is None:
+            q_arcface = current_embedding
+        
+        query_landmarks = current_landmarks if current_landmarks else None
+        query_quality = current_quality if current_quality else None
+        
+        # Helper function to get embeddings from reference (handles old/new format)
+        def get_ref_embeddings(ref_emb):
+            if isinstance(ref_emb, dict):
+                # New format: {'arcface': [...], 'facenet': [...]}
+                arcface = np.array(ref_emb.get('arcface')) if ref_emb.get('arcface') else None
+                facenet = np.array(ref_emb.get('facenet')) if ref_emb.get('facenet') else None
+                return arcface, facenet
+            elif ref_emb is not None:
+                # Old format: single embedding (assume FaceNet)
+                return None, np.array(ref_emb)
+            else:
+                return None, None
         
         for ref in references:
-            if ref['embedding'] is None:
+            ref_emb = ref.get('embedding')
+            if ref_emb is None:
                 continue
-
-            ref_emb = np.array(ref['embedding'])
-            ref_embeddings.append(ref_emb)
-            ref_names.append(ref['name'])
-
-            distance = comparator.euclidean_distance(current_embedding, ref_emb)
-            similarity = comparator.cosine_similarity(current_embedding, ref_emb)
+            
+            ref_arcface, ref_facenet = get_ref_embeddings(ref_emb)
+            
+            # Calculate similarities
+            arcface_sim = None
+            facenet_sim = None
+            
+            if q_arcface is not None and ref_arcface is not None:
+                arcface_sim = comparator.cosine_similarity(q_arcface, ref_arcface)
+            
+            if q_facenet is not None and ref_facenet is not None:
+                facenet_sim = comparator.cosine_similarity(q_facenet, ref_facenet)
+            
+            # Calculate landmark similarity
+            ref_landmarks = ref.get('landmarks')
+            landmark_sim = comparator.landmark_similarity(query_landmarks, ref_landmarks) if query_landmarks and ref_landmarks else 0.5
+            
+            # Calculate quality similarity
+            ref_quality = ref.get('quality')
+            
+            # Use dual-model match scoring
+            match_result = comparator.compute_dual_match_score(
+                arcface_sim,
+                facenet_sim,
+                landmark_sim,
+                query_quality
+            )
+            
+            status, label, description = comparator.get_match_verdict(match_result['score'])
             
             ref_pose = ref.get('pose', {'yaw': 0, 'pitch': 0})
             ref_pose_cat = ref.get('pose_category', 'frontal')
             
-            pose_yaw_diff = abs(query_pose.get('yaw', 0) - ref_pose.get('yaw', 0))
-            pose_pitch_diff = abs(query_pose.get('pitch', 0) - ref_pose.get('pitch', 0))
-            pose_similarity = 1.0 - (pose_yaw_diff + pose_pitch_diff) / 90.0
-            pose_similarity = max(0.5, min(1.0, pose_similarity))
-            
-            pose_match = query_pose.get('pose_category', 'frontal') == ref_pose_cat
-            
-            adjusted_similarity = similarity * pose_similarity
-            
-            distance_verdict = comparator.get_distance_verdict(distance)
+            # Calculate euclidean distance from primary embedding
+            primary_emb = q_arcface if q_arcface is not None else q_facenet
+            primary_ref = ref_arcface if ref_arcface is not None else ref_facenet
+            distance = comparator.euclidean_distance(primary_emb, primary_ref) if primary_emb is not None and primary_ref is not None else 0.0
             
             results.append({
                 'id': ref['id'],
                 'name': ref['name'],
-                'similarity': float(similarity),
-                'adjusted_similarity': float(adjusted_similarity),
+                'arcface_similarity': float(arcface_sim) if arcface_sim is not None else None,
+                'facenet_similarity': float(facenet_sim) if facenet_sim is not None else None,
+                'landmark_similarity': float(landmark_sim),
+                'final_score': float(match_result['score']),
+                'status': status,
+                'match_label': label,
+                'match_description': description,
+                'reasons': match_result['reasons'],
                 'euclidean_distance': float(distance),
-                'distance_verdict': distance_verdict,
                 'thumbnail': ref['thumbnail'],
                 'pose': ref_pose,
                 'pose_category': ref_pose_cat,
-                'pose_match': pose_match,
-                'pose_similarity': float(pose_similarity)
             })
 
-        results.sort(key=lambda x: x.get('adjusted_similarity', x['similarity']), reverse=True)
+        results.sort(key=lambda x: x.get('final_score', 0), reverse=True)
 
         sim_viz = None
         sim_data = {}
-        if ref_embeddings:
-            similarities = [r.get('adjusted_similarity', r['similarity']) for r in results]
-            distances = [r['euclidean_distance'] for r in results]
-            sim_viz, sim_data = comparator.visualize_comparison_metrics(
-                current_embedding,
-                ref_embeddings,
-                ref_names,
-                similarities,
-                distances
-            )
+        # Build ref embeddings list for visualization
+        ref_embs = []
+        ref_ids = []
+        sim_scores = []
+        for ref in references:
+            ref_emb = ref.get('embedding')
+            if ref_emb is None:
+                continue
+            ref_arc, ref_face = get_ref_embeddings(ref_emb)
+            if ref_arc is not None:
+                ref_embs.append(ref_arc)
+            elif ref_face is not None:
+                ref_embs.append(ref_face)
+            else:
+                continue
+            ref_ids.append(ref['name'])
+            sim_scores.append(0.0)  # Will be filled from results
+        
+        if ref_embs:
+            primary_emb = q_arcface if q_arcface is not None else q_facenet
+            if primary_emb is not None:
+                sim_viz, sim_data = comparator.visualize_comparison_metrics(
+                    primary_emb,
+                    ref_embs,
+                    ref_ids,
+                    sim_scores,
+                    [r['euclidean_distance'] for r in results]
+                )
 
         return jsonify({
             'success': True,
-            'query_pose': query_pose,
             'results': results,
             'best_match': results[0] if results else None,
             'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None,
@@ -882,16 +1091,19 @@ def get_eyewear_visualization():
 @app.route('/api/clear', methods=['POST'])
 def clear_all():
     """Clear all data."""
-    global current_image, current_original_image, current_enhanced_image, current_faces, current_embedding, current_face_image, current_preprocessing_info, current_pose, references
+    global current_image, current_original_image, current_enhanced_image, current_faces, current_embedding, current_embeddings, current_face_image, current_preprocessing_info, current_pose, current_landmarks, current_quality, references
 
     current_image = None
     current_original_image = None
     current_enhanced_image = None
     current_faces = []
     current_embedding = None
+    current_embeddings = {}
     current_face_image = None
     current_preprocessing_info = {}
     current_pose = {}
+    current_landmarks = None
+    current_quality = None
     references = []
 
     return jsonify({'success': True, 'message': 'All data cleared'})

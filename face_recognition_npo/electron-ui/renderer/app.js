@@ -570,27 +570,53 @@ async function compareFaces() {
             const best = data.best_match;
 
             logToTerminal(`> Best match: ${best.name}`, 'success');
-            logToTerminal(`> Similarity score: ${(best.similarity * 100).toFixed(1)}%`, 'success');
-            logToTerminal(`> Confidence: ${best.confidence}`, 'info');
+            logToTerminal(`> Final score: ${(best.final_score * 100).toFixed(1)}%`, 'success');
+            logToTerminal(`> Match status: ${best.match_label}`, 'success');
+            if (best.arcface_similarity !== null) {
+                logToTerminal(`> ArcFace: ${(best.arcface_similarity * 100).toFixed(1)}%`, 'info');
+            }
+            if (best.facenet_similarity !== null) {
+                logToTerminal(`> FaceNet: ${(best.facenet_similarity * 100).toFixed(1)}%`, 'info');
+            }
 
             document.getElementById('queryImage').src = `data:image/png;base64,${currentFaceThumbnails[0]?.thumbnail || ''}`;
             document.getElementById('refImage').src = `data:image/png;base64,${best.thumbnail}`;
             document.getElementById('refLabel').textContent = best.name;
-            document.getElementById('matchScore').textContent = `${Math.round(best.similarity * 100)}%`;
-            document.getElementById('confidenceBadge').textContent = best.confidence;
-
-            // Set badge color
-            const badge = document.getElementById('confidenceBadge');
-            if (best.similarity > 0.8) {
-                badge.className = 'badge badge-success';
-            } else if (best.similarity > 0.6) {
-                badge.className = 'badge badge-warning';
+            
+            // Display match status
+            const statusEl = document.getElementById('matchStatus');
+            statusEl.textContent = best.match_label;
+            statusEl.className = `comparison-status ${best.status}`;
+            
+            // Display ArcFace score
+            const arcfaceEl = document.getElementById('arcfaceScore');
+            if (best.arcface_similarity !== null && best.arcface_similarity !== undefined) {
+                arcfaceEl.textContent = `${Math.round(best.arcface_similarity * 100)}%`;
             } else {
-                badge.className = 'badge badge-error';
+                arcfaceEl.textContent = 'N/A';
+            }
+            
+            // Display FaceNet score
+            const facenetEl = document.getElementById('facenetScore');
+            if (best.facenet_similarity !== null && best.facenet_similarity !== undefined) {
+                facenetEl.textContent = `${Math.round(best.facenet_similarity * 100)}%`;
+            } else {
+                facenetEl.textContent = 'N/A';
+            }
+            
+            // Display final combined score
+            document.getElementById('matchScore').textContent = `${Math.round(best.final_score * 100)}%`;
+            
+            // Display reasons
+            const reasonsEl = document.getElementById('matchReasons');
+            if (best.reasons && best.reasons.length > 0) {
+                reasonsEl.innerHTML = '<ul>' + best.reasons.map(r => `<li>${r}</li>`).join('') + '</ul>';
+            } else {
+                reasonsEl.innerHTML = '';
             }
 
             document.getElementById('comparisonResult').style.display = 'block';
-            document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.similarity * 100)}%)`;
+            document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
             document.getElementById('compareStatus').className = 'status status-success';
 
             // Store similarity visualization
@@ -598,7 +624,7 @@ async function compareFaces() {
             visualizationData['similarity_data'] = data.similarity_data;
             showVisualization('similarity');
 
-            showToast(`Match: ${best.name} (${Math.round(best.similarity * 100)}%)`, 'success');
+            showToast(`${best.match_label}: ${best.name} (${Math.round(best.final_score * 100)}%)`, 'success');
         } else {
             const errorMsg = data.error || 'No match found';
             logToTerminal(`> ${errorMsg}`, 'warning');

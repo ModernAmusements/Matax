@@ -248,16 +248,18 @@ def test_pose_aware_matching(step_num, total):
     
     passed = (resp.status_code == 200 and 
               data.get('success') and
-              'query_pose' in data and
               'results' in data and
               len(data['results']) > 0)
     
     if passed:
         result = data['results'][0]
-        details = f"raw={result['similarity']:.2f}, adjusted={result['adjusted_similarity']:.2f}, pose_match={result['pose_match']}"
-        print_step(step_num, total, "Pose-Aware Matching", "pass", details)
+        arcface_sim = result.get('arcface_similarity', 'N/A')
+        facenet_sim = result.get('facenet_similarity', 'N/A')
+        final_score = result.get('final_score', 0)
+        details = f"arcface={arcface_sim:.2f if arcface_sim != 'N/A' else 'N/A'}, facenet={facenet_sim:.2f if facenet_sim != 'N/A' else 'N/A'}, final={final_score:.2f}"
+        print_step(step_num, total, "Dual-Model Comparison", "pass", details)
     else:
-        print_step(step_num, total, "Pose-Aware Matching", "fail", str(data.get('error', 'Failed')))
+        print_step(step_num, total, "Dual-Model Comparison", "fail", str(data.get('error', 'Failed')))
     
     return passed
 

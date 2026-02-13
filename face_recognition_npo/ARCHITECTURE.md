@@ -512,27 +512,45 @@ python -m unittest discover tests/
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
 | GET | `/api/embedding-info` | Model info (ArcFace/FaceNet) |
+| GET | `/api/diagnostics` | System diagnostics (MediaPipe, models) |
 | POST | `/api/detect` | Face detection |
-| POST | `/api/extract` | Embedding extraction |
+| POST | `/api/extract` | Embedding extraction (both models) |
 | POST | `/api/add-reference` | Add reference image |
 | GET | `/api/references` | List references |
 | DELETE | `/api/references/<id>` | Remove reference |
-| POST | `/api/compare` | Compare embeddings |
+| POST | `/api/compare` | Compare embeddings (dual-model) |
 | GET | `/api/visualizations/<type>` | Get visualization |
+| GET | `/api/visualizations/<type>/reference/<id>` | Get ref visualization |
+| GET | `/api/quality` | Quality metrics |
+| GET | `/api/eyewear` | Eyewear detection |
 | POST | `/api/clear` | Clear session |
 | GET | `/api/status` | Debug server state |
 
-### Visualization Types (14 total)
+### Dual-Model Comparison
+
+The `/api/compare` endpoint now returns:
+
+| Field | Description |
+|-------|-------------|
+| `arcface_similarity` | ArcFace cosine similarity (0-1) |
+| `facenet_similarity` | FaceNet cosine similarity (0-1) |
+| `landmark_similarity` | Landmark geometry similarity (0-1) |
+| `final_score` | Weighted combination (60% ArcFace + 20% FaceNet + 15% Landmarks + 5% Quality) |
+| `status` | "match", "possible", or "no_match" |
+| `match_label` | "Full Match", "Possible Match", "No Match" |
+| `reasons` | List of match reasoning strings |
+
+### Visualization Types (14 + 9 Test = 23 total)
 
 | Type | Source | Description |
 |------|--------|-------------|
 | `detection` | FaceDetector | Bounding boxes with confidence |
 | `extraction` | FaceDetector | Face ROI extraction |
-| `landmarks` | FaceDetector | 15 facial keypoints |
+| `landmarks` | FaceDetector | **468 MediaPipe landmarks** |
 | `mesh3d` | FaceDetector | 478-point 3D mesh |
 | `alignment` | FaceDetector | Pitch/yaw/roll orientation |
 | `saliency` | FaceDetector | Attention visualization |
-| `activations` | EmbeddingExtractor | CNN activations (placeholder for ArcFace) |
+| `activations` | EmbeddingExtractor | CNN activations (FaceNet) |
 | `features` | EmbeddingExtractor | Feature map grid |
 | `multiscale` | FaceDetector | Multi-scale detection |
 | `confidence` | FaceDetector | Quality metrics overlay |
@@ -540,6 +558,20 @@ python -m unittest discover tests/
 | `similarity` | EmbeddingExtractor | Similarity result bar |
 | `robustness` | EmbeddingExtractor | Noise robustness test |
 | `biometric` | FaceDetector | Biometric capture overview |
+
+### Test Tabs (9)
+
+| Tab | Description |
+|-----|-------------|
+| API Health | Health check status |
+| Detection | Face detection info |
+| Extraction | Embedding extraction info |
+| References | Reference management |
+| Multi-Match | Multi-reference matching |
+| Pose | Pose detection status |
+| Eyewear | Eyewear detection |
+| Viz Types | Available visualizations |
+| Session | Session management |
 
 ---
 

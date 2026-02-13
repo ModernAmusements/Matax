@@ -42,19 +42,21 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 
 ---
 
-## ArcFace vs FaceNet
+## ArcFace vs FaceNet (Dual-Model)
 
-**ArcFace (Default - Recommended)**
-- 512-dimensional embeddings
-- ONNX Runtime
-- **Excellent discrimination**: Different people show <30% similarity
-- Prevents false positives
+**Both models now run together!**
 
-**FaceNet (Legacy - Not Recommended)**
-- 128-dimensional embeddings
-- PyTorch
-- **Poor discrimination**: Different people show ~65-70% similarity
-- Causes false positives!
+### Dual-Model Comparison (Recommended)
+- **ArcFace**: 512-dim embeddings (60% weight) - Best discrimination
+- **FaceNet**: 128-dim embeddings (20% weight) - Additional signal + activations
+- **Landmarks**: Geometric features (15% weight) - Structural consistency
+- **Quality**: Image quality score (5% weight) - Reliability
+
+**Result**: More robust matching by combining both models
+
+### Legacy (Not Recommended - Single Model)
+- ArcFace alone: 512-dim, <30% for different people
+- FaceNet alone: 128-dim, ~65-70% for different people
 
 ---
 

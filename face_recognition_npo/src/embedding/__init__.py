@@ -563,6 +563,195 @@ class SimilarityComparator:
         else:
             return "NO MATCH (different people)"
     
+    def landmark_similarity(self, landmarks1: Dict[str, float], landmarks2: Dict[str, float]) -> float:
+        """
+        Compare landmark geometric features between two faces.
+        Returns similarity score 0-1 (1 = identical geometry).
+        """
+        if not landmarks1 or not landmarks2:
+            return 0.5
+        
+        common_keys = set(landmarks1.keys()) & set(landmarks2.keys())
+        if not common_keys:
+            return 0.5
+        
+        total_diff = 0.0
+        for key in common_keys:
+            v1 = landmarks1.get(key, 0)
+            v2 = landmarks2.get(key, 0)
+            diff = abs(v1 - v2)
+            total_diff += diff
+        
+        avg_diff = total_diff / len(common_keys)
+        similarity = max(0, 1 - avg_diff * 5)
+        return float(similarity)
+    
+    def quality_score(self, quality: Dict) -> float:
+        """
+        Calculate overall quality score from quality metrics.
+        Returns 0-1 (1 = best quality).
+        """
+        if not quality:
+            return 0.5
+        
+        if 'overall' in quality:
+            return float(quality['overall'])
+        
+        brightness = quality.get('brightness', 0.5)
+        contrast = quality.get('contrast', 0.5)
+        sharpness = quality.get('sharpness', 0.5)
+        
+        quality_score = (brightness * 0.3 + contrast * 0.3 + sharpness * 0.4)
+        return float(quality_score)
+    
+    def compute_match_score(self, embedding_sim: float, landmark_sim: float = 0.5, 
+                           quality: Optional[Dict] = None, use_landmarks: bool = True) -> Dict:
+        """
+        Compute final match score with multiple factors.
+        
+        Weights (configurable):
+        - Embedding: 75% (main face recognition signal)
+        - Landmark geometry: 20% (robustness)
+        - Quality adjustment: 5% (handle bad images)
+        """
+        EMBEDDING_WEIGHT = 0.75
+        LANDMARK_WEIGHT = 0.20
+        QUALITY_WEIGHT = 0.05
+        
+        reasons = []
+        
+        embedding_score = embedding_sim
+        
+        if embedding_score >= 0.70:
+            reasons.append("High embedding similarity")
+        elif embedding_score >= 0.45:
+            reasons.append("Moderate embedding similarity")
+        else:
+            reasons.append("Low embedding similarity")
+        
+        final_score = embedding_score * EMBEDDING_WEIGHT
+        
+        if use_landmarks and landmark_sim > 0:
+            landmark_contribution = landmark_sim * LANDMARK_WEIGHT
+            final_score += landmark_contribution
+            
+            if landmark_sim >= 0.80:
+                reasons.append("Similar facial proportions")
+            elif landmark_sim >= 0.60:
+                reasons.append("Some facial features match")
+            else:
+                reasons.append("Different facial proportions")
+        
+        quality_factor = self.quality_score(quality) if quality else 0.7
+        quality_contribution = quality_factor * QUALITY_WEIGHT
+        final_score += quality_contribution
+        
+        if quality:
+            if quality_factor >= 0.7:
+                reasons.append("Good image quality")
+            elif quality_factor >= 0.5:
+                reasons.append("Moderate image quality")
+            else:
+                reasons.append("Low image quality - may affect accuracy")
+        
+        final_score = min(1.0, max(0.0, final_score))
+        
+        return {
+            'score': final_score,
+            'embedding_similarity': embedding_score,
+            'landmark_similarity': landmark_sim if use_landmarks else None,
+            'quality_factor': quality_factor if quality else 0.7,
+            'reasons': reasons
+        }
+    
+    def get_match_verdict(self, score: float) -> Tuple[str, str, str]:
+        """
+        Get verdict based on combined score.
+        Returns (status, label, description).
+        """
+        if score >= 0.70:
+            return ('match', 'Full Match', 'High confidence - likely the same person')
+        elif score >= 0.45:
+            return ('possible', 'Possible Match', 'Medium confidence - human review recommended')
+        else:
+            return ('no_match', 'No Match', 'Low confidence - likely different people')
+    
+    def compute_dual_match_score(self, arcface_sim: Optional[float], facenet_sim: Optional[float],
+                                  landmark_sim: float = 0.5, quality: Optional[Dict] = None) -> Dict:
+        """
+        Compute final match score using BOTH ArcFace and FaceNet embeddings.
+        
+        Weights:
+        - ArcFace: 60% (best discrimination)
+        - FaceNet: 20% (additional signal)
+        - Landmarks: 15% (geometric consistency)
+        - Quality: 5% (reliability factor)
+        """
+        ARCFACE_WEIGHT = 0.60
+        FACENET_WEIGHT = 0.20
+        LANDMARK_WEIGHT = 0.15
+        QUALITY_WEIGHT = 0.05
+        
+        reasons = []
+        
+        # Calculate embedding contributions
+        arcface_contribution = 0.0
+        if arcface_sim is not None:
+            arcface_contribution = arcface_sim * ARCFACE_WEIGHT
+            if arcface_sim >= 0.70:
+                reasons.append(f"ArcFace: High similarity ({arcface_sim:.0%})")
+            elif arcface_sim >= 0.45:
+                reasons.append(f"ArcFace: Moderate similarity ({arcface_sim:.0%})")
+            else:
+                reasons.append(f"ArcFace: Low similarity ({arcface_sim:.0%})")
+        else:
+            reasons.append("ArcFace: Not available")
+        
+        facenet_contribution = 0.0
+        if facenet_sim is not None:
+            facenet_contribution = facenet_sim * FACENET_WEIGHT
+            if facenet_sim >= 0.70:
+                reasons.append(f"FaceNet: High similarity ({facenet_sim:.0%})")
+            elif facenet_sim >= 0.45:
+                reasons.append(f"FaceNet: Moderate similarity ({facenet_sim:.0%})")
+            else:
+                reasons.append(f"FaceNet: Low similarity ({facenet_sim:.0%})")
+        else:
+            reasons.append("FaceNet: Not available")
+        
+        # Landmark contribution
+        landmark_contribution = landmark_sim * LANDMARK_WEIGHT
+        if landmark_sim >= 0.80:
+            reasons.append("Similar facial proportions")
+        elif landmark_sim >= 0.60:
+            reasons.append("Some facial features match")
+        else:
+            reasons.append("Different facial proportions")
+        
+        # Quality contribution
+        quality_factor = self.quality_score(quality) if quality else 0.7
+        quality_contribution = quality_factor * QUALITY_WEIGHT
+        
+        if quality_factor >= 0.7:
+            reasons.append("Good image quality")
+        elif quality_factor >= 0.5:
+            reasons.append("Moderate image quality")
+        else:
+            reasons.append("Low image quality - may affect accuracy")
+        
+        # Calculate final score
+        final_score = arcface_contribution + facenet_contribution + landmark_contribution + quality_contribution
+        final_score = min(1.0, max(0.0, final_score))
+        
+        return {
+            'score': final_score,
+            'arcface_similarity': arcface_sim,
+            'facenet_similarity': facenet_sim,
+            'landmark_similarity': landmark_sim,
+            'quality_factor': quality_factor,
+            'reasons': reasons
+        }
+    
 
     def visualize_comparison_metrics(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], 
                                       reference_ids: List[str], similarities: List[float],

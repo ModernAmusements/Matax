@@ -239,23 +239,8 @@ class FaceDetector:
             else:
                 eye_count = 2
         
-        if not eyewear_detected:
-            confidence = 0.1
-            
-            left_edges = cv2.Canny(left_gray, 50, 150)
-            right_edges = cv2.Canny(right_gray, 50, 150)
-            left_edge_density = np.sum(left_edges > 0) / left_edges.size
-            right_edge_density = np.sum(right_edges > 0) / right_edges.size
-            avg_edge_density = (left_edge_density + right_edge_density) / 2
-            
-            if avg_edge_density > 0.15:
-                warnings.append(f"High edge density in eye region - possible glasses frames")
-                if not eyewear_detected:
-                    eyewear_detected = True
-                    eyewear_type = 'glasses'
-                    confidence = max(confidence, 0.7)
-        
-        if not eyewear_detected and eye_count >= 2:
+        # If eyes detected (>=2), likely no eyewear
+        if eye_count >= 2 and not eyewear_detected:
             confidence = 0.1
         
         return {

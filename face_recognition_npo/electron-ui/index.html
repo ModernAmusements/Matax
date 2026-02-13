@@ -690,9 +690,23 @@
                         <p class="preview-label">Your Image</p>
                     </div>
                     <div class="comparison-center">
-                        <div class="comparison-score" id="matchScore">--%</div>
-                        <p class="comparison-label">Match</p>
-                        <span class="badge badge-success" id="confidenceBadge">High confidence</span>
+                        <div class="comparison-status" id="matchStatus">--</div>
+                        <div class="comparison-scores">
+                            <div class="score-row">
+                                <span class="score-label">ArcFace:</span>
+                                <span class="score-value" id="arcfaceScore">--%</span>
+                            </div>
+                            <div class="score-row">
+                                <span class="score-label">FaceNet:</span>
+                                <span class="score-value" id="facenetScore">--%</span>
+                            </div>
+                            <div class="score-row final">
+                                <span class="score-label">Combined:</span>
+                                <span class="score-value" id="matchScore">--%</span>
+                            </div>
+                        </div>
+                        <p class="comparison-label">Similarity</p>
+                        <div class="match-reasons" id="matchReasons"></div>
                     </div>
                     <div class="comparison-side">
                         <img id="refImage" src="" alt="Reference">
@@ -729,15 +743,15 @@
                 <button class="viz-tab" data-viz="robustness">Robustness</button>
                 <button class="viz-tab" data-viz="biometric">Biometric</button>
                 <button class="viz-tab" data-viz="tests">Tests</button>
-                <button class="viz-tab" data-viz="test-health">Test 1</button>
-                <button class="viz-tab" data-viz="test-detection">Test 2</button>
-                <button class="viz-tab" data-viz="test-extraction">Test 3</button>
-                <button class="viz-tab" data-viz="test-reference">Test 4</button>
-                <button class="viz-tab" data-viz="test-multi">Test 5</button>
-                <button class="viz-tab" data-viz="test-pose">Test 6</button>
-                <button class="viz-tab" data-viz="test-eyewear">Test 7</button>
-                <button class="viz-tab" data-viz="test-viz">Test 8</button>
-                <button class="viz-tab" data-viz="test-clear">Test 9</button>
+                <button class="viz-tab" data-viz="test-health">API Health</button>
+                <button class="viz-tab" data-viz="test-detection">Detection</button>
+                <button class="viz-tab" data-viz="test-extraction">Extraction</button>
+                <button class="viz-tab" data-viz="test-reference">References</button>
+                <button class="viz-tab" data-viz="test-multi">Multi-Match</button>
+                <button class="viz-tab" data-viz="test-pose">Pose</button>
+                <button class="viz-tab" data-viz="test-eyewear">Eyewear</button>
+                <button class="viz-tab" data-viz="test-viz">Viz Types</button>
+                <button class="viz-tab" data-viz="test-clear">Session</button>
             </div>
             <div class="viz-content" id="vizContent">
                 <div class="viz-placeholder">

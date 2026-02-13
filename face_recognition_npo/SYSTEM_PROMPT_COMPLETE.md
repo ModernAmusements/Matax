@@ -2,52 +2,53 @@
 
 ## Role and Context
 
-You are working on the **NGO Facial Image Analysis System** - a complete, production-ready facial recognition system designed for ethical, consent-based documentation verification workflows. This is **version 0.4.1** and the system is **fully functional**.
+You are working on the **NGO Facial Image Analysis System** - a complete, production-ready facial recognition system designed for ethical, consent-based documentation verification workflows. This is **version 0.5.0** and the system is **fully functional**.
 
 ## Complete System Understanding Checklist
 
 BEFORE making any changes, you must have read and understood:
 
 ### ✅ Documentation Files (All Must Be Read)
-1. **README.md** - Main documentation, features overview, ArcFace integration
+1. **README.md** - Main documentation, features overview
 2. **CONTEXT.md** - ⚠️ **CRITICAL**: Strict edit rules, developer workflow, common mistakes
 3. **ARCHITECTURE.md** - Complete system design, API endpoints, visualization types
 4. **PROJECT_STRUCTURE.md** - File organization, roadmap, critical lessons learned
 5. **DEVELOPMENT_LOG.md** - Session-by-session development history
-6. **ETHICAL_COMPLIANCE.md** - Privacy guidelines, ArcFace discrimination analysis
+6. **ETHICAL_COMPLIANCE.md** - Privacy guidelines
 7. **INSTALLATION.md** - Setup and dependencies
 8. **USAGE.md** - Quick start instructions
 9. **IMAGE_STORAGE.md** - Embedding storage format
-10. **SYSTEM_PROMPT.md** - This file (you are reading it)
+10. **SYSTEM_PROMPT.md** - Quick reference
 
 ### ✅ Code Files (Core Architecture)
 1. **Python Backend**:
-   - `api_server.py` - Flask API server (11 REST endpoints)
+   - `api_server.py` - Flask API server (12+ REST endpoints)
    - `src/detection/__init__.py` - FaceDetector class (OpenCV DNN + MediaPipe)
-   - `src/detection/preprocessing.py` - ImagePreprocessor (CLAHE, histogram equalization)
-   - `src/embedding/__init__.py` - FaceNetEmbeddingExtractor (128-dim, PyTorch)
-   - `src/embedding/arcface_extractor.py` - ArcFaceEmbeddingExtractor (512-dim, ONNX)
+   - `src/detection/preprocessing.py` - ImagePreprocessor
+   - `src/embedding/__init__.py` - SimilarityComparator, FaceNetEmbeddingExtractor
+   - `src/embedding/arcface_extractor.py` - ArcFaceEmbeddingExtractor
 
 2. **Frontend**:
    - `electron-ui/main.js` - Electron main process
    - `electron-ui/renderer/app.js` - Frontend JavaScript
-   - `electron-ui/index.html` - UI with scrollable tabs (20 visualization types)
+   - `electron-ui/index.html` - UI with scrollable tabs
 
 3. **Test Files**:
-   - `test_frontend_integration.py` - Rich visual frontend tests
+   - `test_frontend_integration.py` - Visual frontend tests
    - `test_e2e_pipeline.py` - End-to-end tests
    - `test_eyewear.py` - Eyewear detection tests
 
-### ✅ Key Features (v0.4.1)
-- **ArcFace**: 512-dim embeddings (default, recommended)
+### ✅ Key Features (v0.5.0)
+- **Dual-Model**: ArcFace (512-dim) + FaceNet (128-dim) together
+- **Weighted Comparison**: ArcFace 60%, FaceNet 20%, Landmarks 15%, Quality 5%
+- **468 MediaPipe Landmarks**: Full face mesh visualization
 - **Pose Detection**: yaw, pitch, roll estimation
-- **Pose-Aware Matching**: Adjusts similarity based on pose difference
 - **Multi-Reference**: Store multiple poses per person
 - **Image Preprocessing**: Auto CLAHE, histogram equalization
-- **Eyewear Detection**: Sunglasses/glasses detection
-- **20 Visualization Tabs**: Scrollable in UI
+- **Eyewear Detection**: Improved with brightness analysis
+- **20+ Visualization Tabs**: Scrollable in UI
 
-### ✅ API Endpoints (11 total)
+### ✅ API Endpoints (12+ total)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |

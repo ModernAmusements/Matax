@@ -67,7 +67,14 @@ def test_all_endpoints(use_arcface=False):
     passed, result = test_endpoint("GET /api/health", "GET", "/api/health")
     results.append(("GET /api/health", passed))
     
-    # Test 2: Embedding info
+    # Test 2: Diagnostics
+    passed, result = test_endpoint("GET /api/diagnostics", "GET", "/api/diagnostics")
+    if passed:
+        passed = result.get("mediapipe") is not None
+        passed = passed and result.get("dual_model_mode") == True
+    results.append(("GET /api/diagnostics", passed))
+    
+    # Test 3: Embedding info
     passed, result = test_endpoint("GET /api/embedding-info", "GET", "/api/embedding-info")
     if passed:
         if use_arcface:
@@ -76,11 +83,11 @@ def test_all_endpoints(use_arcface=False):
             passed = result.get("model") == "FaceNetEmbeddingExtractor"
     results.append(("GET /api/embedding-info", passed))
     
-    # Test 3: Status
+    # Test 4: Status
     passed, result = test_endpoint("GET /api/status", "GET", "/api/status")
     results.append(("GET /api/status", passed))
     
-    # Test 4: References (empty initially)
+    # Test 5: References (empty initially)
     passed, result = test_endpoint("GET /api/references", "GET", "/api/references")
     results.append(("GET /api/references", passed))
     

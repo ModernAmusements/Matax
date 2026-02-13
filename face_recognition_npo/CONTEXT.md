@@ -1261,13 +1261,98 @@ if eye_count == 0 and not eyewear_detected:
 
 ---
 
+## New Features: Dual-Model Comparison (February 13, 2026)
+
+### Overview
+The application now uses BOTH ArcFace AND FaceNet together for more robust matching.
+
+### Dual-Model Architecture
+
+| Component | Description |
+|-----------|-------------|
+| ArcFace Extractor | 512-dim embeddings (primary) |
+| FaceNet Extractor | 128-dim embeddings (secondary) + activations |
+| Both always loaded | Even if USE_ARCFACE=true |
+
+### Comparison Weights
+
+| Factor | Weight | Purpose |
+|--------|--------|---------|
+| ArcFace similarity | 60% | Primary - best discrimination |
+| FaceNet similarity | 20% | Additional signal |
+| Landmark geometry | 15% | Structural consistency |
+| Image quality | 5% | Reliability factor |
+
+### New API Fields
+
+Each comparison result now returns:
+```json
+{
+  "arcface_similarity": 0.75,
+  "facenet_similarity": 0.60,
+  "landmark_similarity": 0.85,
+  "final_score": 0.68,
+  "status": "match|possible|no_match",
+  "match_label": "Full Match|Possible Match|No Match",
+  "reasons": ["ArcFace: High similarity (75%)", "FaceNet: Moderate (60%)", "Similar facial proportions"]
+}
+```
+
+### Backwards Compatibility
+
+- Old references with single embedding are automatically handled
+- If ArcFace unavailable, falls back to FaceNet-only matching
+- `/api/diagnostics` endpoint added to check system status
+
+---
+
+## MediaPipe Landmark Detection (February 13, 2026)
+
+### Issue Resolved
+Previously, landmarks visualization showed only ~10 points (fallback mode). Now shows full 468 MediaPipe landmarks.
+
+### Required Files
+- `face_landmark.task` - MediaPipe model (downloaded to project root)
+- MediaPipe Python package installed
+
+### Verification
+Check `/api/diagnostics` endpoint:
+```json
+{
+  "mediapipe": "available",
+  "model_file_exists": true,
+  "arcface_extractor": "loaded",
+  "dual_model_mode": true
+}
+```
+
+---
+
+## Test Tab Renaming (February 13, 2026)
+
+| Old Name | New Name |
+|----------|----------|
+| Test 1 | API Health |
+| Test 2 | Detection |
+| Test 3 | Extraction |
+| Test 4 | References |
+| Test 5 | Multi-Match |
+| Test 6 | Pose |
+| Test 7 | Eyewear |
+| Test 8 | Viz Types |
+| Test 9 | Session |
+
+---
+
 ## Files to Know
 
 | File | Purpose | When to Edit |
 |------|---------|--------------|
-| `api_server.py` | Flask API (11 endpoints) | Backend changes |
+| `api_server.py` | Flask API (12+ endpoints) | Backend changes |
 | `electron-ui/renderer/app.js` | Frontend logic | UI changes |
 | `electron-ui/index.html` | UI structure | HTML changes |
+| `src/embedding/__init__.py` | SimilarityComparator | Matching logic |
+| `src/detection/__init__.py` | FaceDetector | Landmarks, pose |
 | `start.sh` | Startup script | Server config |
 | `test_e2e_pipeline.py` | E2E tests | Test changes |
 | `reference_images/embeddings.json` | Persistent storage | Auto-generated |
@@ -1298,7 +1383,8 @@ echo "✓ Cache cleared"
 ---
 
 *Context document created: February 11, 2026*
-*Last updated: February 11, 2026*
-*All critical issues fixed, no mock code remaining*
-*Strict edit rules enforced*
+*Last updated: February 13, 2026*
+*All critical issues fixed*
+*Dual-model comparison implemented*
+*MediaPipe landmarks fixed*
 *MANDATORY: Run pre-commit verification before every commit*
