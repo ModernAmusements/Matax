@@ -617,6 +617,27 @@
             </div>
         </div>
 
+        <!-- Webcam -->
+        <div class="step">
+            <div class="step-header">
+                <div>
+                    <span class="step-number">Webcam</span>
+                    <h2>Capture from Webcam</h2>
+                    <p>Use your webcam to capture a photo for analysis.</p>
+                    <p id="webcamStatus" class="status">Click "Start Webcam" to begin</p>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start Webcam</button>
+                    <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
+                    <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
+                </div>
+            </div>
+            <div id="webcamContainer" style="display: none; text-align: center;">
+                <video id="webcamVideo" autoplay playsinline style="max-width: 100%; max-height: 400px; border: 1px solid #000; border-radius: 4px;"></video>
+                <canvas id="webcamCanvas" style="display: none;"></canvas>
+            </div>
+        </div>
+
         <!-- Step 2 -->
         <div class="step">
             <div class="step-header">

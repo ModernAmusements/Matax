@@ -730,53 +730,60 @@ def get_viz_result(viz_type, face_image, embedding):
         elif viz_type == 'tests':
             return visualize_tests(current_image, current_faces, current_embedding, references), {}
         elif viz_type == 'test-health':
-            return visualize_test_detail("Health Check", {"status": "OK", "api": "running", "port": 3000}), {}
+            data = {"status": "OK", "api": "running", "port": 3000}
+            return visualize_test_detail("Health Check", data), data
         elif viz_type == 'test-detection':
-            return visualize_test_detail("Detection + Preprocessing", {
+            data = {
                 "faces_detected": len(current_faces) if current_faces else 0,
-                "preprocessing": current_preprocessing_info.get('method', 'none'),
-                "enhanced": current_preprocessing_info.get('was_enhanced', False)
-            }), {}
-        elif viz_type == 'test-extraction':
-            emb_info = {
-                "embedding_size": len(current_embedding) if current_embedding is not None else 0,
-                "pose": current_pose if current_pose else "not extracted"
+                "preprocessing": current_preprocessing_info.get('method', 'none') if current_preprocessing_info else 'none',
+                "enhanced": current_preprocessing_info.get('was_enhanced', False) if current_preprocessing_info else False
             }
-            return visualize_test_detail("Extraction + Pose", emb_info), {}
+            return visualize_test_detail("Detection + Preprocessing", data), data
+        elif viz_type == 'test-extraction':
+            data = {
+                "embedding_size": len(current_embedding) if current_embedding is not None else 0,
+                "pose": current_pose.get('category', 'not extracted') if current_pose else "not extracted"
+            }
+            return visualize_test_detail("Extraction + Pose", data), data
         elif viz_type == 'test-reference':
-            ref_info = {"references": len(references) if references else 0}
+            data = {"references": len(references) if references else 0}
             if references:
-                ref_info["latest_pose"] = references[-1].get('pose_category', 'unknown')
-            return visualize_test_detail("Add Reference + Pose", ref_info), {}
+                data["latest_pose"] = references[-1].get('pose_category', 'unknown')
+            return visualize_test_detail("Add Reference + Pose", data), data
         elif viz_type == 'test-multi':
-            return visualize_test_detail("Multi-Reference", {
+            data = {
                 "total_references": len(references) if references else 0,
                 "can_match": len(references) > 1
-            }), {}
+            }
+            return visualize_test_detail("Multi-Reference", data), data
         elif viz_type == 'test-pose':
-            return visualize_test_detail("Pose-Aware Matching", {
-                "query_pose": current_pose if current_pose else "no query",
+            data = {
+                "query_pose": current_pose.get('category', 'not extracted') if current_pose else "no query",
                 "matching_enabled": True,
                 "adjusts_similarity": True
-            }), {}
+            }
+            return visualize_test_detail("Pose-Aware Matching", data), data
         elif viz_type == 'test-eyewear':
             if current_image and current_faces:
                 ew = detector.detect_eyewear(current_image, current_faces[0])
-                return visualize_test_detail("Eyewear Detection", ew), {}
-            return visualize_test_detail("Eyewear Detection", {"status": "no face detected"}), {}
+                return visualize_test_detail("Eyewear Detection", ew), ew
+            data = {"status": "no face detected"}
+            return visualize_test_detail("Eyewear Detection", data), data
         elif viz_type == 'test-viz':
-            return visualize_test_detail("Visualizations", {
+            data = {
                 "total_types": 16,
                 "detection": "available",
                 "preprocessing": "available",
                 "pose": "available",
                 "tests": "available"
-            }), {}
+            }
+            return visualize_test_detail("Visualizations", data), data
         elif viz_type == 'test-clear':
-            return visualize_test_detail("Clear + Reset", {
+            data = {
                 "session_management": "working",
                 "can_clear": True
-            }), {}
+            }
+            return visualize_test_detail("Clear + Reset", data), data
         return None, {}
     
     viz_result = get_viz_and_data(viz_type, face_image, embedding)
@@ -903,6 +910,88 @@ def get_status():
         'faces_count': len(current_faces),
         'references_count': len(references),
         'reference_embeddings': [r.get('embedding') is not None for r in references]
+    })
+
+
+@app.route('/api/webcam/available', methods=['GET'])
+def webcam_available():
+    """Check if webcam is available."""
+    import cv2
+    cap = cv2.VideoCapture(0)
+    available = cap.isOpened()
+    cap.release()
+    return jsonify({'success': True, 'available': available})
+
+
+@app.route('/api/webcam/capture', methods=['POST'])
+def webcam_capture():
+    """Capture a frame from webcam and return as base64."""
+    import cv2
+    import base64
+    
+    data = request.get_json()
+    camera_index = data.get('camera_index', 0) if data else 0
+    
+    cap = cv2.VideoCapture(camera_index)
+    if not cap.isOpened():
+        cap.release()
+        return jsonify({'success': False, 'error': 'Cannot open camera'}), 400
+    
+    ret, frame = cap.read()
+    cap.release()
+    
+    if not ret:
+        return jsonify({'success': False, 'error': 'Failed to capture frame'}), 400
+    
+    # Encode as JPEG
+    _, buffer = cv2.imencode('.jpg', frame)
+    image_base64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'success': True,
+        'image': f'data:image/jpeg;base64,{image_base64}',
+        'width': frame.shape[1],
+        'height': frame.shape[0]
+    })
+
+
+@app.route('/api/webcam/detect', methods=['POST'])
+def webcam_detect():
+    """Capture frame from webcam and detect faces."""
+    import cv2
+    import base64
+    
+    data = request.get_json()
+    camera_index = data.get('camera_index', 0) if data else 0
+    
+    cap = cv2.VideoCapture(camera_index)
+    if not cap.isOpened():
+        cap.release()
+        return jsonify({'success': False, 'error': 'Cannot open camera'}), 400
+    
+    ret, frame = cap.read()
+    cap.release()
+    
+    if not ret:
+        return jsonify({'success': False, 'error': 'Failed to capture frame'}), 400
+    
+    # Detect faces
+    global current_faces, current_image
+    current_faces = detector.detect_faces(frame)
+    current_image = frame
+    
+    # Draw detections on image
+    result_image = detector.draw_detections(frame, current_faces)
+    
+    # Encode as JPEG
+    _, buffer = cv2.imencode('.jpg', result_image)
+    image_base64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'success': True,
+        'faces_count': len(current_faces),
+        'faces': [{'x': x, 'y': y, 'w': w, 'h': h} for x, y, w, h in current_faces],
+        'image': f'data:image/jpeg;base64,{image_base64}'
     })
 
 

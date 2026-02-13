@@ -1,8 +1,8 @@
 # Code Review Context - Face Recognition NPO
 
-**Review Date**: February 11, 2026  
+**Review Date**: February 13, 2026  
 **Reviewer**: AI Code Review (with Developer Mindset)  
-**Status**: ✅ ALL ISSUES FIXED - NO MOCK CODE REMAINING
+**Status**: ✅ ALL ISSUES FIXED - EYWEAR DETECTION FALSE POSITIVES FIXED
 
 ---
 
@@ -298,6 +298,21 @@ if [ $? -eq 0 ]; then
     echo "   ✓ Backend OK"
 else
     echo "   ✗ Backend FAILED"
+    PASS=false
+fi
+
+# 0. PYTHON ENVIRONMENT: Check we're using project venv
+echo ""
+echo "0. Python environment..."
+PYTHON_PATH=$(which python)
+if [[ "$PYTHON_PATH" == *"/MANTAX/face_recognition_npo/venv/"* ]]; then
+    echo "   ✓ Using project venv: $PYTHON_PATH"
+elif [[ "$PYTHON_PATH" == *"/MANTAX/face_recognition_npo/venv313/"* ]]; then
+    echo "   ✓ Using project venv313: $PYTHON_PATH"
+else
+    echo "   ✗ WRONG PYTHON: $PYTHON_PATH"
+    echo "   ✗ Must use: .../MANTAX/face_recognition_npo/venv/bin/python"
+    echo "   ✗ Run: cd /Users/modernamusmenet/Desktop/MANTAX/face_recognition_npo && source venv/bin/activate"
     PASS=false
 fi
 
@@ -994,6 +1009,12 @@ echo "✓ All HTML handlers verified in app.js"
 | Feb 11, 2026 | `test_e2e_pipeline.py` | Made test images configurable via env vars |
 | Feb 11, 2026 | `visualize_biometric.py` | Made test image configurable |
 | Feb 11, 2026 | `reference_images/README.md` | Updated documentation |
+| Feb 13, 2026 | `api_server.py` | Fixed 9 test viz handlers to return actual data (test-health, test-detection, test-extraction, test-reference, test-multi, test-pose, test-eyewear, test-viz, test-clear) |
+| Feb 13, 2026 | `electron-ui/renderer/app.js` | Fixed visualization fetch to accept smaller images, added data-only display support |
+| Feb 13, 2026 | `CONTEXT.md` | Added Lesson 15 (Test Viz Data) and Mistake 11 |
+| Feb 13, 2026 | `src/detection/__init__.py` | Fixed eyewear detection - use brightness as primary, eye cascade as secondary |
+| Feb 13, 2026 | `electron-ui/renderer/app.js` | Added webcam functions (startWebcam, captureWebcam, stopWebcam) |
+| Feb 13, 2026 | `test_eyewear_frontend.js` | Created frontend integration test for eyewear detection |
 
 ---
 
@@ -1111,6 +1132,113 @@ cd "$(dirname "$0")/electron-ui"
 npm start &
 ```
 
+### Lesson 15: Test Visualization Data Not Displaying
+
+**Problem**: Test tabs (test-health, test-detection, etc.) showed images but no text data below them.
+
+**Root Cause**: API handlers returned empty `{}` as second tuple element:
+```python
+# WRONG - returns empty dict
+return visualize_test_detail("Health Check", {"status": "OK"}), {}
+```
+
+**Solution**: Return actual data dict as second tuple element:
+```python
+# CORRECT - returns actual data
+data = {"status": "OK", "api": "running", "port": 3000}
+return visualize_test_detail("Health Check", data), data
+```
+
+**Frontend**: Already had `formatDataAsTable()` and CSS - just needed data from API.
+
+**Frontend Logic Fix**: Also updated to handle smaller images and data-only display:
+```javascript
+// Changed from: data.visualization.length > 100
+// To: accept any visualization size
+if (data.success && data.visualization) {
+    visualizationData[vizType] = data.visualization;
+    // ...store data
+}
+```
+
+**Remember**: When adding new test viz handlers, always return data as second tuple element!
+
+### Lesson 16: Always Use Project Virtual Environment
+
+**Problem**: Old API server process kept running with wrong Python, causing bugs to persist even after code fixes.
+
+**Root Cause**: 
+- Started API with system Python (`/opt/homebrew/Cellar/python@3.14/...`) instead of project venv
+- Used `python` command instead of `source venv/bin/activate && python`
+- Old process cached old code, so edits had no effect
+
+**Solution**: Always use the project's virtual environment:
+```bash
+# CORRECT - use project venv
+cd /Users/modernamusmenet/Desktop/MANTAX/face_recognition_npo
+source venv/bin/activate
+python api_server.py
+
+# OR use start.sh which does this automatically
+./start.sh
+```
+
+**How to verify**: Check which Python is running:
+```bash
+# Find the process
+ps aux | grep "api_server\|python.*3000" | grep -v grep
+
+# Kill old process if needed
+kill <PID>
+
+# Verify new process uses correct Python
+lsof -p <new_pid> | grep Python
+# Should show: .../MANTAX/face_recognition_npo/venv/bin/python
+```
+
+**REMEMBER**: Always restart the API server after making code changes!
+
+### Lesson 17: Eyewear Detection False Positives
+
+**Problem**: Every uploaded image showed "glasses detected" even without eyewear.
+
+**Root Cause**: 
+1. OpenCV eye cascade is unreliable - often returns 0 eyes even without glasses
+2. Code automatically flagged eyewear if eye_count == 0, regardless of actual eye brightness
+3. Thresholds were too low (0.4 for brightness ratio, 0.15 for edge density)
+
+**Solution**: 
+1. Analyze brightness/edge FIRST as primary detection method
+2. Use eye cascade ONLY as confirmation, not primary
+3. Require BOTH conditions to be true (dark eyes + high edge density)
+4. Set stricter thresholds: brightness < 0.2 for sunglasses, < 0.35 for possible
+5. Only flag eyewear if brightness analysis confirms, not just eye cascade failure
+
+**Key Code Pattern**:
+```python
+# WRONG - eye cascade alone triggers detection
+if eye_count == 0:
+    eyewear_detected = True  # FALSE POSITIVE!
+
+# CORRECT - require brightness confirmation
+eyes_detected = self.detect_eyes(face_image)
+eye_count = len(eyes_detected)
+
+if eye_count == 0 and not eyewear_detected:
+    # Only flag if brightness is VERY dark
+    if brightness_ratio < 0.15:
+        eyewear_detected = True
+    else:
+        # Eye cascade likely just failed - don't flag
+        eye_count = 2  # Assume normal
+```
+
+**Testing**: Always test BOTH:
+- Normal face (should NOT detect eyewear)
+- Face with sunglasses (should detect eyewear)
+
+**Frontend Test Script**: `test_eyewear_frontend.js`
+
 ---
 
 ## Common Mistakes Summary
@@ -1127,6 +1255,9 @@ npm start &
 | 8 | References not persisting | Call `save_references()` after add/remove |
 | 9 | Old process caching code | Use `./start.sh` to restart |
 | 10 | Wrong test image paths | Use `test_subject.jpg`, `reference_subject.jpg` |
+| 11 | Test viz returning empty data | Return actual data dict as second tuple element |
+| 12 | Using wrong Python environment | Always use `source venv/bin/activate` before running |
+| 13 | Eyewear detection false positives | Use brightness analysis as primary, eye cascade as secondary |
 
 ---
 

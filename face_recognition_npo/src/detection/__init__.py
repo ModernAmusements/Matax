@@ -165,22 +165,11 @@ class FaceDetector:
         confidence = 0.0
         occlusion_level = 0.0
         
-        eyes_detected = self.detect_eyes(face_image)
-        eye_count = len(eyes_detected)
+        # Initialize variables for brightness/edge analysis
+        brightness_ratio = 1.0
+        avg_edge_density = 0.0
         
-        if eye_count == 0:
-            warnings.append("No eyes detected - possible sunglasses")
-            occlusion_level = 0.9
-            eyewear_detected = True
-            eyewear_type = 'sunglasses'
-            confidence = 0.85
-        elif eye_count == 1:
-            warnings.append("Only one eye detected - possible partial occlusion")
-            occlusion_level = 0.5
-            eyewear_detected = True
-            eyewear_type = 'glasses'
-            confidence = 0.6
-        
+        # First: Analyze eye region brightness and edges (more reliable than eye cascade)
         if left_eye_region.size > 0 and right_eye_region.size > 0:
             left_gray = cv2.cvtColor(left_eye_region, cv2.COLOR_BGR2GRAY)
             right_gray = cv2.cvtColor(right_eye_region, cv2.COLOR_BGR2GRAY)
@@ -194,20 +183,64 @@ class FaceDetector:
             
             brightness_ratio = avg_eye_brightness / (face_brightness + 1)
             
-            if brightness_ratio < 0.4:
+            # Only flag if very strong evidence - much higher threshold
+            if brightness_ratio < 0.2:  # Very dark eyes = strong sunglasses evidence
                 warnings.append(f"Eye region very dark (ratio: {brightness_ratio:.2f}) - likely sunglasses")
-                if not eyewear_detected or confidence < 0.8:
-                    eyewear_detected = True
-                    eyewear_type = 'sunglasses'
-                    confidence = max(confidence, 0.85)
-                occlusion_level = max(occlusion_level, 0.85)
-            elif brightness_ratio < 0.6:
+                eyewear_detected = True
+                eyewear_type = 'sunglasses'
+                confidence = 0.9
+                occlusion_level = 0.9
+            elif brightness_ratio < 0.35:  # Somewhat dark = possible sunglasses
                 warnings.append(f"Eye region darker than average (ratio: {brightness_ratio:.2f}) - possible sunglasses")
-                if not eyewear_detected:
-                    eyewear_detected = True
-                    eyewear_type = 'sunglasses'
-                    confidence = max(confidence, 0.6)
-                occlusion_level = max(occlusion_level, 0.5)
+                # Also detect as possible sunglasses
+                eyewear_detected = True
+                eyewear_type = 'sunglasses'
+                confidence = 0.5
+                occlusion_level = 0.4
+            
+            left_edges = cv2.Canny(left_gray, 50, 150)
+            right_edges = cv2.Canny(right_gray, 50, 150)
+            left_edge_density = np.sum(left_edges > 0) / left_edges.size
+            right_edge_density = np.sum(right_edges > 0) / right_edges.size
+            avg_edge_density = (left_edge_density + right_edge_density) / 2
+            
+            # High edge density + dark eyes = strong glasses evidence
+            if avg_edge_density > 0.3 and brightness_ratio < 0.4:
+                warnings.append(f"High edge density in eye region - possible glasses frames")
+                eyewear_detected = True
+                eyewear_type = 'glasses'
+                confidence = 0.7
+                occlusion_level = 0.6
+        
+        # Second: Use eye cascade only as confirmation, not primary detection
+        # OpenCV eye cascade often fails, so require strong evidence
+        eyes_detected = self.detect_eyes(face_image)
+        eye_count = len(eyes_detected)
+        
+        if eye_count == 0 and not eyewear_detected:
+            # Eye cascade failed - only flag if brightness is VERY dark
+            if brightness_ratio < 0.15:
+                warnings.append("No eyes detected + very dark eye region - likely sunglasses")
+                eyewear_detected = True
+                eyewear_type = 'sunglasses'
+                confidence = 0.6
+                occlusion_level = 0.9
+            else:
+                # Eye cascade likely just failed - don't flag as eyewear
+                eye_count = 2  # Assume normal
+        elif eye_count == 1 and not eyewear_detected:
+            # One eye detected - weak evidence, require confirmation
+            if brightness_ratio < 0.25:
+                warnings.append("Only one eye detected + dark - possible glasses")
+                eyewear_detected = True
+                eyewear_type = 'glasses'
+                confidence = 0.4
+                occlusion_level = 0.5
+            else:
+                eye_count = 2
+        
+        if not eyewear_detected:
+            confidence = 0.1
             
             left_edges = cv2.Canny(left_gray, 50, 150)
             right_edges = cv2.Canny(right_gray, 50, 150)

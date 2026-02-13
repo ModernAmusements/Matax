@@ -660,13 +660,15 @@ async function showVisualization(vizType) {
             const data = await response.json();
             console.log('[VIZ] API response:', data);
 
-            if (data.success && data.visualization && data.visualization.length > 100) {
+            if (data.success && data.visualization) {
                 visualizationData[vizType] = data.visualization;
                 if (data.data && Object.keys(data.data).length > 0) {
                     visualizationData[vizType + '_data'] = data.data;
                 }
                 logToTerminal(`> Received ${data.visualization.length} chars for ${vizType}`, 'success');
-            } else {
+            } 
+            
+            if (!data.visualization && (!data.data || Object.keys(data.data).length === 0)) {
                 console.log('[VIZ] API returned no/invalid data:', data);
                 content.innerHTML = `
                     <div class="viz-placeholder">
@@ -705,14 +707,21 @@ async function showVisualization(vizType) {
 
         content.innerHTML = html;
     } else {
-        logToTerminal(`> No data for ${vizType}`, 'warning');
-        console.log('[VIZ] No data found for:', vizType);
-        content.innerHTML = `
-            <div class="viz-placeholder">
-                <p>No ${vizType} data available</p>
-                <p>Run: Upload → Find Faces → Create Signature</p>
-            </div>
-        `;
+        // Check if we have data without image
+        const dataKey = vizType + '_data';
+        if (visualizationData[dataKey]) {
+            logToTerminal(`> Displaying data only for ${vizType}`, 'success');
+            content.innerHTML = formatDataAsTable(visualizationData[dataKey]);
+        } else {
+            logToTerminal(`> No data for ${vizType}`, 'warning');
+            console.log('[VIZ] No data found for:', vizType);
+            content.innerHTML = `
+                <div class="viz-placeholder">
+                    <p>No ${vizType} data available</p>
+                    <p>Run: Upload → Find Faces → Create Signature</p>
+                </div>
+            `;
+        }
     }
 }
 
@@ -777,4 +786,116 @@ function showToast(message, type = 'info') {
         toast.style.transform = 'translateY(20px)';
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// Webcam Functions
+let webcamStream = null;
+
+async function startWebcam() {
+    const video = document.getElementById('webcamVideo');
+    const container = document.getElementById('webcamContainer');
+    const status = document.getElementById('webcamStatus');
+    const startBtn = document.getElementById('startWebcamBtn');
+    const captureBtn = document.getElementById('captureWebcamBtn');
+    const stopBtn = document.getElementById('stopWebcamBtn');
+
+    try {
+        logToTerminal('> Starting webcam...', 'info');
+        status.textContent = 'Requesting camera access...';
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            } 
+        });
+        
+        webcamStream = stream;
+        video.srcObject = stream;
+        container.style.display = 'block';
+        
+        startBtn.disabled = true;
+        captureBtn.disabled = false;
+        stopBtn.disabled = false;
+        
+        status.textContent = 'Webcam active - Click "Capture" to take a photo';
+        status.className = 'status status-success';
+        logToTerminal('> Webcam started successfully', 'success');
+        showToast('Webcam started', 'success');
+        
+    } catch (err) {
+        logToTerminal(`> Webcam error: ${err.message}`, 'error');
+        status.textContent = 'Error: ' + err.message;
+        status.className = 'status status-error';
+        showToast('Failed to start webcam: ' + err.message, 'error');
+    }
+}
+
+function captureWebcam() {
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    const status = document.getElementById('webcamStatus');
+    
+    if (!video.srcObject) {
+        logToTerminal('> No webcam stream active', 'error');
+        showToast('Start webcam first', 'warning');
+        return;
+    }
+    
+    logToTerminal('> Capturing frame from webcam...', 'info');
+    status.textContent = 'Capturing...';
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    
+    const byteString = atob(dataUrl.split(',')[1]);
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    const blob = new Blob([ab], { type: 'image/jpeg' });
+    const file = new File([blob], 'webcam_capture.jpg', { type: 'image/jpeg' });
+    
+    const mockEvent = {
+        target: {
+            files: [file]
+        }
+    };
+    
+    logToTerminal('> Frame captured, processing...', 'info');
+    handleImageSelect(mockEvent);
+    
+    status.textContent = 'Photo captured! Continue with Step 2';
+    showToast('Photo captured from webcam', 'success');
+}
+
+function stopWebcam() {
+    const video = document.getElementById('webcamVideo');
+    const container = document.getElementById('webcamContainer');
+    const status = document.getElementById('webcamStatus');
+    const startBtn = document.getElementById('startWebcamBtn');
+    const captureBtn = document.getElementById('captureWebcamBtn');
+    const stopBtn = document.getElementById('stopWebcamBtn');
+    
+    if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+    }
+    
+    video.srcObject = null;
+    container.style.display = 'none';
+    
+    startBtn.disabled = false;
+    captureBtn.disabled = true;
+    stopBtn.disabled = true;
+    
+    status.textContent = 'Webcam stopped';
+    status.className = 'status';
+    logToTerminal('> Webcam stopped', 'info');
 }
