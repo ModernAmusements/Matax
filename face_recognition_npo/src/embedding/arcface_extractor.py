@@ -121,67 +121,41 @@ class ArcFaceEmbeddingExtractor:
         return results
         
     def get_confidence_band(self, similarity: float, 
-                           threshold_high: float = 0.60,
-                           threshold_moderate: float = 0.50,
-                           threshold_low: float = 0.40) -> str:
-        """ArcFace uses adjusted thresholds based on testing.
+                           threshold_high: float = 0.70,
+                           threshold_moderate: float = 0.45,
+                           threshold_low: float = 0.20) -> str:
+        """ArcFace uses lower thresholds since embeddings are more discriminative.
         
-        Testing showed non-matches: -4% to 40%
+        Expected scores:
+        - Same person: ~70-80%
+        - Different people: ~20-30%
         """
         if similarity >= threshold_high:
             return "Very High"
         elif similarity >= threshold_moderate:
-            return "Possible"
+            return "High"
         elif similarity >= threshold_low:
+            return "Moderate"
+        elif similarity >= 0.15:
             return "Low"
-        elif similarity >= 0.30:
-            return "Very Low"
         else:
-            return "No Match"
+            return "Insufficient"
             
     def get_verdict(self, similarity: float,
-                   threshold_high: float = 0.60,
-                   threshold_moderate: float = 0.50) -> str:
-        """Return human-readable verdict with thresholds based on testing.
+                   threshold_high: float = 0.70,
+                   threshold_moderate: float = 0.45) -> str:
+        """Return human-readable verdict.
         
-        Non-matches show: -4% to 40%
+        ArcFace is more discriminative, so lower thresholds are appropriate.
         """
         if similarity >= threshold_high:
-            return "MATCH"
+            return "Likely same person"
         elif similarity >= threshold_moderate:
-            return "POSSIBLE"
-        elif similarity >= 0.40:
-            return "LOW_CONFIDENCE"
+            return "Possibly same person"
+        elif similarity >= 0.20:
+            return "Uncertain - human review required"
         else:
-            return "NO_MATCH"
-            
-    def get_match_reasons(self, similarity: float, pose_similarity: float = 1.0, face_quality: float = 0.0) -> list:
-        """Generate reasons for the match result."""
-        reasons = []
-        
-        # Similarity reason
-        if similarity >= 0.65:
-            reasons.append(f"High similarity ({similarity*100:.1f}%)")
-        elif similarity >= 0.40:
-            reasons.append(f"Moderate similarity ({similarity*100:.1f}%)")
-        else:
-            reasons.append(f"Low similarity ({similarity*100:.1f}%)")
-        
-        # Pose reason (if available)
-        if pose_similarity < 1.0:
-            pose_diff = (1.0 - pose_similarity) * 90
-            reasons.append(f"Pose difference: {pose_diff:.1f}°")
-        
-        # Quality reason (if available)
-        if face_quality > 0:
-            if face_quality >= 0.8:
-                reasons.append(f"High face quality ({face_quality*100:.0f}%)")
-            elif face_quality >= 0.5:
-                reasons.append(f"Medium face quality ({face_quality*100:.0f}%)")
-            else:
-                reasons.append(f"Low face quality ({face_quality*100:.0f}%)")
-        
-        return reasons
+            return "Likely different people"
             
     def get_distance_verdict(self, distance: float,
                             threshold_low: float = 0.8,

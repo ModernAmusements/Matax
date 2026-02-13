@@ -137,7 +137,7 @@ def base64_to_image(base64_str: str) -> np.ndarray:
     return cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
 
-def visualize_tests(face_image, faces, embedding, refs):
+def visualize_tests(face_image, faces, embedding, refs) -> np.ndarray:
     """Generate test results visualization."""
     h, w = 700, 900
     img = np.ones((h, w, 3), dtype=np.uint8) * 30
@@ -149,29 +149,19 @@ def visualize_tests(face_image, faces, embedding, refs):
                cv2.FONT_HERSHEY_SIMPLEX, 0.4, (150, 150, 150), 1)
     
     tests = [
-        ("1. Health Check", True, "API is running", True),
-        ("2. Detection + Preprocessing", len(faces) > 0 if faces else False, f"faces={len(faces) if faces else 0}, enhanced=True", len(faces) > 0 if faces else False),
-        ("3. Extraction + Pose", embedding is not None, f"512-dim embedding extracted", embedding is not None),
-        ("4. Add Reference + Pose", len(refs) > 0 if refs else False, f"pose stored with reference", len(refs) > 0 if refs else False),
-        ("5. Multi-Reference", len(refs) > 1 if refs else False, f"{len(refs) if refs else 0} references enrolled", len(refs) > 1 if refs else False),
-        ("6. Pose-Aware Matching", embedding is not None and len(refs) > 0 if refs else False, "adjusted similarity enabled", embedding is not None and len(refs) > 0 if refs else False),
-        ("7. Eyewear Detection", face_image is not None, "sunglasses detection ready", face_image is not None),
-        ("8. Visualizations", True, "16 visualization types", True),
-        ("9. Clear + Reset", True, "session management works", True),
+        ("1. Health Check", True, "API is running"),
+        ("2. Detection + Preprocessing", len(faces) > 0 if faces else False, f"faces={len(faces) if faces else 0}, enhanced=True"),
+        ("3. Extraction + Pose", embedding is not None, f"512-dim embedding extracted"),
+        ("4. Add Reference + Pose", len(refs) > 0 if refs else False, f"pose stored with reference"),
+        ("5. Multi-Reference", len(refs) > 1 if refs else False, f"{len(refs) if refs else 0} references enrolled"),
+        ("6. Pose-Aware Matching", embedding is not None and len(refs) > 0 if refs else False, "adjusted similarity enabled"),
+        ("7. Eyewear Detection", face_image is not None, "sunglasses detection ready"),
+        ("8. Visualizations", True, "16 visualization types"),
+        ("9. Clear + Reset", True, "session management works"),
     ]
     
-    # Build data dict for frontend
-    test_data = {}
-    for name, passed, details, _ in tests:
-        key = name.split(". ")[1].replace(" ", "_").lower()
-        test_data[key] = {
-            "status": "PASS" if passed else "WAIT",
-            "details": details,
-            "passed": passed
-        }
-    
     y_pos = 110
-    for name, passed, details, _ in tests:
+    for name, passed, details in tests:
         color = (0, 210, 0) if passed else (0, 100, 200)
         status = "PASS" if passed else "WAIT"
         
@@ -188,7 +178,7 @@ def visualize_tests(face_image, faces, embedding, refs):
         
         y_pos += 65
     
-    passed_count = sum(1 for _, p, _, _ in tests if p)
+    passed_count = sum(1 for _, p, _ in tests if p)
     cv2.rectangle(img, (20, h-80), (w-20, h-20), (50, 50, 50), -1)
     
     if passed_count == len(tests):
@@ -204,14 +194,7 @@ def visualize_tests(face_image, faces, embedding, refs):
     cv2.putText(img, status_text, (40, h-45),
                cv2.FONT_HERSHEY_SIMPLEX, 0.65, status_color, 2)
     
-    # Add overall status to data
-    test_data["overall"] = {
-        "passed": passed_count,
-        "total": len(tests),
-        "status": "ALL PASS" if passed_count == len(tests) else f"{passed_count}/{len(tests)}"
-    }
-    
-    return img, test_data
+    return img
 
 
 def visualize_test_detail(test_name, result_data) -> np.ndarray:
@@ -343,7 +326,7 @@ def detect_faces():
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
     """Extract embedding from detected face."""
-    global current_embedding, current_face_image, current_faces, current_pose, current_preprocessing_info
+    global current_embedding, current_face_image, current_faces, current_pose
     
     try:
         data = request.json
@@ -365,32 +348,6 @@ def extract_embedding():
             'roll': float(alignment_est.get('roll', 0)),
             'pose_category': categorize_pose(alignment_est.get('yaw', 0), alignment_est.get('pitch', 0))
         }
-        
-        # Store landmarks as normalized coordinates
-        landmarks_normalized = None
-        if landmarks_est and isinstance(landmarks_est, dict):
-            lm_dict = {}
-            fh, fw = current_face_image.shape[:2]
-            for key, value in landmarks_est.items():
-                if value and len(value) >= 2:
-                    lm_dict[key] = [value[0]/fw, value[1]/fh]
-            if lm_dict:
-                landmarks_normalized = lm_dict
-        
-        # Store quality metrics
-        quality_metrics = detector.compute_quality_metrics(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
-        quality_normalized = None
-        if quality_metrics and isinstance(quality_metrics, dict):
-            quality_normalized = {}
-            for key, value in quality_metrics.items():
-                if isinstance(value, (int, float)) and key in ['brightness', 'contrast', 'sharpness', 'snr']:
-                    quality_normalized[key] = float(value)
-        
-        # Update preprocessing info with landmarks and quality
-        if current_preprocessing_info is None:
-            current_preprocessing_info = {}
-        current_preprocessing_info['landmarks'] = landmarks_normalized
-        current_preprocessing_info['quality'] = quality_normalized
         
         # Get visualizations with data
         emb_viz, emb_data = extractor.visualize_embedding(current_embedding)
@@ -465,26 +422,6 @@ def add_reference():
         landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
         alignment = detector.compute_alignment(ref_face, landmarks)
         
-        # Store landmarks as normalized coordinates
-        landmarks_normalized = None
-        if landmarks and isinstance(landmarks, dict):
-            lm_dict = {}
-            h, w = ref_face.shape[:2]
-            for key, value in landmarks.items():
-                if value and len(value) >= 2:
-                    lm_dict[key] = [value[0]/w, value[1]/h]
-            if lm_dict:
-                landmarks_normalized = lm_dict
-        
-        # Store quality metrics
-        quality_metrics = detector.compute_quality_metrics(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
-        quality_normalized = None
-        if quality_metrics and isinstance(quality_metrics, dict):
-            quality_normalized = {}
-            for key, value in quality_metrics.items():
-                if isinstance(value, (int, float)) and key in ['brightness', 'contrast', 'sharpness', 'snr']:
-                    quality_normalized[key] = float(value)
-        
         ref_data = {
             'id': len(references),
             'name': name,
@@ -495,9 +432,7 @@ def add_reference():
                 'pitch': float(alignment.get('pitch', 0)),
                 'roll': float(alignment.get('roll', 0))
             },
-            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0)),
-            'landmarks': landmarks_normalized,
-            'quality': quality_normalized
+            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
         }
         references.append(ref_data)
         save_references()
@@ -606,9 +541,6 @@ def compare_faces():
 
         query_pose = current_pose if current_pose else {'yaw': 0, 'pitch': 0, 'pose_category': 'frontal'}
         
-        # Get query landmarks
-        query_landmarks = current_preprocessing_info.get('landmarks') if current_preprocessing_info else None
-        
         for ref in references:
             if ref['embedding'] is None:
                 continue
@@ -617,98 +549,38 @@ def compare_faces():
             ref_embeddings.append(ref_emb)
             ref_names.append(ref['name'])
 
-            # 1. Cosine similarity (main signal - 50%)
-            cosine_sim = comparator.cosine_similarity(current_embedding, ref_emb)
-            
-            # 2. Euclidean distance
             distance = comparator.euclidean_distance(current_embedding, ref_emb)
+            similarity = comparator.cosine_similarity(current_embedding, ref_emb)
             
-            # 3. Landmark comparison (if available - 25%)
-            landmark_score = 0.0
-            landmark_reason = ""
-            ref_landmarks = ref.get('landmarks')
-            if query_landmarks and ref_landmarks:
-                lm_diff = 0.0
-                count = 0
-                for key in query_landmarks:
-                    if key in ref_landmarks:
-                        qx, qy = query_landmarks[key]
-                        rx, ry = ref_landmarks[key]
-                        lm_diff += ((qx - rx) ** 2 + (qy - ry) ** 2) ** 0.5
-                        count += 1
-                if count > 0:
-                    avg_diff = lm_diff / count
-                    # Convert to similarity score (0 = identical, 0.5 = very different)
-                    landmark_score = max(0, 1 - avg_diff * 2)
-                    landmark_reason = f"Landmark similarity: {landmark_score*100:.0f}%"
+            ref_pose = ref.get('pose', {'yaw': 0, 'pitch': 0})
+            ref_pose_cat = ref.get('pose_category', 'frontal')
             
-            # 4. Quality metrics comparison (if available - 15%)
-            query_quality = current_preprocessing_info.get('quality') if current_preprocessing_info else None
-            ref_quality = ref.get('quality')
-            quality_score = 0.0
-            quality_reason = ""
-            if query_quality and ref_quality:
-                quality_diff = 0.0
-                quality_count = 0
-                for key in ['brightness', 'contrast', 'sharpness', 'snr']:
-                    if key in query_quality and key in ref_quality:
-                        qv = query_quality[key]
-                        rv = ref_quality[key]
-                        # Normalize difference (assuming 0-255 range for most)
-                        diff = abs(qv - rv) / 255.0
-                        quality_diff += diff
-                        quality_count += 1
-                if quality_count > 0:
-                    avg_quality_diff = quality_diff / quality_count
-                    quality_score = max(0, 1 - avg_quality_diff)
-                    quality_reason = f"Quality similarity: {quality_score*100:.0f}%"
+            pose_yaw_diff = abs(query_pose.get('yaw', 0) - ref_pose.get('yaw', 0))
+            pose_pitch_diff = abs(query_pose.get('pitch', 0) - ref_pose.get('pitch', 0))
+            pose_similarity = 1.0 - (pose_yaw_diff + pose_pitch_diff) / 90.0
+            pose_similarity = max(0.5, min(1.0, pose_similarity))
             
-            # 5. Combined score: 50% cosine, 25% landmarks, 15% quality, 10% reserved for future (e.g. activations)
-            weights = {'cosine': 0.50, 'landmark': 0.25, 'quality': 0.15}
-            combined_similarity = (cosine_sim * weights['cosine'] + 
-                                   landmark_score * weights['landmark'] + 
-                                   quality_score * weights['quality'])
+            pose_match = query_pose.get('pose_category', 'frontal') == ref_pose_cat
             
-            # Normalize if some signals are missing
-            total_weight = weights['cosine']
-            if landmark_score > 0:
-                total_weight += weights['landmark']
-            if quality_score > 0:
-                total_weight += weights['quality']
-            
-            if total_weight < 1.0:
-                combined_similarity = combined_similarity / total_weight
-            
-            # Use raw cosine similarity for verdict (no pose penalty)
-            final_similarity = cosine_sim
+            adjusted_similarity = similarity * pose_similarity
             
             distance_verdict = comparator.get_distance_verdict(distance)
-            
-            # Get verdict and reasons
-            verdict = extractor.get_verdict(final_similarity)
-            reasons = [f"Cosine similarity: {cosine_sim*100:.1f}%"]
-            if landmark_score > 0:
-                reasons.append(landmark_reason)
-            if quality_score > 0:
-                reasons.append(quality_reason)
             
             results.append({
                 'id': ref['id'],
                 'name': ref['name'],
-                'similarity': float(cosine_sim),
-                'combined_similarity': float(combined_similarity),
-                'landmark_score': float(landmark_score),
-                'quality_score': float(quality_score),
+                'similarity': float(similarity),
+                'adjusted_similarity': float(adjusted_similarity),
                 'euclidean_distance': float(distance),
                 'distance_verdict': distance_verdict,
-                'verdict': verdict,
-                'reasons': reasons,
                 'thumbnail': ref['thumbnail'],
-                'pose': ref.get('pose', {'yaw': 0, 'pitch': 0, 'roll': 0}),
-                'pose_category': ref.get('pose_category', 'frontal')
+                'pose': ref_pose,
+                'pose_category': ref_pose_cat,
+                'pose_match': pose_match,
+                'pose_similarity': float(pose_similarity)
             })
 
-        results.sort(key=lambda x: x.get('combined_similarity', x['similarity']), reverse=True)
+        results.sort(key=lambda x: x.get('adjusted_similarity', x['similarity']), reverse=True)
 
         sim_viz = None
         sim_data = {}
@@ -856,8 +728,7 @@ def get_viz_result(viz_type, face_image, embedding):
                 original_quality, enhanced_quality, method
             ), {}
         elif viz_type == 'tests':
-            viz_img, test_data = visualize_tests(current_image, current_faces, current_embedding, references)
-            return viz_img, test_data
+            return visualize_tests(current_image, current_faces, current_embedding, references), {}
         elif viz_type == 'test-health':
             data = {"status": "OK", "api": "running", "port": 3000}
             return visualize_test_detail("Health Check", data), data

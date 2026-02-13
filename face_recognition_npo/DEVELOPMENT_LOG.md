@@ -1,9 +1,9 @@
 # NGO Facial Image Analysis System - Development Log
 
-**Last Updated**: February 13, 2026
+**Last Updated**: February 12, 2026
 **Project**: Face Recognition GUI for NGO Use
-**Version**: 2.0
-**Status**: ✅ Fully Functional - Multi-Signal Comparison
+**Version**: 0.3.0
+**Status**: ✅ Fully Functional - ArcFace Enabled
 
 ---
 
@@ -94,80 +94,6 @@ ArcFace Results:
 Same image: ~100% similarity
 Same person: ~70-85% similarity
 Different people: ~9-25% similarity
-```
-
----
-
-## February 13, 2026 - Multi-Signal Comparison
-
-### Why Multi-Signal?
-
-**Problem**: Single cosine similarity wasn't robust enough for production use.
-
-**Solution**: Combine multiple signals for more accurate matching:
-
-```
-Combined Score = 50% Cosine + 25% Landmarks + 15% Quality
-```
-
-### Signals Implemented
-
-| Signal | Weight | Data Source |
-|--------|--------|-------------|
-| Cosine Similarity | 50% | 512-dim ArcFace embeddings |
-| Landmark Comparison | 25% | 10 keypoints (eyes, nose, mouth) |
-| Quality Metrics | 15% | Brightness, contrast, sharpness, SNR |
-| Reserved | 10% | Future: Activations, mesh, etc. |
-
-### Verdict System
-
-| Verdict | Threshold | Action |
-|---------|-----------|--------|
-| MATCH | ≥60% | Same person likely |
-| POSSIBLE | 50-60% | May be same person |
-| LOW_CONFIDENCE | 40-50% | Human review needed |
-| NO_MATCH | <40% | Different people |
-
-### Test Tabs Fix
-
-**Problem**: Test tabs (Health, Detection, etc.) showed "No face detected" even though they show system state.
-
-**Fix**: Moved test tab detection to the beginning of `showVisualization()`:
-
-```javascript
-// Check test tabs FIRST (before face/embedding requirements)
-const isTestViz = vizType === 'tests' || vizType.startsWith('test-');
-
-if (isTestViz) {
-    // Bypass requirements, fetch from API directly
-    return;
-}
-```
-
-### Files Changed
-
-- `api_server.py` - Multi-signal comparison, quality storage
-- `electron-ui/renderer/app.js` - Test tab bypass, display updates
-- `src/embedding/arcface_extractor.py` - Threshold updates
-- `src/embedding/__init__.py` - get_verdict, get_match_reasons
-- Created: `test_comparison_feature.js`, `test_tabs.js`
-
-### Test Results
-
-```
-Same image comparison:
-- Cosine: 100%
-- Landmarks: 100%
-- Quality: 100%
-- Combined: 100%
-- Verdict: MATCH ✓
-
-Different person comparison:
-- Cosine: 9.6%
-- Verdict: NO_MATCH ✓
-
-Test tabs: 9/10 working
-(eyewear tab requires current image by design)
 ```
 
 ---

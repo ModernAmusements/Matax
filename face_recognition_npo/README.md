@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System
 
-**Version**: 2.0  
-**Last Updated**: February 13, 2026  
-**Status**: ✅ Fully Functional - Multi-Signal Comparison
+**Version**: 0.3.0  
+**Last Updated**: February 12, 2026  
+**Status**: ✅ Fully Functional - ArcFace Enabled
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
 
@@ -66,14 +66,12 @@ start.sh ──► Flask API (port 3000)
 
 - ✅ **Face Detection**: OpenCV DNN with Caffe model
 - ✅ **Embedding Extraction**: 512-dimensional (ArcFace) or 128-dim (FaceNet)
-- ✅ **Multi-Signal Comparison**: Cosine (50%) + Landmarks (25%) + Quality (15%)
-- ✅ **Verdict System**: MATCH/POSSIBLE/LOW_CONFIDENCE/NO_MATCH with reasons
-- ✅ **Reference Management**: Store references with real embeddings + landmarks + quality
+- ✅ **Similarity Comparison**: Cosine similarity with confidence bands
+- ✅ **Reference Management**: Store references with real embeddings
 - ✅ **Persistent Storage**: References saved to `reference_images/embeddings.json`
 - ✅ **14 AI Visualizations**: Detection, landmarks, mesh, activations, etc.
-- ✅ **10 Test Tabs**: System diagnostics without requiring uploaded images
 - ✅ **Electron Desktop UI**: Ultra minimal design with MANTAX branding
-- ✅ **Flask API Server**: 21 REST endpoints
+- ✅ **Flask API Server**: 11 REST endpoints
 - ✅ **End-to-End Tests**: All 6/6 passing
 - ✅ **ArcFace Integration**: 512-dim embeddings for better discrimination
 
@@ -108,33 +106,32 @@ Step 5: Compare          → Click "Compare"
 - Faster inference
 - Enable: `USE_FACENET=true ./start.sh`
 
-**Multi-Signal Comparison** (Cosine + Landmarks + Quality):
-- ≥60% = MATCH - Same person likely
-- 50-60% = POSSIBLE - May be same person
-- 40-50% = LOW_CONFIDENCE - Human review needed
-- <40% = NO_MATCH - Different people
+**ArcFace Thresholds**:
+- ≥70% = Very High - Likely same person
+- 45-70% = High - Possibly same person
+- 30-45% = Moderate - Human review recommended
+- <30% = Insufficient - Likely different people
 
 ---
 
 ## Expected Results
 
-| Scenario | Cosine | Landmarks | Quality | Combined | Verdict |
-|----------|--------|-----------|---------|----------|---------|
-| Same image | 100% | 100% | 100% | 100% | MATCH |
-| Same person | 70-80% | 80-90% | 70-80% | 75-85% | MATCH |
-| Different person | <40% | <50% | <60% | <40% | NO_MATCH |
+| Scenario | FaceNet | ArcFace |
+|----------|---------|---------|
+| Same image | ~100% | ~100% |
+| Same person | 85-99% | ~70-85% |
+| Different person | 50-70% | <30% |
 
-**Why Multi-Signal is Better**:
-- Cosine similarity alone: Good but can miss pose variations
-- Landmarks: Captures facial structure geometry
-- Quality: Ensures consistent image conditions
-- Combined: More robust and accurate matching
+**Why ArcFace is Better**:
+- Different people show ~9-25% similarity (correctly indicates different people)
+- FaceNet was showing 65-70% for different people (false positives!)
 
-**Verdict Display**:
-- 🟢 **MATCH**: ≥60% - Same person likely
-- 🟡 **POSSIBLE**: 50-60% - May be same person
-- 🟠 **LOW_CONFIDENCE**: 40-50% - Review needed
-- 🔴 **NO_MATCH**: <40% - Different people
+**Confidence Bands** (ArcFace):
+- 🟢 **Very High**: ≥70% - Likely same person
+- 🟢 **High**: 45-70% - Possibly same person
+- 🟡 **Moderate**: 30-45% - Human review recommended
+- 🟡 **Low**: 20-30% - Human review required
+- 🔴 **Insufficient**: <20% - Likely different people
 
 ---
 
