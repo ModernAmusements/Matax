@@ -811,7 +811,72 @@ class SimilarityComparator:
             'quality_factor': quality_factor,
             'reasons': reasons
         }
-    
+
+    def compute_pose_weight(self, pose1: Optional[Dict], pose2: Optional[Dict]) -> float:
+        """Calculate weight modifier based on pose similarity.
+        ArcFace is robust to pose, so adjustment is minimal."""
+        if not pose1 or not pose2:
+            return 1.0
+        
+        yaw1, pitch1 = pose1.get('yaw', 0), pose1.get('pitch', 0)
+        yaw2, pitch2 = pose2.get('yaw', 0), pose2.get('pitch', 0)
+        
+        pose_diff = np.sqrt((yaw1 - yaw2)**2 + (pitch1 - pitch2)**2)
+        
+        if pose_diff < 15:
+            return 1.0
+        elif pose_diff < 30:
+            return 0.98
+        else:
+            return 0.95
+
+    def lbp_similarity(self, lbp1: Optional[np.ndarray], lbp2: Optional[np.ndarray]) -> float:
+        """Compare LBP histograms using intersection."""
+        if lbp1 is None or lbp2 is None:
+            return 0.5
+        
+        intersection = np.sum(np.minimum(lbp1, lbp2))
+        return float(intersection)
+
+    def asymmetry_similarity(self, asym1: Optional[Dict], asym2: Optional[Dict]) -> float:
+        """Compare asymmetry features between two faces."""
+        if not asym1 or not asym2:
+            return 0.5
+        
+        common = set(asym1.keys()) & set(asym2.keys())
+        if not common:
+            return 0.5
+        
+        diffs = []
+        for k in common:
+            v1, v2 = asym1[k], asym2[k]
+            if v1 > 0:
+                diffs.append(1.0 - min(abs(v1 - v2) / v1, 1.0))
+        
+        return float(np.mean(diffs)) if diffs else 0.5
+
+    def compute_multi_pose_score(self, query_emb: np.ndarray, 
+                                pose_embeddings: List[Dict]) -> Tuple[float, Optional[Dict]]:
+        """Compare query against multiple pose variants.
+        Returns (best_score, best_pose_data)."""
+        if not pose_embeddings:
+            return 0.5, None
+        
+        best_score = 0
+        best_pose = None
+        
+        for pose_data in pose_embeddings:
+            emb = pose_data.get('embedding')
+            if emb is not None:
+                if isinstance(emb, dict):
+                    emb = emb.get('arcface') or emb.get('facenet')
+                if emb is not None:
+                    sim = self.cosine_similarity(query_emb, np.array(emb))
+                    if sim > best_score:
+                        best_score = sim
+                        best_pose = pose_data
+        
+        return float(best_score), best_pose
 
     def visualize_comparison_metrics(self, query_embedding: np.ndarray, reference_embeddings: List[np.ndarray], 
                                       reference_ids: List[str], similarities: List[float],

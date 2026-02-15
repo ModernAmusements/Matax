@@ -357,6 +357,190 @@ def test_compare_embeddings_edge_cases():
     return True
 
 
+def test_lbp_descriptor():
+    """Test LBP extraction and similarity."""
+    print("\n[NEW FEATURE 1] LBP Descriptor")
+    print("-" * 40)
+    
+    detector = FaceDetector()
+    comparator = SimilarityComparator()
+    
+    img = cv2.imread('test_images/test_subject.jpg')
+    if img is None:
+        print("  Skipping - test image not found")
+        return True
+    
+    faces = detector.detect_faces(img)
+    if not faces:
+        print("  Skipping - no faces detected")
+        return True
+    
+    x, y, w, h = faces[0]
+    face = img[y:y+h, x:x+w]
+    
+    lbp1 = detector.compute_lbp_descriptor(face)
+    
+    if lbp1 is None:
+        print("  FAIL: LBP descriptor is None")
+        return False
+    
+    print(f"  LBP histogram length: {len(lbp1)}")
+    print(f"  LBP sum: {lbp1.sum():.4f}")
+    
+    lbp2 = detector.compute_lbp_descriptor(face)
+    sim = comparator.lbp_similarity(lbp1, lbp2)
+    print(f"  Same face LBP similarity: {sim:.4f}")
+    
+    if sim < 0.8:
+        print(f"  FAIL: Same face should have high LBP similarity")
+        return False
+    
+    print("  PASS: LBP descriptor working")
+    return True
+
+
+def test_asymmetry_features():
+    """Test asymmetry computation."""
+    print("\n[NEW FEATURE 2] Facial Asymmetry")
+    print("-" * 40)
+    
+    detector = FaceDetector()
+    
+    img = cv2.imread('test_images/test_subject.jpg')
+    if img is None:
+        print("  Skipping - test image not found")
+        return True
+    
+    faces = detector.detect_faces(img)
+    if not faces:
+        print("  Skipping - no faces detected")
+        return True
+    
+    x, y, w, h = faces[0]
+    face = img[y:y+h, x:x+w]
+    landmarks = detector.estimate_landmarks(face, (0, 0, w, h))
+    
+    if landmarks is None:
+        print("  Skipping - no landmarks")
+        return True
+    
+    asym = detector.compute_facial_asymmetry(landmarks)
+    
+    if not asym:
+        print("  FAIL: Asymmetry features empty")
+        return False
+    
+    print(f"  Asymmetry features: {len(asym)}")
+    if 'overall_score' in asym:
+        print(f"  Overall score: {asym['overall_score']:.4f}")
+    
+    print("  PASS: Asymmetry features working")
+    return True
+
+
+def test_pose_weight():
+    """Test pose weight calculation."""
+    print("\n[NEW FEATURE 3] Pose Weight")
+    print("-" * 40)
+    
+    comparator = SimilarityComparator()
+    
+    # Same pose
+    w = comparator.compute_pose_weight({'yaw': 0, 'pitch': 0}, {'yaw': 5, 'pitch': 5})
+    print(f"  Similar poses (diff < 15): {w}")
+    if w != 1.0:
+        print("  FAIL: Similar poses should have weight 1.0")
+        return False
+    
+    # Different pose
+    w = comparator.compute_pose_weight({'yaw': 0, 'pitch': 0}, {'yaw': 30, 'pitch': 0})
+    print(f"  Different poses (diff ~30): {w}")
+    if w >= 1.0:
+        print("  FAIL: Different poses should have weight < 1.0")
+        return False
+    
+    # None
+    w = comparator.compute_pose_weight(None, None)
+    print(f"  None poses: {w}")
+    if w != 1.0:
+        print("  FAIL: None poses should have weight 1.0")
+        return False
+    
+    print("  PASS: Pose weight working")
+    return True
+
+
+def test_mesh_normalization():
+    """Test 3D mesh-based normalization."""
+    print("\n[NEW FEATURE 4] Mesh Normalization")
+    print("-" * 40)
+    
+    detector = FaceDetector()
+    
+    img = cv2.imread('test_images/test_subject.jpg')
+    if img is None:
+        print("  Skipping - test image not found")
+        return True
+    
+    faces = detector.detect_faces(img)
+    if not faces:
+        print("  Skipping - no faces detected")
+        return True
+    
+    x, y, w, h = faces[0]
+    face = img[y:y+h, x:x+w]
+    
+    mesh = detector.estimate_landmarks(face, (0, 0, w, h))
+    
+    aligned = detector.normalize_face_with_mesh(face, mesh)
+    
+    if aligned is None:
+        print("  FAIL: Normalized face is None")
+        return False
+    
+    if aligned.shape != face.shape:
+        print("  FAIL: Shape changed")
+        return False
+    
+    print(f"  Original shape: {face.shape}")
+    print(f"  Aligned shape: {aligned.shape}")
+    print("  PASS: Mesh normalization working")
+    return True
+
+
+def test_multi_pose_score():
+    """Test multi-pose comparison."""
+    print("\n[NEW FEATURE 5] Multi-Pose Score")
+    print("-" * 40)
+    
+    comparator = SimilarityComparator()
+    
+    query = np.random.rand(512)
+    poses = [
+        {'embedding': np.random.rand(512).tolist(), 'yaw': 0, 'pitch': 0},
+        {'embedding': np.random.rand(512).tolist(), 'yaw': -20, 'pitch': 0},
+    ]
+    
+    score, best = comparator.compute_multi_pose_score(query, poses)
+    
+    print(f"  Multi-pose score: {score:.4f}")
+    print(f"  Best pose: {best}")
+    
+    if score < 0 or score > 1:
+        print("  FAIL: Score out of range")
+        return False
+    
+    # Test empty
+    score, best = comparator.compute_multi_pose_score(query, [])
+    print(f"  Empty poses score: {score:.4f}")
+    if score != 0.5:
+        print("  FAIL: Empty poses should return 0.5")
+        return False
+    
+    print("  PASS: Multi-pose score working")
+    return True
+
+
 def cleanup():
     """Clean up test artifacts."""
     import shutil
@@ -383,6 +567,11 @@ def main():
         ("Visualization Methods", test_visualization_methods),
         ("Quality Metrics", test_quality_metrics_edge_cases),
         ("Compare Embeddings Edge Cases", test_compare_embeddings_edge_cases),
+        ("LBP Descriptor", test_lbp_descriptor),
+        ("Facial Asymmetry", test_asymmetry_features),
+        ("Pose Weight", test_pose_weight),
+        ("Mesh Normalization", test_mesh_normalization),
+        ("Multi-Pose Score", test_multi_pose_score),
     ]
     
     results = []

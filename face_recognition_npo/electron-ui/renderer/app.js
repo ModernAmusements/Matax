@@ -740,6 +740,38 @@ async function compareFaces() {
                 activationEl.textContent = 'N/A';
             }
             
+            // Display 3D Normalized score
+            const normEl = document.getElementById('normScore');
+            if (best.normalized_similarity !== null && best.normalized_similarity !== undefined) {
+                normEl.textContent = `${Math.round(best.normalized_similarity * 100)}%`;
+            } else {
+                normEl.textContent = 'N/A';
+            }
+            
+            // Display Multi-Pose score
+            const multiPoseEl = document.getElementById('multiPoseScore');
+            if (best.multi_pose_score !== null && best.multi_pose_score !== undefined) {
+                multiPoseEl.textContent = `${Math.round(best.multi_pose_score * 100)}%`;
+            } else {
+                multiPoseEl.textContent = 'N/A';
+            }
+            
+            // Display Texture (LBP) score
+            const lbpEl = document.getElementById('lbpScore');
+            if (best.lbp_similarity !== null && best.lbp_similarity !== undefined) {
+                lbpEl.textContent = `${Math.round(best.lbp_similarity * 100)}%`;
+            } else {
+                lbpEl.textContent = 'N/A';
+            }
+            
+            // Display Uniqueness (Asymmetry) score
+            const asymEl = document.getElementById('asymScore');
+            if (best.asymmetry_similarity !== null && best.asymmetry_similarity !== undefined) {
+                asymEl.textContent = `${Math.round(best.asymmetry_similarity * 100)}%`;
+            } else {
+                asymEl.textContent = 'N/A';
+            }
+            
             // Display final combined score
             document.getElementById('matchScore').textContent = `${Math.round(best.final_score * 100)}%`;
             

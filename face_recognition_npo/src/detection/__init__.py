@@ -885,6 +885,107 @@ class FaceDetector:
         
         return output, data
 
+    def compute_lbp_descriptor(self, face_image: np.ndarray) -> Optional[np.ndarray]:
+        """Extract LBP histogram for lighting-invariant texture matching."""
+        if face_image is None or face_image.size == 0:
+            return None
+        
+        gray = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
+        h, w = gray.shape
+        
+        if h < 3 or w < 3:
+            return None
+        
+        lbp = np.zeros((h-2, w-2), dtype=np.uint8)
+        
+        for i in range(1, h-1):
+            for j in range(1, w-1):
+                center = int(gray[i, j])
+                code = 0
+                neighbors = [
+                    int(gray[i-1,j-1]), int(gray[i-1,j]), int(gray[i-1,j+1]),
+                    int(gray[i,j+1]), int(gray[i+1,j+1]), int(gray[i+1,j]),
+                    int(gray[i+1,j-1]), int(gray[i,j-1])
+                ]
+                for k, neighbor in enumerate(neighbors):
+                    if neighbor >= center:
+                        code |= (1 << k)
+                lbp[i-1, j-1] = code
+        
+        hist, _ = np.histogram(lbp.ravel(), bins=256, range=(0, 256))
+        return hist.astype(np.float32) / (hist.sum() + 1e-8)
+
+    def compute_facial_asymmetry(self, landmarks: Dict) -> Dict[str, float]:
+        """Compute facial asymmetry for uniqueness analysis."""
+        if not landmarks:
+            return {}
+        
+        asymmetry = {}
+        pairs = [
+            ('left_eye', 'right_eye'),
+            ('left_cheek', 'right_cheek'),
+            ('mouth_left', 'mouth_right'),
+        ]
+        
+        for left_key, right_key in pairs:
+            if left_key in landmarks and right_key in landmarks:
+                left = np.array(landmarks[left_key])
+                right = np.array(landmarks[right_key])
+                dist = np.linalg.norm(left - right)
+                asymmetry[f'{left_key}_{right_key}_dist'] = float(dist)
+        
+        if asymmetry:
+            asymmetry['overall_score'] = float(np.mean(list(asymmetry.values())))
+        
+        return asymmetry
+
+    def normalize_face_with_mesh(self, face_image: np.ndarray, mesh_landmarks: Dict) -> np.ndarray:
+        """
+        Use 468-point MediaPipe mesh for robust face alignment.
+        More accurate than eye-only alignment for extreme angles.
+        """
+        if face_image is None or face_image.size == 0:
+            return face_image
+        
+        if not mesh_landmarks or 'all_468' not in mesh_landmarks:
+            return face_image
+        
+        mesh = mesh_landmarks.get('all_468', {})
+        
+        if not mesh:
+            return face_image
+        
+        left_eye_pts = []
+        right_eye_pts = []
+        
+        for idx in [33, 133, 173, 263]:
+            pt = mesh.get(f'point_{idx}')
+            if pt:
+                left_eye_pts.append(pt)
+        
+        for idx in [362, 398, 466, 249]:
+            pt = mesh.get(f'point_{idx}')
+            if pt:
+                right_eye_pts.append(pt)
+        
+        if not left_eye_pts or not right_eye_pts:
+            return face_image
+        
+        left_eye_center = np.mean(left_eye_pts, axis=0)
+        right_eye_center = np.mean(right_eye_pts, axis=0)
+        
+        angle = np.arctan2(
+            right_eye_center[1] - left_eye_center[1],
+            right_eye_center[0] - left_eye_center[0]
+        ) * 180 / np.pi
+        
+        h, w = face_image.shape[:2]
+        center = (w // 2, h // 2)
+        rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+        
+        aligned = cv2.warpAffine(face_image, rotation_matrix, (w, h))
+        return aligned
+
 
 def load_face_detection_model():
     pass

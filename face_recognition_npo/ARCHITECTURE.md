@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Architecture
 
-**Version**: 0.4.1  
+**Version**: 0.5.0  
 **Last Updated**: February 15, 2026  
-**Status**: ✅ Fully Functional - SCSS + Weights Updated
+**Status**: ✅ Fully Functional - Enhanced Features (LBP, Asymmetry, Multi-Pose, 3D Normalization)
 
 ---
 
@@ -195,6 +195,9 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - `estimate_landmarks(face_image, face_box)` → Dict with 15 keypoints + 468 full landmarks
 - `compute_alignment(face_image, landmarks)` → Dict with pitch, yaw, roll
 - `compute_quality_metrics(face_image, face_box)` → Dict[brightness, contrast, sharpness, eye_detection, centering, overall]
+- `compute_lbp_descriptor(face_image)` → np.ndarray (256-dim histogram) - NEW
+- `compute_facial_asymmetry(landmarks)` → Dict with asymmetry features - NEW
+- `normalize_face_with_mesh(face_image, mesh_landmarks)` → np.ndarray - NEW (3D mesh-based alignment)
 
 **Visualization Methods**:
 - `visualize_detection(image, faces)` → Bounding boxes with confidence
@@ -264,6 +267,10 @@ This document describes the complete architecture of the NGO Facial Image Analys
 - `cosine_similarity(embedding1, embedding2)` → float
 - `compare_embeddings(query, references, ids)` → List[Tuple[str, float]]
 - `get_confidence_band(similarity, model='arcface')` → str
+- `compute_pose_weight(pose1, pose2)` → float - NEW (pose-aware matching)
+- `lbp_similarity(lbp1, lbp2)` → float - NEW (texture matching)
+- `asymmetry_similarity(asym1, asym2)` → float - NEW (uniqueness analysis)
+- `compute_multi_pose_score(query_emb, pose_embeddings)` → Tuple[float, Dict] - NEW (multi-pose matching)
 
 ### 4. ReferenceImageManager (`src/reference/__init__.py`)
 
@@ -526,9 +533,10 @@ python -m unittest discover tests/
 | POST | `/api/detect` | Face detection |
 | POST | `/api/extract` | Embedding extraction (both models) |
 | POST | `/api/add-reference` | Add reference image |
+| POST | `/api/add-reference-pose/<id>` | Add pose variant to reference - NEW |
 | GET | `/api/references` | List references |
 | DELETE | `/api/references/<id>` | Remove reference |
-| POST | `/api/compare` | Compare embeddings (dual-model) |
+| POST | `/api/compare` | Compare embeddings (enhanced) |
 | GET | `/api/visualizations/<type>` | Get visualization |
 | GET | `/api/visualizations/<type>/reference/<id>` | Get ref visualization |
 | GET | `/api/quality` | Quality metrics |
@@ -536,9 +544,9 @@ python -m unittest discover tests/
 | POST | `/api/clear` | Clear session |
 | GET | `/api/status` | Debug server state |
 
-### Dual-Model Comparison
+### Enhanced Comparison (Version 0.5.0)
 
-The `/api/compare` endpoint now returns:
+The `/api/compare` endpoint now returns with all new features:
 
 | Field | Description |
 |-------|-------------|
@@ -546,17 +554,40 @@ The `/api/compare` endpoint now returns:
 | `facenet_similarity` | FaceNet cosine similarity (0-1) |
 | `landmark_similarity` | Landmark geometry similarity (0-1) |
 | `activation_similarity` | Neural network activation similarity (0-1) |
-| `final_score` | Weighted combination (60% ArcFace + 20% FaceNet + 15% Landmarks + 5% Activation + 5% Quality) |
+| `pose_weight` | NEW - Pose-aware weight adjustment (0.95-1.0) |
+| `lbp_similarity` | NEW - LBP texture similarity (lighting-invariant) |
+| `asymmetry_similarity` | NEW - Facial asymmetry similarity (uniqueness) |
+| `normalized_similarity` | NEW - 3D mesh-normalized embedding similarity |
+| `multi_pose_score` | NEW - Best match across multiple pose variants |
+| `multi_pose_used` | NEW - Whether multiple poses were available |
+| `final_score` | Weighted combination (see below) |
 | `status` | "match", "possible", or "no_match" |
 | `match_label` | "Full Match", "Possible Match", "No Match" |
 | `reasons` | List of match reasoning strings |
 
-### Visualization Types (14 + 9 Test = 23 total)
+#### New Weights (v0.5.0)
+
+| Factor | Weight | Purpose |
+|--------|--------|---------|
+| ArcFace | 40% | Primary embedding (reduced from 60%) |
+| 3D Normalized | 15% | Handle extreme angles (NEW) |
+| Multi-Pose Best | 10% | Best pose variant match (NEW) |
+| LBP Texture | 8% | Lighting-invariant matching (NEW) |
+| Asymmetry | 7% | Uniqueness analysis (NEW) |
+| Landmark Geometry | 8% | Geometric consistency |
+| FaceNet | 10% | Secondary embedding |
+| Activation | 1% | Neural patterns |
+| Quality | 1% | Reliability factor |
+
+**Pose Weight Modifier**: 0.95-1.0x applied to all scores based on pose similarity
+
+### Visualization Types (17 + 9 Test = 26 total)
 
 | Type | Source | Description |
 |------|--------|-------------|
 | `detection` | FaceDetector | Bounding boxes with confidence |
 | `extraction` | FaceDetector | Face ROI extraction |
+| `preprocessing` | FaceDetector | CLAHE enhancement |
 | `landmarks` | FaceDetector | **468 MediaPipe landmarks** |
 | `mesh3d` | FaceDetector | 478-point 3D mesh |
 | `alignment` | FaceDetector | Pitch/yaw/roll orientation |
@@ -569,6 +600,10 @@ The `/api/compare` endpoint now returns:
 | `similarity` | EmbeddingExtractor | Similarity result bar |
 | `robustness` | EmbeddingExtractor | Noise robustness test |
 | `biometric` | FaceDetector | Biometric capture overview |
+| `eyewear` | FaceDetector | Eyewear detection visualization |
+| `asymmetry` | FaceDetector | NEW - Uniqueness analysis |
+| `texture` | FaceDetector | NEW - LBP texture visualization |
+| `normalized` | FaceDetector | NEW - 3D normalized face |
 
 ### Test Tabs (9)
 
@@ -604,6 +639,110 @@ Run `python test_edge_cases.py` to verify all edge cases.
 
 ---
 
+## New Features (v0.5.0 - February 15, 2026)
+
+### 1. 3D Mesh Normalization
+**Purpose**: Handle extreme angles using 468-point MediaPipe mesh
+
+Method: `normalize_face_with_mesh(face_image, mesh_landmarks)`
+- Uses MediaPipe's 468-point facial mesh
+- Computes eye centers from multiple mesh points (more accurate than 2-point)
+- Rotates face to align eyes horizontally
+- Extracts embedding from aligned face for better matching
+
+**Weight in comparison**: 15%
+
+### 2. LBP Texture Features
+**Purpose**: Lighting-invariant matching
+
+Method: `compute_lbp_descriptor(face_image)`
+- Extracts Local Binary Pattern histogram (256 bins)
+- Compares texture patterns between faces
+- Robust to lighting variations
+
+Method: `lbp_similarity(lbp1, lbp2)`
+- Compares LBP histograms using intersection
+- Returns 0-1 similarity score
+
+**Weight in comparison**: 8%
+
+### 3. Facial Asymmetry Analysis
+**Purpose**: Uniqueness analysis
+
+Method: `compute_facial_asymmetry(landmarks)`
+- Computes distances between bilateral facial points
+- Measures left-right asymmetry
+- Each face has unique asymmetry pattern
+
+Method: `asymmetry_similarity(asym1, asym2)`
+- Compares asymmetry features between two faces
+- Returns 0-1 similarity score
+
+**Weight in comparison**: 7%
+
+### 4. Pose-Aware Weight
+**Purpose**: Adjust similarity based on pose difference
+
+Method: `compute_pose_weight(pose1, pose2)`
+- Computes pose difference (yaw + pitch)
+- If poses are similar (< 15°): weight = 1.0
+- If poses differ (15-30°): weight = 0.98
+- If poses differ greatly (> 30°): weight = 0.95
+
+**Modifier**: 0.95-1.0x applied to final score
+
+### 5. Multi-Pose Enrollment
+**Purpose**: Store and match against multiple poses of same person
+
+New endpoint: `POST /api/add-reference-pose/<ref_id>`
+- Adds additional pose variant to existing reference
+- Automatically categorizes pose (frontal, left, right, up, down)
+- Stores in reference's `poses` dictionary
+
+Method: `compute_multi_pose_score(query_emb, pose_embeddings)`
+- Compares query against all pose variants
+- Returns best match score
+
+**Weight in comparison**: 10%
+
+---
+
+## Storage Format
+
+Reference storagejson
+{
+  "id": 0,
+  " now includes:
+
+```name": "John Doe",
+  "embedding": {"arcface": [...], "facenet": [...]},
+  "lbp_histogram": [...],
+  "asymmetry": {"left_eye_right_eye_dist": 10.5, ...},
+  "normalized_embedding": [...],
+  "poses": {
+    "frontal": {"embedding": {...}, "yaw": 0, "pitch": 0},
+    "left": {"embedding": {...}, "yaw": -25, "pitch": 0},
+    "right": {"embedding": {...}, "yaw": 25, "pitch": 0}
+  },
+  "pose": {"yaw": 0, "pitch": 0, "roll": 0},
+  "pose_category": "frontal"
+}
+```
+
+---
+
+## Testing New Features
+
+Run `python test_edge_cases.py` to verify:
+
+- `test_lbp_descriptor()` - LBP extraction and similarity
+- `test_asymmetry_features()` - Asymmetry computation
+- `test_pose_weight()` - Pose weight calculation
+- `test_mesh_normalization()` - 3D mesh normalization
+- `test_multi_pose_score()` - Multi-pose comparison
+
+---
+
 ## MANTAX Branding
 
 The Electron UI includes MANTAX branding:
@@ -636,5 +775,5 @@ This system is built with ethical principles:
 
 ---
 
-*Architecture documentation updated: February 12, 2026*
-*Includes ArcFace integration, ONNX model, 512-dim embeddings, and MANTAX branding*
+*Architecture documentation updated: February 15, 2026*
+*Version 0.5.0 - Includes LBP texture, facial asymmetry, 3D mesh normalization, multi-pose enrollment, pose-aware matching*

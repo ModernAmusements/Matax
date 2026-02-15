@@ -1,9 +1,84 @@
 # NGO Facial Image Analysis System - Development Log
 
-**Last Updated**: February 14, 2026
+**Last Updated**: February 15, 2026
 **Project**: Face Recognition GUI for NGO Use
-**Version**: 0.4.1
-**Status**: ✅ Fully Functional - Reference Details + UI Improvements
+**Version**: 0.5.0
+**Status**: ✅ Fully Functional - Enhanced Features (LBP, Asymmetry, Multi-Pose, 3D Normalization)
+
+---
+
+## Summary (February 15, 2026) - Enhanced Features
+
+The system now includes **5 new features** for better handling of different angles, lighting conditions, and face uniqueness analysis.
+
+### New Features (v0.5.0)
+
+| Feature | Weight | Description |
+|---------|--------|-------------|
+| 3D Mesh Normalization | 15% | Handle extreme angles using 468-point mesh alignment |
+| LBP Texture | 8% | Lighting-invariant texture matching |
+| Facial Asymmetry | 7% | Uniqueness analysis based on facial asymmetry |
+| Pose-Aware Weight | Modifier | Adjusts similarity based on pose difference |
+| Multi-Pose Enrollment | 10% | Auto-detect and store multiple poses per person |
+
+### New Backend Methods
+
+**FaceDetector (`src/detection/__init__.py`)**:
+- `compute_lbp_descriptor(face_image)` → 256-dim LBP histogram
+- `compute_facial_asymmetry(landmarks)` → Asymmetry features dict
+- `normalize_face_with_mesh(face_image, mesh_landmarks)` → Aligned face
+
+**SimilarityComparator (`src/embedding/__init__.py`)**:
+- `compute_pose_weight(pose1, pose2)` → 0.95-1.0
+- `lbp_similarity(lbp1, lbp2)` → 0-1
+- `asymmetry_similarity(asym1, asym2)` → 0-1
+- `compute_multi_pose_score(query_emb, pose_embeddings)` → Best score
+
+### New API Endpoints
+
+- `POST /api/add-reference-pose/<ref_id>` - Add pose variant to reference
+
+### Updated Endpoints
+
+- `/api/extract` - Now returns: lbp_histogram, asymmetry, normalized_embedding
+- `/api/add-reference` - Now stores: poses dict, lbp_histogram, asymmetry, normalized_embedding
+- `/api/compare` - Now returns: pose_weight, lbp_similarity, asymmetry_similarity, normalized_similarity, multi_pose_score, multi_pose_used
+
+### New Frontend Features
+
+**HTML**:
+- Added tabs: Uniqueness, Texture, 3D Normalized
+- Added score displays: 3D Normalized, Multi-Pose, Texture, Uniqueness
+
+**JavaScript**:
+- Updated comparison display to show all new scores
+
+### New Tests
+
+Added 5 new test functions to `test_edge_cases.py`:
+- `test_lbp_descriptor()` - LBP extraction and similarity
+- `test_asymmetry_features()` - Asymmetry computation
+- `test_pose_weight()` - Pose weight calculation
+- `test_mesh_normalization()` - 3D mesh normalization
+- `test_multi_pose_score()` - Multi-pose comparison
+
+### Files Updated
+
+- `src/detection/__init__.py` - Added 3 new methods
+- `src/embedding/__init__.py` - Added 4 new methods
+- `api_server.py` - Updated 3 endpoints, added 1 new endpoint
+- `electron-ui/index.html` - Added visualization tabs, score displays
+- `electron-ui/renderer/app.js` - Updated comparison display
+- `test_edge_cases.py` - Added 5 new test functions
+- `ARCHITECTURE.md` - Updated with all new features
+
+### Test Results
+
+```
+✓ PASS: E2E Pipeline (6/6)
+✓ PASS: Edge Cases (16/16) 
+✓ PASS: Frontend Integration (9/9)
+```
 
 ---
 

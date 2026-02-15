@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System
 
-**Version**: 0.4.1  
+**Version**: 0.5.0  
 **Last Updated**: February 15, 2026  
-**Status**: ✅ Fully Functional - SCSS + Weights Updated
+**Status**: ✅ Fully Functional - Enhanced Features (LBP, Asymmetry, Multi-Pose, 3D Normalization)
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
 

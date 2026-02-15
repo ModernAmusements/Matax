@@ -76,6 +76,9 @@ current_pose = {}
 current_landmarks = None
 current_quality = None
 current_activations = {}
+current_lbp = None
+current_asymmetry = None
+current_normalized_embedding = None
 references = []
 
 REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
@@ -440,7 +443,7 @@ def detect_faces():
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
     """Extract embedding from detected face using both models."""
-    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality, current_activations
+    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality, current_activations, current_lbp, current_asymmetry, current_normalized_embedding
     
     try:
         data = request.json
@@ -486,6 +489,20 @@ def extract_embedding():
         current_landmarks = extract_landmark_features(landmarks_est)
         current_quality = quality_est
         
+        # NEW: LBP descriptor for lighting-invariant matching
+        current_lbp = detector.compute_lbp_descriptor(current_face_image)
+        
+        # NEW: Asymmetry features for uniqueness analysis
+        current_asymmetry = detector.compute_facial_asymmetry(landmarks_est)
+        
+        # NEW: 3D mesh-based normalized embedding
+        mesh_landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
+        aligned_face = detector.normalize_face_with_mesh(current_face_image, mesh_landmarks)
+        if arcface_extractor:
+            current_normalized_embedding = arcface_extractor.extract_embedding(aligned_face)
+        else:
+            current_normalized_embedding = facenet_extractor.extract_embedding(aligned_face)
+        
         # Get visualizations with data
         emb_viz, emb_data = extractor.visualize_embedding(current_embedding)
         act_viz = extractor.visualize_activations(current_face_image)
@@ -510,6 +527,10 @@ def extract_embedding():
             'embedding_mean': float(np.mean(current_embedding)) if current_embedding is not None else 0,
             'embedding_std': float(np.std(current_embedding)) if current_embedding is not None else 0,
             'pose': current_pose,
+            'lbp_histogram': current_lbp.tolist() if current_lbp is not None else None,
+            'asymmetry': current_asymmetry,
+            'normalized_embedding': current_normalized_embedding.tolist() if current_normalized_embedding is not None else None,
+            'was_normalized': True,
             'visualizations': {
                 'embedding': image_to_base64(emb_viz),
                 'activations': image_to_base64(act_viz),
@@ -575,6 +596,21 @@ def add_reference():
         landmark_features = extract_landmark_features(landmarks)
         ref_activations = facenet_extractor.get_activations(ref_face)
         
+        # NEW: LBP descriptor
+        lbp_hist = detector.compute_lbp_descriptor(ref_face)
+        
+        # NEW: Asymmetry features
+        asymmetry_features = detector.compute_facial_asymmetry(landmarks)
+        
+        # NEW: 3D mesh-based normalized embedding
+        mesh_landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        aligned_ref = detector.normalize_face_with_mesh(ref_face, mesh_landmarks)
+        normalized_emb = None
+        if arcface_extractor:
+            normalized_emb = arcface_extractor.extract_embedding(aligned_ref)
+        
+        pose_category = categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
+        
         ref_data = {
             'id': len(references),
             'name': name,
@@ -586,9 +622,19 @@ def add_reference():
                 'pitch': float(alignment.get('pitch', 0)),
                 'roll': float(alignment.get('roll', 0))
             },
-            'pose_category': categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0)),
+            'pose_category': pose_category,
             'landmarks': landmark_features,
-            'quality': {k: float(v) if isinstance(v, (int, float)) else v for k, v in quality.items()} if quality else None
+            'quality': {k: float(v) if isinstance(v, (int, float)) else v for k, v in quality.items()} if quality else None,
+            'lbp_histogram': lbp_hist.tolist() if lbp_hist is not None else None,
+            'asymmetry': asymmetry_features,
+            'normalized_embedding': normalized_emb.tolist() if normalized_emb is not None else None,
+            'poses': {
+                pose_category: {
+                    'embedding': embeddings_dict,
+                    'yaw': float(alignment.get('yaw', 0)),
+                    'pitch': float(alignment.get('pitch', 0))
+                }
+            }
         }
         references.append(ref_data)
         save_references()
@@ -769,6 +815,28 @@ def compare_faces():
             primary_ref = ref_arcface if ref_arcface is not None else ref_facenet
             distance = comparator.euclidean_distance(primary_emb, primary_ref) if primary_emb is not None and primary_ref is not None else 0.0
             
+            # NEW: Calculate pose weight
+            pose_weight = comparator.compute_pose_weight(current_pose, ref_pose)
+            
+            # NEW: LBP similarity
+            lbp_sim = comparator.lbp_similarity(current_lbp, ref.get('lbp_histogram'))
+            
+            # NEW: Asymmetry similarity
+            asym_sim = comparator.asymmetry_similarity(current_asymmetry, ref.get('asymmetry'))
+            
+            # NEW: 3D normalized embedding similarity
+            norm_emb_query = current_normalized_embedding
+            norm_emb_ref = ref.get('normalized_embedding')
+            norm_sim = 0.0
+            if norm_emb_query is not None and norm_emb_ref is not None:
+                norm_sim = comparator.cosine_similarity(np.array(norm_emb_query), np.array(norm_emb_ref))
+            
+            # NEW: Multi-pose best score
+            pose_list = list(ref.get('poses', {}).values())
+            multi_pose_score, best_pose = comparator.compute_multi_pose_score(
+                primary_emb, pose_list
+            )
+            
             results.append({
                 'id': ref['id'],
                 'name': ref['name'],
@@ -785,6 +853,12 @@ def compare_faces():
                 'thumbnail': ref['thumbnail'],
                 'pose': ref_pose,
                 'pose_category': ref_pose_cat,
+                'pose_weight': float(pose_weight),
+                'lbp_similarity': float(lbp_sim),
+                'asymmetry_similarity': float(asym_sim),
+                'normalized_similarity': float(norm_sim),
+                'multi_pose_score': float(multi_pose_score),
+                'multi_pose_used': len(ref.get('poses', {})) > 1,
             })
 
         results.sort(key=lambda x: x.get('final_score', 0), reverse=True)
@@ -826,6 +900,65 @@ def compare_faces():
             'best_match': results[0] if results else None,
             'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None,
             'similarity_data': sim_data
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/add-reference-pose/<int:ref_id>', methods=['POST'])
+def add_reference_pose_variant(ref_id):
+    """Add additional pose variant to existing reference."""
+    global references
+    
+    try:
+        if ref_id < 0 or ref_id >= len(references):
+            return jsonify({'success': False, 'error': 'Reference not found'})
+        
+        data = request.json
+        image_data = data.get('image', '')
+        
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]
+        
+        ref_image = base64_to_image(image_data)
+        ref_faces = detector.detect_faces(ref_image)
+        
+        if not ref_faces:
+            return jsonify({'success': False, 'error': 'No faces detected'})
+        
+        fx, fy, fw, fh = ref_faces[0]
+        ref_face = ref_image[fy:fy+fh, fx:fx+fw]
+        
+        arcface_emb = arcface_extractor.extract_embedding(ref_face) if arcface_extractor else None
+        facenet_emb = facenet_extractor.extract_embedding(ref_face)
+        
+        embeddings_dict = {
+            'arcface': arcface_emb.tolist() if arcface_emb is not None else None,
+            'facenet': facenet_emb.tolist() if facenet_emb is not None else None
+        }
+        
+        landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        alignment = detector.compute_alignment(ref_face, landmarks)
+        pose_category = categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
+        
+        if 'poses' not in references[ref_id]:
+            references[ref_id]['poses'] = {}
+        
+        references[ref_id]['poses'][pose_category] = {
+            'embedding': embeddings_dict,
+            'yaw': float(alignment.get('yaw', 0)),
+            'pitch': float(alignment.get('pitch', 0))
+        }
+        
+        save_references()
+        
+        return jsonify({
+            'success': True,
+            'pose_category': pose_category,
+            'total_poses': len(references[ref_id].get('poses', {}))
         })
         
     except Exception as e:
