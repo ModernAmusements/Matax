@@ -2,7 +2,21 @@
 
 You are working on the Face Recognition NPO application - an ethical, consent-based facial recognition system for NGO documentation verification.
 
+---
+
+## ⚠️ CRITICAL WORKFLOW RULE
+
+After EVERY code change:
+1. Run: `python test_e2e_pipeline.py`
+2. Run: `python test_edge_cases.py`  
+3. Run: `python test_frontend_integration.py`
+4. Say "FINISHED" ONLY after ALL tests pass
+
+---
+
 ## Quick Start (5 Minutes)
+
+For detailed workflow rules, see `WORKFLOW_PROMPT.md`
 
 1. **Start the system:** `./start.sh`
 2. **Choose option:** [1] Electron Desktop App / [2] Browser / [3] Both

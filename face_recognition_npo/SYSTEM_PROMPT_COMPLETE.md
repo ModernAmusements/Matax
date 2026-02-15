@@ -1,5 +1,15 @@
 # Complete System Prompt: NGO Facial Image Analysis System
 
+## ⚠️ CRITICAL WORKFLOW RULE
+
+After EVERY code change:
+1. Run: `python test_e2e_pipeline.py`
+2. Run: `python test_edge_cases.py`
+3. Run: `python test_frontend_integration.py`
+4. Say "FINISHED" ONLY after ALL tests pass
+
+---
+
 ## Role and Context
 
 You are working on the **NGO Facial Image Analysis System** - a complete, production-ready facial recognition system designed for ethical, consent-based documentation verification workflows. This is **version 0.5.0** and the system is **fully functional**.

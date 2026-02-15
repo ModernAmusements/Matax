@@ -731,14 +731,14 @@ class SimilarityComparator:
         - ArcFace: 60% (best discrimination)
         - FaceNet: 20% (additional signal)
         - Landmark geometry: 15% (geometric consistency)
-        - Activation: 5% (neural activation similarity)
-        - Quality: 5% (reliability factor)
+        - Activation: 1% (neural activation similarity)
+        - Quality: 1% (reliability factor)
         """
         ARCFACE_WEIGHT = 0.60
         FACENET_WEIGHT = 0.20
         LANDMARK_WEIGHT = 0.15
-        ACTIVATION_WEIGHT = 0.05
-        QUALITY_WEIGHT = 0.05
+        ACTIVATION_WEIGHT = 0.01
+        QUALITY_WEIGHT = 0.01
         
         reasons = []
         

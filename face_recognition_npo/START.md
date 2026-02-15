@@ -5,6 +5,16 @@
 
 ---
 
+## ⚠️ CRITICAL WORKFLOW RULE
+
+After EVERY code change:
+1. Run: `python test_e2e_pipeline.py`
+2. Run: `python test_edge_cases.py`
+3. Run: `python test_frontend_integration.py`
+4. Say "FINISHED" ONLY after ALL tests pass
+
+---
+
 ## Start the Application
 
 ```bash
@@ -28,6 +38,24 @@ Step 3: Create Signature → Click "Create Signature" (CRITICAL!)
 Step 4: Add Reference    → Upload reference image
 Step 5: Compare          → Click "Compare"
 ```
+
+---
+
+## SCSS Styling
+
+The project uses SCSS for maintainable styling. 
+
+**Files:**
+- `electron-ui/styles/design-system.scss` - SCSS source
+- `electron-ui/styles/design-system.css` - Compiled CSS
+
+**Compile SCSS:**
+```bash
+cd electron-ui
+npm run scss
+```
+
+**Note:** `./start.sh` automatically compiles SCSS before starting.
 
 ---
 
@@ -128,6 +156,7 @@ The comparison uses 5 factors with weighted scoring:
 | `CONTEXT.md` | Critical rules for code edits |
 | `ARCHITECTURE.md` | Complete system design |
 | `DEVELOPMENT_LOG.md` | Development history |
+| `STYLES.md` | CSS classes reference |
 
 ---
 

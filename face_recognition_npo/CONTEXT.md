@@ -6,6 +6,19 @@
 
 ---
 
+## ⚠️ CRITICAL WORKFLOW RULE - ALWAYS FOLLOW THIS
+
+**After EVERY code change, you MUST:**
+
+1. ✅ Run E2E tests: `python test_e2e_pipeline.py`
+2. ✅ Run edge case tests: `python test_edge_cases.py`
+3. ✅ Run frontend tests: `python test_frontend_integration.py`
+4. ✅ Say "FINISHED" ONLY after ALL tests pass
+
+**NEVER say "done" or "finished" until ALL tests pass.**
+
+---
+
 ## ⚠️ CRITICAL RULES FOR CODE EDITS
 
 **These rules MUST be followed at all times:**

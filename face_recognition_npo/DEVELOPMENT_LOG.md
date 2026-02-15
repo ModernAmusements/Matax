@@ -652,6 +652,36 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 
 ## Session: February 15, 2026 - CSS Cleanup & Activation Similarity
 
+### Important Workflow Change
+
+**Added to all documentation:**
+After EVERY code change, ALWAYS run tests before saying finished:
+1. `python test_e2e_pipeline.py`
+2. `python test_edge_cases.py`
+3. `python test_frontend_integration.py`
+4. Say "FINISHED" only after ALL tests pass
+
+### SCSS Conversion
+
+**Created SCSS design system:**
+
+1. **New file**: `electron-ui/styles/design-system.scss`
+   - Variables for all colors, spacing, typography
+   - Mixins for reusable patterns (flex-center, card, scrollbar)
+   - Nested component styles
+   - Exact same output as original CSS
+
+2. **Build system**: Added npm script
+   ```json
+   "scss": "sass --no-source-map --style=expanded styles/design-system.scss styles/design-system.css"
+   ```
+   Run: `npm run scss` or use `./start.sh` (auto-compiles)
+
+3. **start.sh updated**:
+   - Fixed bug: Added `SCRIPT_DIR` variable to properly resolve paths
+   - Added SCSS compilation step
+   - Now works from any directory
+
 ### CSS Cleanup
 
 **Phase 1: CSS Foundation Cleanup**

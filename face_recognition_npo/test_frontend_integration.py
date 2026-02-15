@@ -253,10 +253,12 @@ def test_pose_aware_matching(step_num, total):
     
     if passed:
         result = data['results'][0]
-        arcface_sim = result.get('arcface_similarity', 'N/A')
-        facenet_sim = result.get('facenet_similarity', 'N/A')
+        arcface_sim = result.get('arcface_similarity')
+        facenet_sim = result.get('facenet_similarity')
         final_score = result.get('final_score', 0)
-        details = f"arcface={arcface_sim:.2f if arcface_sim != 'N/A' else 'N/A'}, facenet={facenet_sim:.2f if facenet_sim != 'N/A' else 'N/A'}, final={final_score:.2f}"
+        arcface_str = f"{arcface_sim:.2f}" if arcface_sim is not None else "N/A"
+        facenet_str = f"{facenet_sim:.2f}" if facenet_sim is not None else "N/A"
+        details = f"arcface={arcface_str}, facenet={facenet_str}, final={final_score:.2f}"
         print_step(step_num, total, "Dual-Model Comparison", "pass", details)
     else:
         print_step(step_num, total, "Dual-Model Comparison", "fail", str(data.get('error', 'Failed')))

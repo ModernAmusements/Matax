@@ -1,10 +1,20 @@
 # NGO Facial Image Analysis System
 
 **Version**: 0.4.1  
-**Last Updated**: February 14, 2026  
-**Status**: ✅ Fully Functional - Reference Details + UI Improvements
+**Last Updated**: February 15, 2026  
+**Status**: ✅ Fully Functional - SCSS + Weights Updated
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
+
+---
+
+## ⚠️ CRITICAL WORKFLOW RULE
+
+After EVERY code change:
+1. Run: `python test_e2e_pipeline.py`
+2. Run: `python test_edge_cases.py`
+3. Run: `python test_frontend_integration.py`
+4. Say "FINISHED" ONLY after ALL tests pass
 
 ---
 

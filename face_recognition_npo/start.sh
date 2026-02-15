@@ -4,6 +4,9 @@ echo "Face Recognition System"
 echo "======================="
 echo ""
 
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 # Kill existing servers
 echo "==> Stopping existing servers..."
 pkill -9 -f "python.*api_server" 2>/dev/null
@@ -15,14 +18,23 @@ echo ""
 
 # Clear cache
 echo "==> Clearing cache..."
+cd "$SCRIPT_DIR"
 find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null
 find . -name "*.pyc" -delete 2>/dev/null
 echo "==> Cache cleared"
 echo ""
 
+# Compile SCSS
+echo "==> Compiling SCSS..."
+cd "$SCRIPT_DIR/electron-ui"
+npm run scss
+echo "==> SCSS compiled"
+echo ""
+cd "$SCRIPT_DIR"
+
 # Start Flask API
 echo "==> Starting Flask API server..."
-cd "$(dirname "$0")"
+cd "$SCRIPT_DIR"
 source venv/bin/activate
 python api_server.py > /tmp/api_server.log 2>&1 &
 
@@ -69,11 +81,11 @@ case "$choice" in
     3)
         echo "==> Opening Electron and browser..."
         open http://localhost:3000 &
-        cd "$(dirname "$0")/electron-ui" && npm start &
+        cd "$SCRIPT_DIR/electron-ui" && npm start &
         ;;
     *)
         echo "==> Starting Electron Desktop App..."
-        cd "$(dirname "$0")/electron-ui" && npm start &
+        cd "$SCRIPT_DIR/electron-ui" && npm start &
         ;;
 esac
 
