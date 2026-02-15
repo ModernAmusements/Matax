@@ -138,8 +138,8 @@ async function clearAllCache() {
     visualizationData = {};
     
     document.getElementById('selectedImage').src = '';
-    document.getElementById('previewContainer').style.display = 'none';
-    document.getElementById('facesContainer').style.display = 'none';
+    document.getElementById('previewContainer').classList.add('hidden');
+    document.getElementById('facesContainer').classList.add('hidden');
     document.getElementById('comparisonResult').classList.remove('active');
     document.getElementById('referenceList').innerHTML = '';
     
@@ -185,7 +185,7 @@ function handleImageSelect(event) {
         
         currentImage = e.target.result;
         document.getElementById('selectedImage').src = currentImage;
-        document.getElementById('previewContainer').style.display = 'flex';
+        document.getElementById('previewContainer').classList.remove('hidden');
         document.getElementById('detectBtn').disabled = false;
         document.getElementById('detectStatus').textContent = 'Ready to detect';
         document.getElementById('detectStatus').className = 'status status-info';
@@ -202,12 +202,12 @@ function handleImageSelect(event) {
 function resetSteps() {
     currentFaceThumbnails = [];
     currentQueryEmbedding = null;
-    document.getElementById('facesContainer').style.display = 'none';
+    document.getElementById('facesContainer').classList.add('hidden');
     document.getElementById('extractBtn').disabled = true;
     document.getElementById('extractStatus').textContent = 'Waiting for detection...';
     document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
     document.getElementById('compareBtn').disabled = true;
-    document.getElementById('comparisonResult').style.display = 'none';
+    document.getElementById('comparisonResult').classList.add('hidden');
     visualizationData = {};
     showVisualizationPlaceholder();
 }
@@ -341,7 +341,7 @@ async function detectFaces() {
                 gallery.appendChild(div);
             });
 
-            document.getElementById('facesContainer').style.display = 'block';
+            document.getElementById('facesContainer').classList.remove('hidden');
 
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
@@ -511,7 +511,7 @@ async function showReferenceVisualizations(refId) {
         document.getElementById('vizContent').innerHTML = `
             <div class="viz-placeholder">
                 <p>No visualization available</p>
-                <p style="color: #cc0000;">${err.message}</p>
+                <p class="text-error-inline">${err.message}</p>
             </div>
         `;
     }
@@ -524,7 +524,7 @@ function showReferenceDetails(refId, ref) {
     const contentEl = document.getElementById('refVizContent');
     const infoEl = document.getElementById('refInfoGrid');
     
-    detailsPanel.style.display = 'block';
+    detailsPanel.classList.add('active');
     titleEl.textContent = ref.name || `Reference ${refId + 1}`;
     
     const tabs = [
@@ -620,7 +620,7 @@ async function switchRefTab(tabId, refId) {
 }
 
 function hideReferenceDetails() {
-    document.getElementById('referenceDetails').style.display = 'none';
+    document.getElementById('referenceDetails').classList.remove('active');
 }
 
 function updateReferenceList() {
@@ -628,7 +628,7 @@ function updateReferenceList() {
     container.innerHTML = '';
     
     if (!references || references.length === 0) {
-        container.innerHTML = '<p style="color: #666; padding: 8px;">No references added yet</p>';
+        container.innerHTML = '<p class="empty-state">No references added yet</p>';
         return;
     }
     
@@ -732,6 +732,14 @@ async function compareFaces() {
                 facenetEl.textContent = 'N/A';
             }
             
+            // Display Activation similarity score
+            const activationEl = document.getElementById('activationScore');
+            if (best.activation_similarity !== null && best.activation_similarity !== undefined) {
+                activationEl.textContent = `${Math.round(best.activation_similarity * 100)}%`;
+            } else {
+                activationEl.textContent = 'N/A';
+            }
+            
             // Display final combined score
             document.getElementById('matchScore').textContent = `${Math.round(best.final_score * 100)}%`;
             
@@ -743,7 +751,9 @@ async function compareFaces() {
                 reasonsEl.innerHTML = '';
             }
 
-            document.getElementById('comparisonResult').style.display = 'block';
+            const comparisonResult = document.getElementById('comparisonResult');
+            comparisonResult.classList.remove('hidden');
+            comparisonResult.classList.add('active');
             document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
             document.getElementById('compareStatus').className = 'status status-success';
 
@@ -781,7 +791,7 @@ async function showVisualization(vizType) {
     if (!currentFaceThumbnails || currentFaceThumbnails.length === 0) {
         content.innerHTML = `
             <div class="viz-placeholder">
-                <p style="color: #e74c3c;">No face detected</p>
+                <p class="text-error-inline">No face detected</p>
                 <p>1. Upload an image</p>
                 <p>2. Click "Find Faces"</p>
                 <p>3. Click "Create Signature"</p>
@@ -795,7 +805,7 @@ async function showVisualization(vizType) {
     if (!currentQueryEmbedding) {
         content.innerHTML = `
             <div class="viz-placeholder">
-                <p style="color: #e74c3c;">No embedding extracted</p>
+                <p class="text-error-inline">No embedding extracted</p>
                 <p>Click "Create Signature" first to extract features</p>
             </div>
         `;
@@ -827,7 +837,7 @@ async function showVisualization(vizType) {
                 console.log('[VIZ] API returned no/invalid data:', data);
                 content.innerHTML = `
                     <div class="viz-placeholder">
-                        <p style="color: #e74c3c;">No ${vizType} data available</p>
+                        <p class="text-error-inline">No ${vizType} data available</p>
                         <p>Try running the full workflow:</p>
                         <p>1. Upload image → 2. Find Faces → 3. Create Signature</p>
                     </div>
@@ -839,7 +849,7 @@ async function showVisualization(vizType) {
             console.log('[VIZ] Fetch error:', err);
             content.innerHTML = `
                 <div class="viz-placeholder">
-                    <p style="color: #e74c3c;">Error loading ${vizType}</p>
+                    <p class="text-error-inline">Error loading ${vizType}</p>
                     <p>${err.message}</p>
                 </div>
             `;
@@ -852,7 +862,7 @@ async function showVisualization(vizType) {
         console.log('[VIZ] Displaying:', vizType, 'length:', length);
         logToTerminal(`> Displaying ${vizType} (${length} chars)`, 'success');
 
-        let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}" style="max-width: 100%; max-height: 400px; display: block; margin: 0 auto;">`;
+        let html = `<img src="data:image/png;base64,${visualizationData[vizType]}" alt="${vizType}">`;
 
         // Add data table if available
         const dataKey = vizType + '_data';
@@ -967,7 +977,7 @@ async function startWebcam() {
         
         webcamStream = stream;
         video.srcObject = stream;
-        container.style.display = 'block';
+        container.classList.remove('hidden');
         
         startBtn.disabled = true;
         captureBtn.disabled = false;
@@ -1044,7 +1054,7 @@ function stopWebcam() {
     }
     
     video.srcObject = null;
-    container.style.display = 'none';
+    container.classList.add('hidden');
     
     startBtn.disabled = false;
     captureBtn.disabled = true;

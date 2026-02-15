@@ -1281,7 +1281,10 @@ The application now uses BOTH ArcFace AND FaceNet together for more robust match
 | ArcFace similarity | 60% | Primary - best discrimination |
 | FaceNet similarity | 20% | Additional signal |
 | Landmark geometry | 15% | Structural consistency |
+| Activation similarity | 5% | Neural network internal representations |
 | Image quality | 5% | Reliability factor |
+
+**Note**: No pose penalty - same person with different poses will match correctly.
 
 ### New API Fields
 
@@ -1291,10 +1294,11 @@ Each comparison result now returns:
   "arcface_similarity": 0.75,
   "facenet_similarity": 0.60,
   "landmark_similarity": 0.85,
+  "activation_similarity": 0.72,
   "final_score": 0.68,
   "status": "match|possible|no_match",
   "match_label": "Full Match|Possible Match|No Match",
-  "reasons": ["ArcFace: High similarity (75%)", "FaceNet: Moderate (60%)", "Similar facial proportions"]
+  "reasons": ["ArcFace: High similarity (75%)", "FaceNet: Moderate (60%)", "Similar neural activation patterns"]
 }
 ```
 

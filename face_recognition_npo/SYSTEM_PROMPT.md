@@ -50,7 +50,10 @@ You are working on the Face Recognition NPO application - an ethical, consent-ba
 - **ArcFace**: 512-dim embeddings (60% weight) - Best discrimination
 - **FaceNet**: 128-dim embeddings (20% weight) - Additional signal + activations
 - **Landmarks**: Geometric features (15% weight) - Structural consistency
+- **Activation**: Neural network activations (5% weight) - Internal representations
 - **Quality**: Image quality score (5% weight) - Reliability
+
+**Note**: No pose penalty - same person with different poses will match correctly.
 
 **Result**: More robust matching by combining both models
 

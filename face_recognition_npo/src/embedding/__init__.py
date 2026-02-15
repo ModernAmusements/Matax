@@ -604,6 +604,51 @@ class SimilarityComparator:
         quality_score = (brightness * 0.3 + contrast * 0.3 + sharpness * 0.4)
         return float(quality_score)
     
+    def activation_similarity(self, activations1: Dict[str, np.ndarray], activations2: Dict[str, np.ndarray]) -> float:
+        """
+        Calculate similarity between neural network activations.
+        Compares intermediate layer outputs from FaceNet.
+        Returns 0-1 (1 = identical activations).
+        """
+        if not activations1 or not activations2:
+            return 0.7  # Default middle value if activations unavailable
+        
+        similarities = []
+        
+        # Compare each layer's activations
+        for layer_name in activations1.keys():
+            if layer_name in activations2:
+                act1 = activations1[layer_name]
+                act2 = activations2[layer_name]
+                
+                if act1 is None or act2 is None:
+                    continue
+                
+                # Flatten and compute cosine similarity
+                try:
+                    act1_flat = act1.flatten()
+                    act2_flat = act2.flatten()
+                    
+                    # Ensure same shape
+                    if act1_flat.shape != act2_flat.shape:
+                        continue
+                    
+                    # Cosine similarity
+                    dot_product = np.dot(act1_flat, act2_flat)
+                    norm1 = np.linalg.norm(act1_flat)
+                    norm2 = np.linalg.norm(act2_flat)
+                    
+                    if norm1 > 0 and norm2 > 0:
+                        sim = dot_product / (norm1 * norm2)
+                        similarities.append(float(sim))
+                except Exception:
+                    continue
+        
+        if similarities:
+            return np.mean(similarities)
+        
+        return 0.7  # Default if comparison fails
+    
     def compute_match_score(self, embedding_sim: float, landmark_sim: float = 0.5, 
                            quality: Optional[Dict] = None, use_landmarks: bool = True) -> Dict:
         """
@@ -677,19 +722,22 @@ class SimilarityComparator:
             return ('no_match', 'No Match', 'Low confidence - likely different people')
     
     def compute_dual_match_score(self, arcface_sim: Optional[float], facenet_sim: Optional[float],
-                                  landmark_sim: float = 0.5, quality: Optional[Dict] = None) -> Dict:
+                                  landmark_sim: float = 0.5, quality: Optional[Dict] = None,
+                                  activation_sim: Optional[float] = None) -> Dict:
         """
         Compute final match score using BOTH ArcFace and FaceNet embeddings.
         
         Weights:
         - ArcFace: 60% (best discrimination)
         - FaceNet: 20% (additional signal)
-        - Landmarks: 15% (geometric consistency)
+        - Landmark geometry: 15% (geometric consistency)
+        - Activation: 5% (neural activation similarity)
         - Quality: 5% (reliability factor)
         """
         ARCFACE_WEIGHT = 0.60
         FACENET_WEIGHT = 0.20
         LANDMARK_WEIGHT = 0.15
+        ACTIVATION_WEIGHT = 0.05
         QUALITY_WEIGHT = 0.05
         
         reasons = []
@@ -728,6 +776,17 @@ class SimilarityComparator:
         else:
             reasons.append("Different facial proportions")
         
+        # Activation contribution (neural network internal representations)
+        activation_contribution = 0.0
+        if activation_sim is not None:
+            activation_contribution = activation_sim * ACTIVATION_WEIGHT
+            if activation_sim >= 0.70:
+                reasons.append("Similar neural activation patterns")
+            elif activation_sim >= 0.50:
+                reasons.append("Moderate neural activation similarity")
+            else:
+                reasons.append("Different neural activation patterns")
+        
         # Quality contribution
         quality_factor = self.quality_score(quality) if quality else 0.7
         quality_contribution = quality_factor * QUALITY_WEIGHT
@@ -740,7 +799,7 @@ class SimilarityComparator:
             reasons.append("Low image quality - may affect accuracy")
         
         # Calculate final score
-        final_score = arcface_contribution + facenet_contribution + landmark_contribution + quality_contribution
+        final_score = arcface_contribution + facenet_contribution + landmark_contribution + activation_contribution + quality_contribution
         final_score = min(1.0, max(0.0, final_score))
         
         return {
@@ -748,6 +807,7 @@ class SimilarityComparator:
             'arcface_similarity': arcface_sim,
             'facenet_similarity': facenet_sim,
             'landmark_similarity': landmark_sim,
+            'activation_similarity': activation_sim,
             'quality_factor': quality_factor,
             'reasons': reasons
         }

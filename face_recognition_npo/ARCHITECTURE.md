@@ -535,7 +535,8 @@ The `/api/compare` endpoint now returns:
 | `arcface_similarity` | ArcFace cosine similarity (0-1) |
 | `facenet_similarity` | FaceNet cosine similarity (0-1) |
 | `landmark_similarity` | Landmark geometry similarity (0-1) |
-| `final_score` | Weighted combination (60% ArcFace + 20% FaceNet + 15% Landmarks + 5% Quality) |
+| `activation_similarity` | Neural network activation similarity (0-1) |
+| `final_score` | Weighted combination (60% ArcFace + 20% FaceNet + 15% Landmarks + 5% Activation + 5% Quality) |
 | `status` | "match", "possible", or "no_match" |
 | `match_label` | "Full Match", "Possible Match", "No Match" |
 | `reasons` | List of match reasoning strings |

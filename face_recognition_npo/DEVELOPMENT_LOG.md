@@ -650,5 +650,81 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 
 ---
 
+## Session: February 15, 2026 - CSS Cleanup & Activation Similarity
+
+### CSS Cleanup
+
+**Phase 1: CSS Foundation Cleanup**
+
+1. **Fixed duplicate `--bg-secondary`** - was defined twice (#FFFFFF and #f5f5f5), kept #f5f5f5
+
+2. **Added missing CSS variables**:
+   - Spacing: `--space-1` through `--space-8`
+   - Typography: `--text-xs` through `--text-4xl`
+   - Font weights: `--font-normal`, `--font-medium`, `--font-semibold`, `--font-bold`
+   - Layout: `--sidebar-width`, `--header-height`
+
+3. **Added utility classes**:
+   - `.hidden` - display: none
+   - `.button-group` - flex with gap
+   - `.text-center` - text-align center
+   - `.text-error-inline` - error text color
+   - `.empty-state` - muted empty state
+   - `.webcam-video` - webcam styling
+   - `.btn-margin-top` - button margin
+
+**Phase 2: Remove Inline Styles from HTML**
+
+- Removed 8 inline `style=""` attributes from `index.html`
+- Replaced with CSS classes: `.hidden`, `.button-group`, `.webcam-video`, etc.
+
+**Phase 3: Remove Inline Styles from JavaScript**
+
+- Removed 7 inline `style=""` attributes from `app.js`
+- Added `.text-error-inline` and `.empty-state` CSS classes
+
+**Phase 4: Fixed JavaScript Toggle Logic**
+
+- Changed all `element.style.display = 'none/block'` to `classList.add/remove('hidden')`
+- Fixed reference details panel to use `.active` class instead of inline styles
+- Fixed comparison result display (removed `.hidden` before adding `.active`)
+
+### Activation Similarity
+
+**Added neural network activation comparison**:
+
+1. **Backend** (`src/embedding/__init__.py`):
+   - Added `activation_sim` parameter to `compute_dual_match_score()`
+   - Added 5% weight for activation similarity
+   - Added `activation_similarity()` method to compare intermediate layer outputs
+
+2. **API** (`api_server.py`):
+   - Now passes `activation_sim` to scoring method
+   - Returns `activation_similarity` in API response
+
+3. **Frontend** (`index.html`):
+   - Added Activation row to similarity display
+
+4. **Frontend** (`app.js`):
+   - Added code to populate activation score
+
+**New Weights:**
+| Factor | Weight |
+|--------|--------|
+| ArcFace | 60% |
+| FaceNet | 20% |
+| Landmarks | 15% |
+| Activation | 5% |
+| Quality | 5% |
+
+**Note**: No pose penalty - same person with different poses should match correctly.
+
+---
+
+*Document updated: February 15, 2026*
+*Includes CSS cleanup, inline style removal, and activation similarity*
+
+---
+
 *Document updated: February 12, 2026*
 *Includes ArcFace integration, 512-dim embeddings, and MANTAX branding*

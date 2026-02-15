@@ -752,14 +752,12 @@ def compare_faces():
                 print(f"Activation comparison error: {e}")
                 activation_sim = 0.7
             
-            # Use dual-model match scoring with attention/pose/activation
+            # Use dual-model match scoring with activation similarity
             match_result = comparator.compute_dual_match_score(
                 arcface_sim,
                 facenet_sim,
                 landmark_sim,
                 query_quality,
-                current_pose,
-                ref_pose,
                 activation_sim
             )
             
@@ -777,6 +775,7 @@ def compare_faces():
                 'arcface_similarity': float(arcface_sim) if arcface_sim is not None else None,
                 'facenet_similarity': float(facenet_sim) if facenet_sim is not None else None,
                 'landmark_similarity': float(landmark_sim),
+                'activation_similarity': float(activation_sim) if activation_sim is not None else None,
                 'final_score': float(match_result['score']),
                 'status': status,
                 'match_label': label,
