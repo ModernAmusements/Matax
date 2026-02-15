@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System
 
-**Version**: 0.3.0  
-**Last Updated**: February 12, 2026  
-**Status**: ✅ Fully Functional - ArcFace Enabled
+**Version**: 0.4.1  
+**Last Updated**: February 14, 2026  
+**Status**: ✅ Fully Functional - Reference Details + UI Improvements
 
 A Python-based facial image analysis system with Electron desktop UI for ethical, consent-based NGO use in documentation verification and investigative work.
 
@@ -71,9 +71,13 @@ start.sh ──► Flask API (port 3000)
 - ✅ **Persistent Storage**: References saved to `reference_images/embeddings.json`
 - ✅ **14 AI Visualizations**: Detection, landmarks, mesh, activations, etc.
 - ✅ **Electron Desktop UI**: Ultra minimal design with MANTAX branding
-- ✅ **Flask API Server**: 11 REST endpoints
+- ✅ **Flask API Server**: 14+ REST endpoints
 - ✅ **End-to-End Tests**: All 6/6 passing
 - ✅ **ArcFace Integration**: 512-dim embeddings for better discrimination
+- ✅ **Activation Similarity**: Neural network activation comparison for matching
+- ✅ **Reference Details Panel**: View reference embeddings, landmarks, pose, quality
+- ✅ **Smart Compare Button**: Only enables when both embedding AND references exist
+- ✅ **Card Layout**: Comparison results displayed in centered card
 
 ---
 
@@ -88,6 +92,10 @@ Step 5: Compare          → Click "Compare"
 ```
 
 **For Visualizations**: After Step 3, click the visualization tabs (Embedding, Activations, Features, etc.)
+
+**For Reference Details**: Click on a reference image to view its embeddings, landmarks, pose, and quality metrics
+
+**Compare Button**: Only enables when BOTH an embedding is extracted AND at least one reference exists
 
 ---
 
@@ -144,7 +152,7 @@ The application now includes MANTAX branding in the navbar:
 
 ---
 
-## API Endpoints (11 Total)
+## API Endpoints (14+ Total)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -335,6 +343,9 @@ Best practice: Flask runs once, Electron connects to it. Don't spawn Python from
 ### 7. ArcFace ONNX Model
 ArcFace uses ONNX runtime - no direct layer access for visualizations. Use placeholder visualizations that show useful info instead of raw CNN activations.
 
+### 8. Activation Similarity
+References now store neural network activations alongside embeddings. During comparison, activation similarity provides an additional matching signal based on internal CNN layer responses.
+
 ---
 
 ## Ethical Guidelines
@@ -351,7 +362,7 @@ ArcFace uses ONNX runtime - no direct layer access for visualizations. Use place
 
 ```
 face_recognition_npo/
-├── api_server.py              # Flask API (11 endpoints)
+├── api_server.py              # Flask API (14+ endpoints)
 ├── start.sh                   # Startup script (clears cache, starts servers)
 ├── test_e2e_pipeline.py       # End-to-end tests
 ├── reference_images/           # Persistent storage
@@ -365,7 +376,8 @@ face_recognition_npo/
 │   └── reference/            # Reference management
 ├── electron-ui/               # Desktop UI
 │   ├── index.html            # HTML with MANTAX navbar
-│   ├── renderer/app.js
+│   ├── renderer/app.js       # Frontend JavaScript
+│   ├── styles/design-system.css  # External CSS
 │   └── package.json
 ├── tests/                    # Unit tests (30 tests)
 └── gui/                      # Tkinter fallback GUI

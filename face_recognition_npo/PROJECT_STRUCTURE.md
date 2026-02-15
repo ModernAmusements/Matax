@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Project Structure
 
-**Version**: 0.3.0
-**Last Updated**: February 12, 2026
-**Status**: ✅ Fully Functional - ArcFace Enabled
+**Version**: 0.4.1
+**Last Updated**: February 14, 2026
+**Status**: ✅ Fully Functional - Reference Details + UI Improvements
 
 ---
 
@@ -169,7 +169,8 @@ face_recognition_npo/
 | GET | `/api/references` | List all references | ✅ |
 | DELETE | `/api/references/<id>` | Remove reference | ✅ |
 | POST | `/api/compare` | Compare query embedding with references | ✅ |
-| GET | `/api/visualizations/<type>` | Get specific AI visualization | ✅ |
+| GET | `/api/visualizations/<type>` | Get query visualization | ✅ |
+| GET | `/api/visualizations/<type>/reference/<id>` | Get reference visualization | ✅ |
 | POST | `/api/clear` | Clear all session data | ✅ |
 | GET | `/api/status` | Debug server state | ✅ |
 
@@ -377,6 +378,13 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 ### Step 5: Compare
 - Click "Compare" button
 - Shows similarity scores with confidence bands
+- Use overlay/difference/side-by-side tabs for visual comparison
+
+### Step 6: View Reference Details (Optional)
+- Click on any reference image to view:
+  - Face detection, landmarks, embedding visualization
+  - Pose (yaw/pitch/roll), saliency/attention map
+  - Quality metrics (brightness, sharpness, overall)
 
 ---
 
@@ -409,7 +417,7 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 
 ## Roadmap
 
-### Completed ✅ (v0.3.0)
+### Completed ✅ (v0.4.1)
 
 **Core Pipeline**
 - [x] Face detection with OpenCV DNN
@@ -418,25 +426,33 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 - [x] Cosine similarity comparison
 - [x] Confidence bands (ArcFace: ≥70%, 45-70%, 30-45%, <30%)
 - [x] Auto-model selection (ArcFace if available)
+- [x] Activation similarity comparison (neural network activations)
 
 **User Interfaces**
 - [x] Electron desktop app (connects to Flask)
-- [x] Flask API server with 11 endpoints
+- [x] Flask API server with 14+ endpoints
 - [x] Tkinter GUI
 - [x] Ultra minimal UI (black on white, no icons)
 - [x] Sticky terminal footer
 - [x] MANTAX navbar branding
+- [x] Reference details panel with visualization tabs
+- [x] Smart compare button (only enables when both embedding AND references exist)
+- [x] Card layout for comparison results
+- [x] Step hints and indicators
 
 **Reference Management**
 - [x] Reference storage in JSON format
 - [x] Metadata tracking (consent, source, timestamp)
 - [x] Real embeddings (NOT random!)
 - [x] Persistence across restarts
+- [x] Activation storage with references
+- [x] Reference visualization (detection, landmarks, embedding, pose, attention, quality)
 
 **Visualizations**
 - [x] 14 AI visualization types
 - [x] Dynamic array sizes (fixed broadcast bug!)
 - [x] ArcFace placeholder visualizations
+- [x] Reference-specific visualizations
 
 **Testing & Tools**
 - [x] End-to-end test script
@@ -444,7 +460,7 @@ r = requests.get('http://localhost:3000/api/embedding-info')
 - [x] API verification script
 
 ### In Progress
-- [ ] GPU acceleration for ONNX Runtime
+- [ ] Live webcam landmark overlay
 
 ### Future Enhancements
 - [ ] Batch processing API
@@ -539,5 +555,5 @@ curl http://localhost:3000/api/embedding-info
 
 ---
 
-*Project structure documentation updated: February 12, 2026*
-*Includes ArcFace integration, 512-dim embeddings, MANTAX branding, and critical lessons learned*
+*Project structure documentation updated: February 14, 2026*
+*Includes Activation Similarity, Compare Visualizations, Reference Details Panel, and 14+ API endpoints*

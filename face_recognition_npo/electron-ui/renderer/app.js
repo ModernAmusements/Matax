@@ -254,8 +254,13 @@ async function saveReference(imageData, name) {
             references.push(data.reference);
             updateReferenceList();
 
+            // Enable compare button if we have an embedding
             if (currentQueryEmbedding !== null) {
+                document.getElementById('compareBtn').disabled = false;
+                document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
                 await compareFaces();
+            } else {
+                document.getElementById('compareStatus').textContent = 'Step 3a: Extract features from your image first';
             }
 
             showToast(`Reference "${data.reference.name}" added`, 'success');
@@ -397,8 +402,15 @@ async function extractFeatures() {
             logToTerminal(`> Mean: ${data.embedding_mean.toFixed(6)}, Std: ${data.embedding_std.toFixed(6)}`, 'info');
             document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
             document.getElementById('extractStatus').className = 'status status-success';
-            document.getElementById('compareBtn').disabled = false;
-            document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
+            
+            // Enable compare button only if we have both embedding AND references
+            const hasReferences = references && references.length > 0;
+            document.getElementById('compareBtn').disabled = !hasReferences;
+            if (hasReferences) {
+                document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
+            } else {
+                document.getElementById('compareStatus').textContent = 'Step 3b: Add a reference image to compare';
+            }
 
             console.log('[EXTRACT] Cached visualizations:', Object.keys(visualizationData));
             
@@ -481,6 +493,8 @@ async function showReferenceVisualizations(refId) {
         </div>
     `;
     
+    showReferenceDetails(refId, ref);
+    
     try {
         const response = await fetch(`${API_BASE}/visualizations/embedding/reference/${refId}`);
         const data = await response.json();
@@ -501,6 +515,112 @@ async function showReferenceVisualizations(refId) {
             </div>
         `;
     }
+}
+
+function showReferenceDetails(refId, ref) {
+    const detailsPanel = document.getElementById('referenceDetails');
+    const titleEl = document.getElementById('refDetailsTitle');
+    const tabsEl = document.getElementById('refVizTabs');
+    const contentEl = document.getElementById('refVizContent');
+    const infoEl = document.getElementById('refInfoGrid');
+    
+    detailsPanel.style.display = 'block';
+    titleEl.textContent = ref.name || `Reference ${refId + 1}`;
+    
+    const tabs = [
+        { id: 'info', label: 'Info' },
+        { id: 'detection', label: 'Face' },
+        { id: 'landmarks', label: 'Landmarks' },
+        { id: 'embedding', label: 'Embedding' },
+        { id: 'alignment', label: 'Pose' },
+        { id: 'saliency', label: 'Attention' }
+    ];
+    
+    tabsEl.innerHTML = tabs.map(t => 
+        `<div class="ref-viz-tab ${t.id === 'info' ? 'active' : ''}" data-tab="${t.id}" onclick="switchRefTab('${t.id}', ${refId})">${t.label}</div>`
+    ).join('');
+    
+    switchRefTab('info', refId);
+}
+
+async function switchRefTab(tabId, refId) {
+    const ref = references[refId];
+    const tabs = document.querySelectorAll('.ref-viz-tab');
+    tabs.forEach(t => t.classList.remove('active'));
+    document.querySelector(`.ref-viz-tab[data-tab="${tabId}"]`)?.classList.add('active');
+    
+    const contentEl = document.getElementById('refVizContent');
+    const infoEl = document.getElementById('refInfoGrid');
+    
+    if (tabId === 'info') {
+        contentEl.innerHTML = `<img src="data:image/png;base64,${ref.thumbnail}" alt="Reference">`;
+        
+        const pose = ref.pose || {};
+        const quality = ref.quality || {};
+        
+        infoEl.innerHTML = `
+            <div class="ref-info-item">
+                <div class="ref-info-label">Pose Yaw</div>
+                <div class="ref-info-value">${pose.yaw?.toFixed(1) || '0'}°</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Pose Pitch</div>
+                <div class="ref-info-value">${pose.pitch?.toFixed(1) || '0'}°</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Pose Roll</div>
+                <div class="ref-info-value">${pose.roll?.toFixed(1) || '0'}°</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Pose Category</div>
+                <div class="ref-info-value">${ref.pose_category || 'frontal'}</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Quality</div>
+                <div class="ref-info-value">${quality.overall?.toFixed(2) || 'N/A'}</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Brightness</div>
+                <div class="ref-info-value">${quality.brightness?.toFixed(2) || 'N/A'}</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Sharpness</div>
+                <div class="ref-info-value">${quality.sharpness?.toFixed(2) || 'N/A'}</div>
+            </div>
+            <div class="ref-info-item">
+                <div class="ref-info-label">Has Activations</div>
+                <div class="ref-info-value">${ref.activations && Object.keys(ref.activations).length > 0 ? 'Yes' : 'No'}</div>
+            </div>
+        `;
+    } else {
+        // Fetch visualization from API
+        contentEl.innerHTML = '<div class="viz-placeholder"><p>Loading...</p></div>';
+        infoEl.innerHTML = '';
+        
+        try {
+            const response = await fetch(`${API_BASE}/visualizations/${tabId}/reference/${refId}`);
+            const data = await response.json();
+            
+            if (data.success && data.visualization) {
+                contentEl.innerHTML = `<img src="data:image/png;base64,${data.visualization}" alt="${tabId}">`;
+                if (data.data && Object.keys(data.data).length > 0) {
+                    infoEl.innerHTML = '<div class="viz-data-table"><table><tbody>' + 
+                        Object.entries(data.data).map(([key, value]) => 
+                            `<tr><td class="label">${key}</td><td class="value">${value}</td></tr>`
+                        ).join('') + 
+                        '</tbody></table></div>';
+                }
+            } else {
+                contentEl.innerHTML = `<img src="data:image/png;base64,${ref.thumbnail}" alt="Reference">`;
+            }
+        } catch (err) {
+            contentEl.innerHTML = `<img src="data:image/png;base64,${ref.thumbnail}" alt="Reference">`;
+        }
+    }
+}
+
+function hideReferenceDetails() {
+    document.getElementById('referenceDetails').style.display = 'none';
 }
 
 function updateReferenceList() {
@@ -588,6 +708,14 @@ async function compareFaces() {
             statusEl.textContent = best.match_label;
             statusEl.className = `comparison-status ${best.status}`;
             
+            // Set dynamic color based on score (red to green)
+            const score = best.final_score;
+            const r = Math.round(255 * (1 - score));
+            const g = Math.round(255 * score);
+            statusEl.style.setProperty('--status-color', `rgb(${r}, ${g}, 100)`);
+            statusEl.style.setProperty('--status-text', `rgb(${Math.round(r*0.3)}, ${Math.round(g*0.3)}, 30)`);
+            statusEl.style.setProperty('--status-border', `rgb(${Math.round(r*0.7)}, ${Math.round(g*0.7)}, 50)`);
+            
             // Display ArcFace score
             const arcfaceEl = document.getElementById('arcfaceScore');
             if (best.arcface_similarity !== null && best.arcface_similarity !== undefined) {
@@ -622,6 +750,7 @@ async function compareFaces() {
             // Store similarity visualization
             visualizationData['similarity'] = data.similarity_viz;
             visualizationData['similarity_data'] = data.similarity_data;
+            
             showVisualization('similarity');
 
             showToast(`${best.match_label}: ${best.name} (${Math.round(best.final_score * 100)}%)`, 'success');

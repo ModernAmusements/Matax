@@ -75,6 +75,7 @@ current_preprocessing_info = {}
 current_pose = {}
 current_landmarks = None
 current_quality = None
+current_activations = {}
 references = []
 
 REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
@@ -439,7 +440,7 @@ def detect_faces():
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
     """Extract embedding from detected face using both models."""
-    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality
+    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality, current_activations
     
     try:
         data = request.json
@@ -572,11 +573,13 @@ def add_reference():
         alignment = detector.compute_alignment(ref_face, landmarks)
         quality = detector.compute_quality_metrics(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
         landmark_features = extract_landmark_features(landmarks)
+        ref_activations = facenet_extractor.get_activations(ref_face)
         
         ref_data = {
             'id': len(references),
             'name': name,
             'embedding': embeddings_dict,
+            'activations': {k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in ref_activations.items()} if ref_activations else {},
             'thumbnail': image_to_base64(ref_face),
             'pose': {
                 'yaw': float(alignment.get('yaw', 0)),
@@ -678,7 +681,7 @@ def remove_reference(ref_id):
 @app.route('/api/compare', methods=['POST'])
 def compare_faces():
     """Compare current face embedding with references using dual-model scoring."""
-    global current_embedding, current_embeddings, references, current_pose, current_landmarks, current_quality
+    global current_embedding, current_embeddings, references, current_pose, current_landmarks, current_quality, current_activations
     
     try:
         if current_embedding is None and not current_embeddings:
@@ -736,18 +739,31 @@ def compare_faces():
             
             # Calculate quality similarity
             ref_quality = ref.get('quality')
+            ref_pose = ref.get('pose')
+            ref_activations = ref.get('activations', {})
             
-            # Use dual-model match scoring
+            # Activation similarity
+            try:
+                if current_activations and ref_activations and isinstance(ref_activations, dict):
+                    activation_sim = comparator.activation_similarity(current_activations, ref_activations)
+                else:
+                    activation_sim = 0.7
+            except Exception as e:
+                print(f"Activation comparison error: {e}")
+                activation_sim = 0.7
+            
+            # Use dual-model match scoring with attention/pose/activation
             match_result = comparator.compute_dual_match_score(
                 arcface_sim,
                 facenet_sim,
                 landmark_sim,
-                query_quality
+                query_quality,
+                current_pose,
+                ref_pose,
+                activation_sim
             )
             
             status, label, description = comparator.get_match_verdict(match_result['score'])
-            
-            ref_pose = ref.get('pose', {'yaw': 0, 'pitch': 0})
             ref_pose_cat = ref.get('pose_category', 'frontal')
             
             # Calculate euclidean distance from primary embedding
@@ -846,19 +862,12 @@ def get_reference_visualization(viz_type, ref_id):
             return jsonify({'success': False, 'error': 'Reference not found'})
         
         ref = references[ref_id]
-        if ref.get('embedding') is None:
-            return jsonify({'success': False, 'error': 'No embedding for reference'})
         
-        # Reconstruct face from thumbnail
-        import base64
-        from PIL import Image
-        import io
-        
+        # Decode thumbnail to get face image
         thumb_data = ref.get('thumbnail', '')
         if not thumb_data:
             return jsonify({'success': False, 'error': 'No thumbnail'})
         
-        # Decode base64 thumbnail
         if ',' in thumb_data:
             thumb_data = thumb_data.split(',')[1]
         
@@ -866,13 +875,169 @@ def get_reference_visualization(viz_type, ref_id):
         thumb_img = Image.open(io.BytesIO(thumb_bytes))
         face_image = cv2.cvtColor(np.array(thumb_img), cv2.COLOR_RGB2BGR)
         
-        embedding = np.array(ref['embedding'])
+        # Get embedding
+        emb_dict = ref.get('embedding', {})
+        if isinstance(emb_dict, dict):
+            arcface_emb = np.array(emb_dict.get('arcface')) if emb_dict.get('arcface') else None
+            facenet_emb = np.array(emb_dict.get('facenet')) if emb_dict.get('facenet') else None
+        else:
+            arcface_emb = None
+            facenet_emb = np.array(emb_dict) if emb_dict else None
         
-        return get_viz_result(viz_type, face_image, embedding)
+        embedding = arcface_emb if arcface_emb is not None else facenet_emb
+        
+        if embedding is None:
+            return jsonify({'success': False, 'error': 'No embedding for reference'})
+        
+        return get_ref_viz_result(viz_type, face_image, embedding)
         
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
+def get_ref_viz_result(viz_type, face_image, embedding):
+    """Helper function to generate visualization for reference images."""
+    def get_viz_and_data(viz_type, face_image, embedding):
+        if viz_type == 'detection':
+            # Draw bounding box on face
+            h, w = face_image.shape[:2]
+            vis = face_image.copy()
+            cv2.rectangle(vis, (10, 10), (w-10, h-10), (0, 255, 0), 2)
+            cv2.putText(vis, "Reference Face", (10, h-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            return vis, {'face_detected': True, 'width': w, 'height': h}
+        
+        elif viz_type == 'landmarks':
+            try:
+                landmarks = detector.estimate_landmarks(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+                if landmarks is not None and len(landmarks) > 0:
+                    vis = detector.visualize_landmarks(face_image, landmarks)
+                    return vis, {'landmarks_count': len(landmarks)}
+            except:
+                pass
+            return face_image.copy(), {'landmarks_count': 0}
+        
+        elif viz_type == 'embedding':
+            try:
+                vis, data = extractor.visualize_embedding(embedding)
+                return vis, data
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        elif viz_type == 'alignment':
+            try:
+                landmarks = detector.estimate_landmarks(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+                if landmarks is not None:
+                    alignment = detector.compute_alignment(face_image, landmarks)
+                    vis = detector.visualize_alignment(face_image, landmarks, alignment)
+                    return vis, alignment
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        elif viz_type == 'saliency':
+            try:
+                vis = detector.visualize_saliency(face_image)
+                return vis, {'attention_map': 'generated'}
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        elif viz_type == 'quality':
+            try:
+                vis, data = detector.visualize_quality(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
+                return vis, data
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        return face_image.copy(), {}
+    
+    vis, data = get_viz_and_data(viz_type, face_image, embedding)
+    
+    if vis is None:
+        return jsonify({'success': False, 'error': 'Failed to generate visualization'})
+    
+    _, buffer = cv2.imencode('.png', vis)
+    viz_b64 = base64.b64encode(buffer).decode('utf-8')
+    
+    return jsonify({
+        'success': True,
+        'visualization': viz_b64,
+        'data': {k: str(v) if isinstance(v, (np.ndarray, np.integer, np.floating)) else v for k, v in data.items()}
+    })
+
+
+@app.route('/api/visualizations/compare-overlay/<int:ref_id>', methods=['GET'])
+def get_compare_overlay(ref_id):
+    """Get overlay visualization of query and reference."""
+    try:
+        if ref_id < 0 or ref_id >= len(references):
+            return jsonify({'success': False, 'error': 'Reference not found'})
+        
+        if current_face_image is None:
+            return jsonify({'success': False, 'error': 'No query face'})
+        
+        ref = references[ref_id]
+        thumb_data = ref.get('thumbnail', '')
+        if ',' in thumb_data:
+            thumb_data = thumb_data.split(',')[1]
+        
+        thumb_bytes = base64.b64decode(thumb_data)
+        thumb_img = Image.open(io.BytesIO(thumb_bytes))
+        ref_face = cv2.cvtColor(np.array(thumb_img), cv2.COLOR_RGB2BGR)
+        
+        # Resize to match
+        ref_face = cv2.resize(ref_face, (current_face_image.shape[1], current_face_image.shape[0]))
+        
+        # Create overlay
+        overlay = cv2.addWeighted(current_face_image, 0.5, ref_face, 0.5, 0)
+        
+        _, buffer = cv2.imencode('.png', overlay)
+        viz_b64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({'success': True, 'visualization': viz_b64})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/visualizations/compare-diff/<int:ref_id>', methods=['GET'])
+def get_compare_diff(ref_id):
+    """Get difference visualization of query and reference."""
+    try:
+        if ref_id < 0 or ref_id >= len(references):
+            return jsonify({'success': False, 'error': 'Reference not found'})
+        
+        if current_face_image is None:
+            return jsonify({'success': False, 'error': 'No query face'})
+        
+        ref = references[ref_id]
+        thumb_data = ref.get('thumbnail', '')
+        if ',' in thumb_data:
+            thumb_data = thumb_data.split(',')[1]
+        
+        thumb_bytes = base64.b64decode(thumb_data)
+        thumb_img = Image.open(io.BytesIO(thumb_bytes))
+        ref_face = cv2.cvtColor(np.array(thumb_img), cv2.COLOR_RGB2BGR)
+        
+        # Resize to match
+        ref_face = cv2.resize(ref_face, (current_face_image.shape[1], current_face_image.shape[0]))
+        
+        # Convert to grayscale and compute absolute difference
+        gray1 = cv2.cvtColor(current_face_image, cv2.COLOR_BGR2GRAY)
+        gray2 = cv2.cvtColor(ref_face, cv2.COLOR_BGR2GRAY)
+        diff = cv2.absdiff(gray1, gray2)
+        
+        # Apply colormap for visibility
+        diff_color = cv2.applyColorMap(diff, cv2.COLORMAP_JET)
+        
+        _, buffer = cv2.imencode('.png', diff_color)
+        viz_b64 = base64.b64encode(buffer).decode('utf-8')
+        
+        return jsonify({'success': True, 'visualization': viz_b64})
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 

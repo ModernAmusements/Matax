@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Architecture
 
-**Version**: 0.3.0  
-**Last Updated**: February 12, 2026  
-**Status**: ✅ Fully Functional - ArcFace Enabled
+**Version**: 0.4.1  
+**Last Updated**: February 14, 2026  
+**Status**: ✅ Fully Functional - Reference Details + UI Improvements
 
 ---
 

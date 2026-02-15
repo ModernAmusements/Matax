@@ -1,33 +1,71 @@
 # NGO Facial Image Analysis System - Development Log
 
-**Last Updated**: February 12, 2026
+**Last Updated**: February 14, 2026
 **Project**: Face Recognition GUI for NGO Use
-**Version**: 0.3.0
-**Status**: ✅ Fully Functional - ArcFace Enabled
+**Version**: 0.4.1
+**Status**: ✅ Fully Functional - Reference Details + UI Improvements
 
 ---
 
-## Summary (February 12, 2026)
+## Summary (February 14, 2026)
 
-The system now uses **ArcFace** as the default embedding extractor with 512-dimensional embeddings for significantly better discrimination between different people.
+The system now includes **reference details panel** and **UI improvements** for better user experience.
 
-### ArcFace Integration Results
+### New Features (v0.4.1)
 
-| Metric | Before (FaceNet) | After (ArcFace) |
-|--------|------------------|------------------|
-| Dimension | 128 | 512 |
-| Same Person | ~85-99% | ~70-85% |
-| Different Person | ~65-70% (FALSE POSITIVES!) | <30% (CORRECT!) |
-| Discrimination | Poor | Excellent |
+| Feature | Description |
+|---------|-------------|
+| Reference Details Panel | View reference embeddings, landmarks, pose, quality metrics |
+| Smart Compare Button | Only enables when BOTH embedding AND references exist |
+| Card Layout | Comparison results displayed in centered card |
+| Step Hints | Clear indicators for what to do next |
 
-**Problem Solved**: FaceNet was showing 65-70% similarity for different people, causing false positives. ArcFace correctly shows <30% for different people.
+### Removed Features (v0.4.1)
 
-### Files Added
-- `src/embedding/arcface_extractor.py` - ArcFace ONNX implementation
-- `test_api_endpoints.py` - API verification script
+- Compare overlay visualization
+- Compare difference visualization
+- Compare side-by-side view
 
 ### Files Updated
-- `api_server.py` - Added `/api/embedding-info` endpoint, ArcFace detection
+
+- `electron-ui/index.html` - Reference details panel, card layout
+- `electron-ui/renderer/app.js` - Compare button logic, removed compare viz functions
+- `electron-ui/styles/design-system.css` - Card styles, step hints
+- `README.md` - Updated features and API endpoints
+- `PROJECT_STRUCTURE.md` - Updated workflow
+
+---
+
+## Summary (February 14, 2026) - Activation Similarity
+
+The system now includes **activation similarity comparison** and **compare visualizations** for enhanced face matching and visual comparison.
+
+### New Features (v0.4.0)
+
+| Feature | Description |
+|---------|-------------|
+| Activation Similarity | Neural network activation comparison during matching |
+| Reference Details Panel | View reference embeddings, landmarks, pose, quality |
+| Compare Overlay | Visual overlay of query and reference faces |
+| Compare Difference | Pixel-by-pixel difference visualization |
+| Compare Side-by-Side | Both images shown side by side |
+| External CSS | Moved styles to design-system.css |
+
+### API Endpoints Added
+
+- `GET /api/visualizations/<type>/reference/<id>` - Reference visualizations
+- `GET /api/visualizations/compare-overlay/<id>` - Overlay comparison
+- `GET /api/visualizations/compare-diff/<id>` - Difference comparison
+
+### Files Added
+
+- `electron-ui/styles/design-system.css` - External CSS styles
+
+### Files Updated
+
+- `api_server.py` - Added activations storage, compare visualization endpoints
+- `electron-ui/index.html` - Reference details panel, compare viz tabs
+- `electron-ui/renderer/app.js` - New functions for details and compare viz
 - `README.md` - ArcFace documentation
 - `ARCHITECTURE.md` - ArcFace architecture
 - `CONTEXT.md` - ArcFace rules
