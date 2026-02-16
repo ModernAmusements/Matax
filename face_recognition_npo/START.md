@@ -1,7 +1,7 @@
 # Quick Start - NGO Facial Image Analysis System
 
-**Version**: 0.4.1  
-**Last Updated**: February 15, 2026
+**Version**: 0.5.1  
+**Last Updated**: February 16, 2026
 
 ---
 
@@ -12,6 +12,17 @@ After EVERY code change:
 2. Run: `python test_edge_cases.py`
 3. Run: `python test_frontend_integration.py`
 4. Say "FINISHED" ONLY after ALL tests pass
+
+---
+
+## New UI Design (February2026)
+
+The 16,  application now features **macOS Tahoe Liquid Glass** design:
+- Glassmorphism step cards
+- Step completion checkmarks
+- Animated containers
+- Liquid glass toast notifications
+- Pill-shaped badges
 
 ---
 

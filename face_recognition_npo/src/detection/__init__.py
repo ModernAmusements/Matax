@@ -183,20 +183,21 @@ class FaceDetector:
             
             brightness_ratio = avg_eye_brightness / (face_brightness + 1)
             
-            # Only flag if very strong evidence - much higher threshold
-            if brightness_ratio < 0.2:  # Very dark eyes = strong sunglasses evidence
-                warnings.append(f"Eye region very dark (ratio: {brightness_ratio:.2f}) - likely sunglasses")
+            print(f"[EYEWEAR DEBUG] brightness_ratio: {brightness_ratio:.3f}, avg_eye_brightness: {avg_eye_brightness:.1f}, face_brightness: {face_brightness:.1f}")
+            
+            # Lower thresholds for more sensitive detection
+            if brightness_ratio < 0.5:  # Dark eyes = strong sunglasses evidence
+                warnings.append(f"Eye region dark (ratio: {brightness_ratio:.2f}) - likely sunglasses")
                 eyewear_detected = True
                 eyewear_type = 'sunglasses'
                 confidence = 0.9
                 occlusion_level = 0.9
-            elif brightness_ratio < 0.35:  # Somewhat dark = possible sunglasses
+            elif brightness_ratio < 0.65:  # Somewhat dark = possible sunglasses
                 warnings.append(f"Eye region darker than average (ratio: {brightness_ratio:.2f}) - possible sunglasses")
-                # Also detect as possible sunglasses
                 eyewear_detected = True
                 eyewear_type = 'sunglasses'
-                confidence = 0.5
-                occlusion_level = 0.4
+                confidence = 0.6
+                occlusion_level = 0.5
             
             left_edges = cv2.Canny(left_gray, 50, 150)
             right_edges = cv2.Canny(right_gray, 50, 150)
@@ -204,8 +205,10 @@ class FaceDetector:
             right_edge_density = np.sum(right_edges > 0) / right_edges.size
             avg_edge_density = (left_edge_density + right_edge_density) / 2
             
-            # High edge density + dark eyes = strong glasses evidence
-            if avg_edge_density > 0.3 and brightness_ratio < 0.4:
+            print(f"[EYEWEAR DEBUG] edge_density: {avg_edge_density:.3f}")
+            
+            # High edge density + darker eyes = strong glasses evidence
+            if avg_edge_density > 0.2 and brightness_ratio < 0.7:
                 warnings.append(f"High edge density in eye region - possible glasses frames")
                 eyewear_detected = True
                 eyewear_type = 'glasses'
@@ -217,24 +220,26 @@ class FaceDetector:
         eyes_detected = self.detect_eyes(face_image)
         eye_count = len(eyes_detected)
         
+        print(f"[EYEWEAR DEBUG] eye_count from cascade: {eye_count}")
+        
         if eye_count == 0 and not eyewear_detected:
-            # Eye cascade failed - only flag if brightness is VERY dark
-            if brightness_ratio < 0.15:
-                warnings.append("No eyes detected + very dark eye region - likely sunglasses")
+            # Eye cascade failed - flag if eyes are darker than average
+            if brightness_ratio < 0.6:
+                warnings.append("No eyes detected + dark eye region - likely sunglasses")
                 eyewear_detected = True
                 eyewear_type = 'sunglasses'
-                confidence = 0.6
-                occlusion_level = 0.9
+                confidence = 0.7
+                occlusion_level = 0.8
             else:
                 # Eye cascade likely just failed - don't flag as eyewear
                 eye_count = 2  # Assume normal
         elif eye_count == 1 and not eyewear_detected:
-            # One eye detected - weak evidence, require confirmation
-            if brightness_ratio < 0.25:
+            # One eye detected - flag if darker than average
+            if brightness_ratio < 0.7:
                 warnings.append("Only one eye detected + dark - possible glasses")
                 eyewear_detected = True
                 eyewear_type = 'glasses'
-                confidence = 0.4
+                confidence = 0.5
                 occlusion_level = 0.5
             else:
                 eye_count = 2

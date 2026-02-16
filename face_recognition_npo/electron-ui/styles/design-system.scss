@@ -161,18 +161,38 @@ $padding: 16px;
 @mixin scrollbar {
   overflow-x: auto;
   scrollbar-width: thin;
+  scrollbar-color: #C7C7CC transparent;
+  
+  &::-webkit-scrollbar {
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #C7C7CC;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #A0A0A4;
+  }
 }
 
 @mixin scrollbar-webkit {
   &::-webkit-scrollbar {
-    height: 6px;
+    height: 8px;
   }
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 4px;
   }
   &::-webkit-scrollbar-thumb {
-    background: $color-border;
-    border-radius: 3px;
+    background: #C7C7CC;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #A0A0A4;
   }
 }
 
@@ -206,6 +226,13 @@ body {
   padding: 0;
   font-size: 14px;
   line-height: 1.5;
+  
+  // Hide scrollbar but keep functionality
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 h1 {

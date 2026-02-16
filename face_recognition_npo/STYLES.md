@@ -1,6 +1,6 @@
 # CSS Classes Reference
 
-**Last Updated**: February 15, 2026
+**Last Updated**: February 16, 2026
 
 ---
 
@@ -21,11 +21,28 @@ Or use `./start.sh` which auto-compiles.
 
 ---
 
+## macOS Tahoe Liquid Glass Design System
+
+The UI uses macOS Tahoe style with glassmorphism effects.
+
+### Glass Variables
+
+```scss
+$glass-bg: rgba(255, 255, 255, 0.72);
+$glass-bg-strong: rgba(255, 255, 255, 0.85);
+$glass-border: rgba(255, 255, 255, 0.5);
+$glass-shadow: rgba(0, 0, 0, 0.1);
+$glass-highlight: rgba(255, 255, 255, 0.8);
+```
+
+---
+
 ## Utility Classes
 
 | Class | CSS | Purpose |
 |-------|-----|---------|
-| `.hidden` | `display: none !important` | Hide element |
+| `.hidden` | `max-height: 0; opacity: 0; overflow: hidden` | Hide element with animation |
+| `.visible` | `max-height: 500px; opacity: 1` | Show element with animation |
 | `.button-group` | `display: flex; gap: 8px` | Flex container for buttons |
 | `.button-group-center` | `display: flex; gap: 8px; justify-content: center` | Centered button group |
 | `.text-center` | `text-align: center` | Center text |
@@ -48,19 +65,41 @@ Or use `./start.sh` which auto-compiles.
 | `.btn-primary` | Primary button (black background) |
 | `.btn-primary:hover` | Primary button hover |
 | `.btn-primary:disabled` | Primary button disabled |
+| `.btn-success` | Success button (green background) |
+| `.btn-success:hover` | Success button hover |
 | `.btn-small` | Small button |
 
 ---
 
-## Layout
+## Steps & Workflow
 
 | Class | Purpose |
 |-------|---------|
-| `.container` | Main container (max-width: 1200px) |
-| `.step` | Workflow step card |
+| `.container` | Main container (max-width: 1200px, padding-top: 76px for titlebar) |
+| `.steps-row` | Flex container for grouping steps |
+| `.step` | Workflow step card with glassmorphism |
 | `.step-header` | Step header (flex, space-between) |
-| `.step-number` | Step number badge |
+| `.step-number` | Step number badge (pill-shaped, glass effect) |
+| `.step-number.webcam` | Blue webcam badge (#5856D6) |
+| `.step-number.optional` | Optional badge |
 | `.step-hint` | Step hint text |
+| `.step-complete` | Completed step (green border + shadow) |
+| `.step-checkmark` | Checkmark circle for completed steps |
+
+---
+
+## Preview & Gallery
+
+| Class | Purpose |
+|-------|---------|
+| `.preview-container` | Preview images container (animated) |
+| `.preview-box` | Single preview box (24px border-radius) |
+| `.preview-box img` | Preview image |
+| `.preview-label` | Preview label text |
+| `.gallery` | Gallery container (flex, wrap) |
+| `.gallery-item` | Gallery item |
+| `.gallery-item img` | Gallery image (80x80) |
+| `.gallery-item span` | Gallery label |
 
 ---
 
@@ -98,6 +137,24 @@ Or use `./start.sh` which auto-compiles.
 
 ---
 
+## Toast Notifications
+
+| Class | Purpose |
+|-------|---------|
+| `.toast-container` | Fixed container (top: 76px, right: 24px) |
+| `.toast` | Toast with liquid glass effect |
+| `.toast.success` | Green tinted toast |
+| `.toast.error` | Red tinted toast |
+| `.toast.warning` | Yellow tinted toast |
+
+**Toast Features**:
+- Liquid glass effect with backdrop blur
+- Color tint for type indication
+- 5 second display duration
+- Smooth fade-out animation
+
+---
+
 ## Comparison Display
 
 | Class | Purpose |
@@ -117,21 +174,6 @@ Or use `./start.sh` which auto-compiles.
 | `.score-label` | Score label |
 | `.score-value` | Score value (monospace) |
 | `.match-reasons` | Match reasons list |
-
----
-
-## Preview & Gallery
-
-| Class | Purpose |
-|-------|---------|
-| `.preview-container` | Preview images container |
-| `.preview-box` | Single preview box |
-| `.preview-box img` | Preview image (max 300x300) |
-| `.preview-label` | Preview label text |
-| `.gallery` | Gallery container (flex, wrap) |
-| `.gallery-item` | Gallery item |
-| `.gallery-item img` | Gallery image (80x80) |
-| `.gallery-item span` | Gallery label |
 
 ---
 
@@ -229,6 +271,7 @@ Or use `./start.sh` which auto-compiles.
 | `@media (max-width: 1200px)` | `--sidebar-width: 240px` |
 | `@media (max-width: 992px)` | Flex direction column for comparison |
 | `@media (max-width: 768px)` | `--header-height: 50px` |
+| `@media (max-width: 900px)` | `.steps-row` flex-direction: column |
 
 ---
 
@@ -239,7 +282,6 @@ Or use `./start.sh` which auto-compiles.
 ```css
 /* Primary */
 --color-primary: #007AFF
---color-primary-hover: #0066CC
 
 /* Semantic */
 --color-success: #30D158
@@ -294,4 +336,28 @@ Or use `./start.sh` which auto-compiles.
 
 ---
 
+## Animations
+
+### Step Container Transition
+```scss
+.step {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+```
+
+### Preview Container Animation
+```scss
+.preview-container, .hidden, .visible {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+```
+
+### Toast Animation
+- Display: 5 seconds
+- Fade out: 300ms
+
+---
+
 *Document created: February 15, 2026*
+*Last updated: February 16, 2026*
+*Added: macOS Tahoe glassmorphism, step completion indicators, animated containers*

@@ -826,8 +826,80 @@ After EVERY code change, ALWAYS run tests before saying finished:
 
 ---
 
-*Document updated: February 15, 2026*
-*Includes CSS cleanup, inline style removal, and activation similarity*
+## Summary (February 16, 2026) - macOS Tahoe UI Redesign
+
+### New UI Design System
+
+**macOS Tahoe Liquid Glass Theme** applied to the Electron UI.
+
+### SCSS Changes (`electron-ui/styles/design-system.scss`)
+
+1. **macOS Titlebar**
+   - Fixed position at top (52px height)
+   - Glass blur effect (`backdrop-filter: blur(30px) saturate(180%)`)
+   - Traffic light buttons (close/minimize/maximize)
+
+2. **Step Cards with Glassmorphism**
+   - `.step`: Added glass background, blur, border, shadow
+   - `.step-header`: Flex layout with column direction
+   - Transition animation (0.4s cubic-bezier)
+
+3. **Step Pills (Badges)**
+   - `.step-number`: Pill-shaped, glass effect, dark text (#1D1D1F)
+   - `.step-number.webcam`: Blue background (#5856D6)
+   - `.step-number.optional`: Glass effect
+
+4. **Step Completion Indicators**
+   - `.step-complete`: Green border + shadow when step done
+   - `.step-checkmark`: Circle with checkmark (appears on complete)
+   - `pointer-events: none` to avoid blocking clicks
+
+5. **Preview Box**
+   - Removed glass effect (just container)
+   - 24px border-radius
+   - Simple background
+
+6. **Toast Notifications**
+   - Liquid glass effect (blur + tint + shine)
+   - Color backgrounds for success/error/warning (25% opacity)
+   - Position: top: 76px, right: 24px
+   - Duration: 5 seconds
+
+7. **Buttons**
+   - `.btn-success`: Green success button
+   - Applied to completed steps
+
+8. **Animations**
+   - `.hidden` / `.visible` classes for smooth transitions
+   - `max-height` and `opacity` transitions
+
+### HTML Changes (`electron-ui/index.html`)
+
+1. Added `.step-checkmark` div to: step1, webcamStep, step2, step3
+2. Added `id="step1"`, `id="step2"`, `id="step3"`, `id="webcamStep"`
+3. Added "Optional" pill next to Webcam
+4. Container padding-top: 76px for titlebar
+
+### JavaScript Changes (`electron-ui/renderer/app.js`)
+
+1. **markStepComplete(stepId, btnId)**: New function to mark steps complete
+2. **Updated resetSteps()**: Reset step states
+3. **Updated clearAllCache()**: Reset all steps + buttons
+4. **handleImageSelect()**: Mark step1 complete
+5. **detectFaces()**: Mark step2 complete  
+6. **extractFeatures()**: Mark step3 complete
+7. Fixed syntax error (duplicate code outside function)
+
+### Tests
+
+- E2E: 6/6 ✅
+- Edge Cases: 16/16 ✅
+- Frontend Integration: 9/9 ✅
+
+---
+
+*Document updated: February 16, 2026*
+*Includes macOS Tahoe UI redesign with glassmorphism*
 
 ---
 

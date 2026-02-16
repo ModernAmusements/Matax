@@ -10,6 +10,11 @@ body {
   padding: 0;
   font-size: 14px;
   line-height: 1.5;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+body::-webkit-scrollbar {
+  display: none;
 }
 
 h1 {
@@ -338,20 +343,41 @@ p {
   gap: 4px;
   overflow-x: auto;
   scrollbar-width: thin;
+  scrollbar-color: #C7C7CC transparent;
+}
+.ref-viz-tabs::-webkit-scrollbar {
+  height: 8px;
+}
+.ref-viz-tabs::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+.ref-viz-tabs::-webkit-scrollbar-thumb {
+  background: #C7C7CC;
+  border-radius: 4px;
+}
+.ref-viz-tabs::-webkit-scrollbar-thumb:hover {
+  background: #A0A0A4;
+}
+.ref-viz-tabs {
   padding: 8px;
   margin-bottom: 12px;
   border-radius: 15px;
   background: #fff;
 }
 .ref-viz-tabs::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 .ref-viz-tabs::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 .ref-viz-tabs::-webkit-scrollbar-thumb {
-  background: #000;
-  border-radius: 3px;
+  background: #C7C7CC;
+  border-radius: 4px;
+}
+.ref-viz-tabs::-webkit-scrollbar-thumb:hover {
+  background: #A0A0A4;
 }
 
 .ref-viz-tab {
@@ -431,20 +457,41 @@ p {
   gap: 4px;
   overflow-x: auto;
   scrollbar-width: thin;
+  scrollbar-color: #C7C7CC transparent;
+}
+.comparison-viz-tabs::-webkit-scrollbar {
+  height: 8px;
+}
+.comparison-viz-tabs::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+.comparison-viz-tabs::-webkit-scrollbar-thumb {
+  background: #C7C7CC;
+  border-radius: 4px;
+}
+.comparison-viz-tabs::-webkit-scrollbar-thumb:hover {
+  background: #A0A0A4;
+}
+.comparison-viz-tabs {
   padding: 8px;
   margin-bottom: 16px;
   border-radius: 15px;
   background: #F0F0F2;
 }
 .comparison-viz-tabs::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
 }
 .comparison-viz-tabs::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
 }
 .comparison-viz-tabs::-webkit-scrollbar-thumb {
-  background: #000;
-  border-radius: 3px;
+  background: #C7C7CC;
+  border-radius: 4px;
+}
+.comparison-viz-tabs::-webkit-scrollbar-thumb:hover {
+  background: #A0A0A4;
 }
 
 .comparison-viz-tab {
