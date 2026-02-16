@@ -9,79 +9,100 @@
 </head>
 
 <body>
-    <div class="container">
-        <h1>Face Recognition</h1>
-
-        <!-- Step 1 -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Step 1</span>
-                    <h2>Choose Your Photo</h2>
-                    <p>Select a photo containing faces you want to analyze.</p>
-                </div>
-                <div class="button-group">
-                    <button class="btn" onclick="clearAllCache()">Clear Cache</button>
-                    <button class="btn btn-primary" onclick="selectImage()">Choose Photo</button>
-                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
-                </div>
-            </div>
-            <div class="preview-container hidden" id="previewContainer">
-                <div class="preview-box">
-                    <img id="selectedImage" src="" alt="Selected">
-                    <p class="preview-label">Selected Image</p>
-                </div>
-            </div>
+    <!-- Titlebar -->
+    <div class="titlebar">
+        <div class="titlebar-left"></div>
+        <div class="titlebar-center">
+            <span class="titlebar-title">Face Recognition</span>
         </div>
+        <div class="titlebar-right">
+            <button class="titlebar-btn" title="Menu">
+                <span class="titlebar-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </span>
+            </button>
+        </div>
+    </div>
 
-        <!-- Webcam -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Webcam</span>
-                    <h2>Capture from Webcam</h2>
-                    <p>Use your webcam to capture a photo for analysis.</p>
+    <div class="container">
+        <!-- Title moved to titlebar -->
+
+        <!-- Input Methods Row -->
+        <div class="steps-row">
+            <!-- Step 1 -->
+            <div class="step">
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">Step 1</span>
+                        <h2>Choose Your Photo</h2>
+                        <p>Select a photo containing faces you want to analyze.</p>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn" onclick="clearAllCache()">Clear Cache</button>
+                        <button class="btn btn-primary" onclick="selectImage()">Choose Photo</button>
+                        <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
+                    </div>
+                </div>
+                <div class="preview-container hidden" id="previewContainer">
+                    <div class="preview-box">
+                        <img id="selectedImage" src="" alt="Selected">
+                        <p class="preview-label">Selected Image</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webcam -->
+            <div class="step">
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">Webcam</span>
+                        <h2>Capture from Webcam</h2>
+                        <p>Use your webcam to capture a photo for analysis.</p>
+                    </div>
+                    <div class="button-group">
+                        <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start Webcam</button>
+                        <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
+                        <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
+                    </div>
                     <p id="webcamStatus" class="status">Click "Start Webcam" to begin</p>
                 </div>
-                <div class="button-group">
-                    <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start Webcam</button>
-                    <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
-                    <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
-                </div>
-            </div>
-            <div id="webcamContainer" class="hidden text-center">
-                <video id="webcamVideo" autoplay playsinline class="webcam-video"></video>
+                <div id="webcamContainer" class="hidden text-center">
+                    <video id="webcamVideo" autoplay playsinline class="webcam-video"></video>
                 <canvas id="webcamCanvas" class="hidden"></canvas>
             </div>
         </div>
-
-        <!-- Step 2 -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Step 2</span>
-                    <h2>Find Faces</h2>
-                    <p>The AI will automatically detect all faces in your photo.</p>
-                    <p id="detectStatus" class="status">Waiting for image...</p>
-                </div>
-                <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
-            </div>
-            <div id="facesContainer" class="hidden">
-                <div class="gallery" id="facesGallery"></div>
-            </div>
         </div>
 
-        <!-- Step 3 -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Step 3</span>
-                    <h2>Create Signature</h2>
-                    <p>Convert each face into a unique mathematical signature.</p>
-                    <p id="extractStatus" class="status">Waiting for detection...</p>
+        <!-- Step 2 & 3 -->
+        <div class="steps-row">
+            <div class="step">
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">Step 2</span>
+                        <h2>Find Faces</h2>
+                        <p>The AI will automatically detect all faces in your photo.</p>
+                        <p id="detectStatus" class="status">Waiting for image...</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
                 </div>
-                <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>Create
-                    Signature</button>
+                <div id="facesContainer" class="hidden">
+                    <div class="gallery" id="facesGallery"></div>
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">Step 3</span>
+                        <h2>Create Signature</h2>
+                        <p>Convert each face into a unique mathematical signature.</p>
+                        <p id="extractStatus" class="status">Waiting for detection...</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>Create
+                        Signature</button>
+                </div>
             </div>
         </div>
 
