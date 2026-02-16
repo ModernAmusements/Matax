@@ -621,7 +621,7 @@ p {
   box-shadow: 0 4px 24px rgba(255, 214, 10, 0.4);
   color: #664d00;
 }
-.comparison-status.no-match {
+.comparison-status.no_match {
   background: rgba(255, 69, 58, 0.85);
   border-color: rgba(255, 69, 58, 0.9);
   box-shadow: 0 4px 24px rgba(255, 69, 58, 0.4);
