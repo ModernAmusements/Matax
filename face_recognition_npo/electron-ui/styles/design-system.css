@@ -114,6 +114,7 @@ p {
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 24px;
   padding: 20px 24px;
+  margin-bottom: 20px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
@@ -262,15 +263,17 @@ p {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 16px;
+  padding: 0;
 }
 
 .reference-item {
   position: relative;
-  border: 1px solid #000;
-  border-radius: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
   padding: 8px;
   text-align: center;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.5);
 }
 .reference-item img {
   width: 80px;
@@ -278,6 +281,7 @@ p {
   object-fit: cover;
   display: block;
   margin-bottom: 4px;
+  border-radius: 16px;
 }
 .reference-item span {
   font-size: 12px;
@@ -315,6 +319,29 @@ p {
   cursor: not-allowed;
 }
 
+.ref-details-btn {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  background: #007AFF;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  z-index: 10;
+  border: none;
+}
+.ref-details-btn:hover {
+  background: #0056b3;
+}
+
 .reference-details {
   border: 1px solid #000;
   border-radius: 15px;
@@ -340,62 +367,58 @@ p {
 
 .ref-viz-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
   scrollbar-width: thin;
-  scrollbar-color: #C7C7CC transparent;
+  scrollbar-color: #000 transparent;
 }
 .ref-viz-tabs::-webkit-scrollbar {
-  height: 8px;
+  height: 6px;
 }
 .ref-viz-tabs::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+  background: transparent;
 }
 .ref-viz-tabs::-webkit-scrollbar-thumb {
-  background: #C7C7CC;
-  border-radius: 4px;
-}
-.ref-viz-tabs::-webkit-scrollbar-thumb:hover {
-  background: #A0A0A4;
-}
-.ref-viz-tabs {
-  padding: 8px;
-  margin-bottom: 12px;
-  border-radius: 15px;
-  background: #fff;
-}
-.ref-viz-tabs::-webkit-scrollbar {
-  height: 8px;
-}
-.ref-viz-tabs::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
-}
-.ref-viz-tabs::-webkit-scrollbar-thumb {
-  background: #C7C7CC;
-  border-radius: 4px;
-}
-.ref-viz-tabs::-webkit-scrollbar-thumb:hover {
-  background: #A0A0A4;
+  background: #000;
+  border-radius: 3px;
 }
 
 .ref-viz-tab {
   flex: 0 0 auto;
-  padding: 6px 12px;
-  background: #f5f5f5;
-  border: 1px solid #000;
-  border-radius: 16px;
-  font-size: 11px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 12px;
   cursor: pointer;
+  color: #000;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-.ref-viz-tab.active {
-  background: #007AFF;
-  color: #fff;
-  border-color: #007AFF;
+.ref-viz-tab:last-child {
+  border-right: 1px solid rgba(255, 255, 255, 0.8);
 }
 .ref-viz-tab:hover {
-  background: #F0F0F2;
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.ref-viz-tab.active {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .ref-viz-content {
@@ -438,15 +461,16 @@ p {
 
 .comparison-result {
   display: none;
-  border: 1px solid #000;
-  border-radius: 15px;
-  padding: 16px;
-  margin-top: 16px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  background: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
 }
 .comparison-result.active {
   display: block;
@@ -573,30 +597,35 @@ p {
 
 .comparison-status {
   display: inline-block;
-  padding: 16px 32px;
+  padding: 8px 16px;
   border-radius: 50px;
-  font-size: 40px;
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
-  min-width: 280px;
-  background: var(--status-color, #e0e0e0);
-  color: var(--status-text, #333);
-  border: 3px solid var(--status-border, #999);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
 }
 .comparison-status.match {
-  --status-color: #d4edda;
-  --status-text: #155724;
-  --status-border: #28a745;
+  background: rgba(48, 209, 88, 0.85);
+  border-color: rgba(48, 209, 88, 0.9);
+  box-shadow: 0 4px 24px rgba(48, 209, 88, 0.4);
+  color: #0a5c26;
 }
 .comparison-status.possible {
-  --status-color: #fff3cd;
-  --status-text: #856404;
-  --status-border: #ffc107;
+  background: rgba(255, 214, 10, 0.85);
+  border-color: rgba(255, 214, 10, 0.9);
+  box-shadow: 0 4px 24px rgba(255, 214, 10, 0.4);
+  color: #664d00;
 }
 .comparison-status.no-match {
-  --status-color: #f8d7da;
-  --status-text: #721c24;
-  --status-border: #dc3545;
+  background: rgba(255, 69, 58, 0.85);
+  border-color: rgba(255, 69, 58, 0.9);
+  box-shadow: 0 4px 24px rgba(255, 69, 58, 0.4);
+  color: #5c1a15;
 }
 
 .comparison-scores {
@@ -683,13 +712,17 @@ input[type=file] {
 
 .viz-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px;
+  padding: 16px 20px;
   margin-bottom: 16px;
-  border-radius: 15px;
-  background: #f5f5f5;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
   scrollbar-width: thin;
   scrollbar-color: #000 transparent;
 }
@@ -706,32 +739,42 @@ input[type=file] {
 
 .viz-tab {
   flex: 0 0 auto;
-  padding: 8px 14px;
-  background: #fff;
-  border: 1px solid #000;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 20px;
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
   color: #000;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 .viz-tab:last-child {
-  border-right: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.8);
 }
 .viz-tab:hover {
-  background: #f5f5f5;
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 .viz-tab.active {
   background: #000;
   color: #fff;
+  border-color: #000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .viz-content {
-  border: 1px solid #000;
-  border-top: none;
-  border-radius: 15px;
-  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+  padding: 20px;
   min-height: 300px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;

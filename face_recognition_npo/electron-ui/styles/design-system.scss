@@ -350,6 +350,7 @@ p {
   border: 1px solid $glass-border;
   border-radius: 24px;
   padding: 20px 24px;
+  margin-bottom: 20px;
   box-shadow: 0 4px 24px $glass-shadow;
   transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
@@ -512,15 +513,17 @@ p {
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 16px;
+  padding: 0;
 }
 
 .reference-item {
   position: relative;
-  border: $border;
-  border-radius: $radius;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
   padding: 8px;
   text-align: center;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.5);
 
   img {
     width: 80px;
@@ -528,6 +531,7 @@ p {
     object-fit: cover;
     display: block;
     margin-bottom: 4px;
+    border-radius: 16px;
   }
 
   span {
@@ -567,6 +571,28 @@ p {
   }
 }
 
+.ref-details-btn {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 18px;
+  height: 18px;
+  background: #007AFF;
+  color: white;
+  border-radius: 50%;
+  @include flex-center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  z-index: 10;
+  border: none;
+
+  &:hover {
+    background: #0056b3;
+  }
+}
+
 // ==========================================================================
 // 9. REFERENCE DETAILS
 // ==========================================================================
@@ -594,32 +620,63 @@ p {
 
 .ref-viz-tabs {
   display: flex;
-  gap: 4px;
-  @include scrollbar;
-  padding: 8px;
-  margin-bottom: 12px;
-  border-radius: $radius;
-  background: $bg;
-  @include scrollbar-webkit;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border-radius: 24px;
+  background: $glass-bg;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid $glass-border;
+  box-shadow: 0 4px 24px $glass-shadow;
+  scrollbar-width: thin;
+  scrollbar-color: $color-border transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $color-border;
+    border-radius: 3px;
+  }
 }
 
 .ref-viz-tab {
   flex: 0 0 auto;
-  padding: 6px 12px;
-  background: $bg-secondary;
-  border: 1px solid $color-border;
-  border-radius: 16px;
-  font-size: 11px;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid $glass-highlight;
+  border-radius: 20px;
+  font-family: inherit;
+  font-size: 12px;
   cursor: pointer;
+  color: $color-text;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
-  &.active {
-    background: $color-primary;
-    color: #fff;
-    border-color: $color-primary;
+  &:last-child {
+    border-right: 1px solid $glass-highlight;
   }
 
   &:hover {
-    background: $bg-tertiary;
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px $shadow-md;
+  }
+
+  &.active {
+    background: $color-text;
+    color: $bg;
+    border-color: $color-text;
+    box-shadow: 0 4px 16px $shadow-lg;
   }
 }
 
@@ -666,13 +723,16 @@ p {
 
 .comparison-result {
   display: none;
-  @include card;
-  margin-top: 16px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-  background: $bg-card;
-  box-shadow: 0 2px 8px $shadow-sm;
+  background: $glass-bg;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid $glass-border;
+  border-radius: 24px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 24px $glass-shadow;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
 
   &.active {
     display: block;
@@ -771,27 +831,38 @@ p {
 }
 
 .comparison-status {
-  @include status-pill;
-  background: var(--status-color, #e0e0e0);
-  color: var(--status-text, #333);
-  border: 3px solid var(--status-border, #999);
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 50px;
+  font-size: 16px;
+  font-weight: $font-bold;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
 
   &.match {
-    --status-color: #d4edda;
-    --status-text: #155724;
-    --status-border: #28a745;
+    background: rgba(48, 209, 88, 0.85);
+    border-color: rgba(48, 209, 88, 0.9);
+    box-shadow: 0 4px 24px rgba(48, 209, 88, 0.4);
+    color: #0a5c26;
   }
 
   &.possible {
-    --status-color: #fff3cd;
-    --status-text: #856404;
-    --status-border: #ffc107;
+    background: rgba(255, 214, 10, 0.85);
+    border-color: rgba(255, 214, 10, 0.9);
+    box-shadow: 0 4px 24px rgba(255, 214, 10, 0.4);
+    color: #664d00;
   }
 
   &.no-match {
-    --status-color: #f8d7da;
-    --status-text: #721c24;
-    --status-border: #dc3545;
+    background: rgba(255, 69, 58, 0.85);
+    border-color: rgba(255, 69, 58, 0.9);
+    box-shadow: 0 4px 24px rgba(255, 69, 58, 0.4);
+    color: #5c1a15;
   }
 }
 
@@ -907,13 +978,17 @@ input[type="file"] {
 
 .viz-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 8px;
+  padding: 16px 20px;
   margin-bottom: 16px;
-  border-radius: $radius;
-  background: $bg-secondary;
+  border-radius: 24px;
+  background: $glass-bg;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid $glass-border;
+  box-shadow: 0 4px 24px $glass-shadow;
   scrollbar-width: thin;
   scrollbar-color: $color-border transparent;
 
@@ -933,35 +1008,45 @@ input[type="file"] {
 
 .viz-tab {
   flex: 0 0 auto;
-  padding: 8px 14px;
-  background: $bg;
-  border: 1px solid $color-border;
+  padding: 10px 18px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid $glass-highlight;
   border-radius: 20px;
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
   color: $color-text;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 
   &:last-child {
-    border-right: none;
+    border-right: 1px solid $glass-highlight;
   }
 
   &:hover {
-    background: $bg-secondary;
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px $shadow-md;
   }
 
   &.active {
     background: $color-text;
     color: $bg;
+    border-color: $color-text;
+    box-shadow: 0 4px 16px $shadow-lg;
   }
 }
 
 .viz-content {
-  border: $border;
-  border-top: none;
-  border-radius: $radius;
-  padding: $padding;
+  border: 1px solid $glass-border;
+  border-radius: 24px;
+  padding: 20px;
   min-height: 300px;
+  background: $glass-bg;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px $glass-shadow;
   @include flex-center;
 
   img {

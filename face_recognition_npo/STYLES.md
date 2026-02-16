@@ -164,10 +164,10 @@ $glass-highlight: rgba(255, 255, 255, 0.8);
 | `.comparison-side` | Left/right comparison image |
 | `.comparison-side img` | Comparison image (150x150) |
 | `.comparison-center` | Center score display |
-| `.comparison-status` | Match/no-match status badge |
-| `.comparison-status.match` | Match status (green) |
-| `.comparison-status.possible` | Possible match (yellow) |
-| `.comparison-status.no-match` | No match (red) |
+| `.comparison-status` | Match/no-match status badge (liquid glass style) |
+| `.comparison-status.match` | Match status (green glass) |
+| `.comparison-status.possible` | Possible match (yellow glass) |
+| `.comparison-status.no-match` | No match (red glass) |
 | `.comparison-scores` | Scores container |
 | `.score-row` | Individual score row |
 | `.score-row.final` | Final combined score |
@@ -185,9 +185,11 @@ $glass-highlight: rgba(255, 255, 255, 0.8);
 | `.reference-item` | Reference item |
 | `.reference-item img` | Reference thumbnail |
 | `.reference-item span` | Reference name |
-| `.ref-remove-btn` | Remove reference button (red circle) |
+| `.ref-remove-btn` | Remove reference button (red circle, top-right) |
 | `.ref-remove-btn:hover` | Remove button hover |
 | `.ref-remove-btn:disabled` | Remove button disabled |
+| `.ref-details-btn` | View details button (blue circle, top-left) |
+| `.ref-details-btn:hover` | Details button hover |
 
 ---
 
@@ -196,8 +198,8 @@ $glass-highlight: rgba(255, 255, 255, 0.8);
 | Class | Purpose |
 |-------|---------|
 | `.ref-details-header` | Details header (flex, space-between) |
-| `.ref-viz-tabs` | Visualization tabs (horizontal scroll) |
-| `.ref-viz-tab` | Visualization tab |
+| `.ref-viz-tabs` | Visualization tabs (liquid glass style) |
+| `.ref-viz-tab` | Visualization tab (liquid glass style) |
 | `.ref-viz-tab.active` | Active tab |
 | `.ref-viz-content` | Visualization content area |
 | `.ref-info-grid` | Info grid (auto-fill) |

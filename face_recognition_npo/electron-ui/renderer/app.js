@@ -143,6 +143,7 @@ async function clearAllCache() {
     document.getElementById('step1').classList.remove('step-complete');
     document.getElementById('step2').classList.remove('step-complete');
     document.getElementById('step3').classList.remove('step-complete');
+    document.getElementById('step4').classList.remove('step-complete');
     document.getElementById('webcamStep').classList.remove('step-complete');
     document.getElementById('detectBtn').classList.remove('btn-success');
     document.getElementById('detectBtn').classList.add('btn-primary');
@@ -210,6 +211,7 @@ function resetSteps() {
     document.getElementById('step1').classList.remove('step-complete');
     document.getElementById('step2').classList.remove('step-complete');
     document.getElementById('step3').classList.remove('step-complete');
+    document.getElementById('step4').classList.remove('step-complete');
     document.getElementById('webcamStep').classList.remove('step-complete');
     
     // Reset button states
@@ -532,6 +534,13 @@ async function showReferenceVisualizations(refId) {
     }
 }
 
+function showReferenceDetailsOnly(refIndex, event) {
+    event.stopPropagation();
+    const ref = references[refIndex];
+    if (!ref) return;
+    showReferenceDetails(refIndex, ref);
+}
+
 function showReferenceDetails(refId, ref) {
     const detailsPanel = document.getElementById('referenceDetails');
     const titleEl = document.getElementById('refDetailsTitle');
@@ -661,6 +670,7 @@ function updateReferenceList() {
         
         div.innerHTML = `
             <div class="ref-remove-btn" onclick="removeReference(${i}, event)">×</div>
+            <div class="ref-details-btn" onclick="showReferenceDetailsOnly(${i}, event)" title="View Details">i</div>
             <img src="data:image/png;base64,${ref.thumbnail}" alt="${name}">
             <span>${name}</span>
         `;
@@ -722,14 +732,6 @@ async function compareFaces() {
             const statusEl = document.getElementById('matchStatus');
             statusEl.textContent = best.match_label;
             statusEl.className = `comparison-status ${best.status}`;
-            
-            // Set dynamic color based on score (red to green)
-            const score = best.final_score;
-            const r = Math.round(255 * (1 - score));
-            const g = Math.round(255 * score);
-            statusEl.style.setProperty('--status-color', `rgb(${r}, ${g}, 100)`);
-            statusEl.style.setProperty('--status-text', `rgb(${Math.round(r*0.3)}, ${Math.round(g*0.3)}, 30)`);
-            statusEl.style.setProperty('--status-border', `rgb(${Math.round(r*0.7)}, ${Math.round(g*0.7)}, 50)`);
             
             // Display ArcFace score
             const arcfaceEl = document.getElementById('arcfaceScore');
@@ -809,6 +811,9 @@ async function compareFaces() {
             visualizationData['similarity_data'] = data.similarity_data;
             
             showVisualization('similarity');
+
+            // Mark step 4 as complete
+            markStepComplete('step4', 'compareBtn');
 
             showToast(`${best.match_label}: ${best.name} (${Math.round(best.final_score * 100)}%)`, 'success');
         } else {

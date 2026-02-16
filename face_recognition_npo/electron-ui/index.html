@@ -111,33 +111,39 @@
             </div>
         </div>
 
-        <!-- Step 4 -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">Step 4</span>
-                    <h2>Compare</h2>
-                    <p>Match extracted features against your reference database.</p>
-                    <p id="compareStatus" class="status">Waiting for extraction...</p>
+        <!-- Step 4 + Comparison Result (side by side) -->
+        <div class="steps-row">
+            <!-- Step 4 -->
+            <div class="step" id="step4">
+                <div class="step-checkmark">✓</div>
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">Step 4</span>
+                        <h2>Compare</h2>
+                        <p>Match extracted features against your reference database.</p>
+                        <p id="compareStatus" class="status">Waiting for extraction...</p>
+                    </div>
                 </div>
-            </div>
-            <button class="btn" onclick="addReference()">+ Add Reference</button>
-            <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)">
-            <p class="step-hint">Upload a reference image to compare against</p>
-            <div class="reference-list" id="referenceList"></div>
-            
-            <div class="reference-details" id="referenceDetails">
-                <div class="ref-details-header">
-                    <h3 id="refDetailsTitle">Reference Details</h3>
-                    <button class="btn-small" onclick="hideReferenceDetails()">Close</button>
+                <button class="btn" onclick="addReference()">+ Add Reference</button>
+                <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)">
+                <p class="step-hint">Upload a reference image to compare against</p>
+                <div class="reference-list" id="referenceList"></div>
+                
+                <div class="reference-details" id="referenceDetails">
+                    <div class="ref-details-header">
+                        <h3 id="refDetailsTitle">Reference Details</h3>
+                        <button class="btn-small" onclick="hideReferenceDetails()">Close</button>
+                    </div>
+                    <div class="ref-viz-tabs" id="refVizTabs"></div>
+                    <div class="ref-viz-content" id="refVizContent"></div>
+                    <div class="ref-info-grid" id="refInfoGrid"></div>
                 </div>
-                <div class="ref-viz-tabs" id="refVizTabs"></div>
-                <div class="ref-viz-content" id="refVizContent"></div>
-                <div class="ref-info-grid" id="refInfoGrid"></div>
+                
+                <button class="btn btn-primary btn-margin-top" onclick="compareFaces()" id="compareBtn" disabled>Compare</button>
             </div>
-            
-            <button class="btn btn-primary btn-margin-top" onclick="compareFaces()" id="compareBtn" disabled>Compare</button>
-            <div class="comparison-result card" id="comparisonResult">
+
+            <!-- Comparison Result -->
+            <div class="comparison-result" id="comparisonResult">
                 <div class="comparison-content">
                     <div class="comparison-side">
                         <img id="queryImage" src="" alt="Query">
@@ -190,16 +196,17 @@
             </div>
         </div>
 
-        <!-- Visualizations -->
-        <div class="step">
-            <div class="step-header">
-                <div>
-                    <span class="step-number">AI Analysis</span>
-                    <h2>Visualizations</h2>
-                    <p>See how the AI analyzes faces in your images.</p>
+        <!-- Step 5 - Visualizations (full width below) -->
+        <div class="step" id="step5">
+                <div class="step-checkmark">✓</div>
+                <div class="step-header">
+                    <div>
+                        <span class="step-number">AI Analysis</span>
+                        <h2>Visualizations</h2>
+                        <p>See how the AI analyzes faces in your images.</p>
+                    </div>
                 </div>
-            </div>
-            <div class="viz-tabs" id="vizTabs">
+                <div class="viz-tabs" id="vizTabs">
                 <button class="viz-tab active" data-viz="detection">Detection</button>
                 <button class="viz-tab" data-viz="extraction">Extraction</button>
                 <button class="viz-tab" data-viz="preprocessing">Preprocessing</button>
