@@ -138,22 +138,16 @@ async function clearAllCache() {
     visualizationData = {};
     
     document.getElementById('selectedImage').src = '';
+    document.getElementById('previewContainer').classList.remove('visible');
     document.getElementById('previewContainer').classList.add('hidden');
-    document.getElementById('facesContainer').classList.add('hidden');
-    document.getElementById('comparisonResult').classList.remove('active');
-    document.getElementById('referenceList').innerHTML = '';
-    
-    document.getElementById('detectStatus').textContent = 'Waiting for image...';
-    document.getElementById('detectStatus').className = 'status status-info';
-    document.getElementById('extractStatus').textContent = 'Waiting for detection...';
-    document.getElementById('extractStatus').className = 'status status-info';
-    document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
-    document.getElementById('compareStatus').className = 'status status-info';
-    
-    showVisualizationPlaceholder();
-    clearTerminal();
-    logToTerminal('> Cache cleared', 'success');
-    showToast('Cache cleared', 'success');
+    document.getElementById('step1').classList.remove('step-complete');
+    document.getElementById('step2').classList.remove('step-complete');
+    document.getElementById('step3').classList.remove('step-complete');
+    document.getElementById('webcamStep').classList.remove('step-complete');
+    document.getElementById('detectBtn').classList.remove('btn-success');
+    document.getElementById('detectBtn').classList.add('btn-primary');
+    document.getElementById('extractBtn').classList.remove('btn-success');
+    document.getElementById('extractBtn').classList.add('btn-primary');
 }
 
 function handleImageSelect(event) {
@@ -185,11 +179,12 @@ function handleImageSelect(event) {
         
         currentImage = e.target.result;
         document.getElementById('selectedImage').src = currentImage;
-        document.getElementById('previewContainer').classList.remove('hidden');
+        document.getElementById('previewContainer').classList.add('visible');
         document.getElementById('detectBtn').disabled = false;
         document.getElementById('detectStatus').textContent = 'Ready to detect';
         document.getElementById('detectStatus').className = 'status status-info';
         resetSteps();
+        markStepComplete('step1', 'detectBtn');
         event.target.value = '';
     };
     reader.onerror = (err) => {
@@ -210,6 +205,24 @@ function resetSteps() {
     document.getElementById('comparisonResult').classList.add('hidden');
     visualizationData = {};
     showVisualizationPlaceholder();
+    
+    // Reset step states
+    document.getElementById('step1').classList.remove('step-complete');
+    document.getElementById('step2').classList.remove('step-complete');
+    document.getElementById('step3').classList.remove('step-complete');
+    document.getElementById('webcamStep').classList.remove('step-complete');
+    
+    // Reset button states
+    document.getElementById('detectBtn').classList.remove('btn-success');
+    document.getElementById('extractBtn').classList.remove('btn-success');
+}
+
+function markStepComplete(stepId, btnId) {
+    document.getElementById(stepId).classList.add('step-complete');
+    if (btnId && document.getElementById(btnId)) {
+        document.getElementById(btnId).classList.remove('btn-primary');
+        document.getElementById(btnId).classList.add('btn-success');
+    }
 }
 
 function selectImage() {
@@ -297,6 +310,7 @@ async function detectFaces() {
             document.getElementById('detectStatus').textContent = `Found ${data.count} face(s)!`;
             document.getElementById('detectStatus').className = 'status status-success';
             document.getElementById('extractBtn').disabled = false;
+            markStepComplete('step2', 'extractBtn');
 
             // Display preprocessing info
             if (data.preprocessing) {
@@ -341,7 +355,7 @@ async function detectFaces() {
                 gallery.appendChild(div);
             });
 
-            document.getElementById('facesContainer').classList.remove('hidden');
+            document.getElementById('facesContainer').classList.add('visible');
 
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
@@ -402,6 +416,7 @@ async function extractFeatures() {
             logToTerminal(`> Mean: ${data.embedding_mean.toFixed(6)}, Std: ${data.embedding_std.toFixed(6)}`, 'info');
             document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
             document.getElementById('extractStatus').className = 'status status-success';
+            markStepComplete('step3', null);
             
             // Enable compare button only if we have both embedding AND references
             const hasReferences = references && references.length > 0;
@@ -784,7 +799,7 @@ async function compareFaces() {
             }
 
             const comparisonResult = document.getElementById('comparisonResult');
-            comparisonResult.classList.remove('hidden');
+            comparisonResult.classList.add('visible');
             comparisonResult.classList.add('active');
             document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
             document.getElementById('compareStatus').className = 'status status-success';
@@ -975,14 +990,14 @@ function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.textContent = message;
+    toast.innerHTML = `<span>${message}</span>`;
     container.appendChild(toast);
 
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateY(20px)';
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 5000);
 }
 
 // Webcam Functions
@@ -1009,7 +1024,7 @@ async function startWebcam() {
         
         webcamStream = stream;
         video.srcObject = stream;
-        container.classList.remove('hidden');
+        container.classList.add('visible');
         
         startBtn.disabled = true;
         captureBtn.disabled = false;
