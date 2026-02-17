@@ -16,13 +16,29 @@
             <span class="titlebar-title">Face Recognition</span>
         </div>
         <div class="titlebar-right">
-            <button class="titlebar-btn" title="Menu">
-                <span class="titlebar-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </span>
-            </button>
+            <!-- Theme Switcher -->
+            <div class="switcher">
+                <div class="switcher__option">
+                    <input type="radio" name="theme" value="light" class="switcher__input" c-option="1" checked>
+                    <svg class="switcher__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"></path>
+                    </svg>
+                </div>
+                <div class="switcher__option">
+                    <input type="radio" name="theme" value="dim" class="switcher__input" c-option="2">
+                    <svg class="switcher__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </div>
+                <div class="switcher__option">
+                    <input type="radio" name="theme" value="dark" class="switcher__input" c-option="3">
+                    <svg class="switcher__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -65,7 +81,8 @@
                         <p>Use your webcam to capture a photo for analysis.</p>
                     </div>
                     <div class="button-group">
-                        <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start Webcam</button>
+                        <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start
+                            Webcam</button>
                         <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
                         <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
                     </div>
@@ -73,9 +90,9 @@
                 </div>
                 <div id="webcamContainer" class="hidden text-center">
                     <video id="webcamVideo" autoplay playsinline class="webcam-video"></video>
-                <canvas id="webcamCanvas" class="hidden"></canvas>
+                    <canvas id="webcamCanvas" class="hidden"></canvas>
+                </div>
             </div>
-        </div>
         </div>
 
         <!-- Step 2 & 3 -->
@@ -128,31 +145,38 @@
                 <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)">
                 <p class="step-hint">Upload a reference image to compare against</p>
                 <div class="reference-list" id="referenceList"></div>
-                
+
                 <div class="reference-details" id="referenceDetails">
                     <div class="ref-details-header">
                         <h3 id="refDetailsTitle">Reference Details</h3>
-                        <button class="btn-small" onclick="hideReferenceDetails()">Close</button>
+                        <button class="btn-close-liquid" onclick="hideReferenceDetails()" title="Close">
+                            <svg viewBox="0 0 15.7716 15.7715" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M5.79101 10.957L10.9473 5.80078C11.0742 5.67382 11.1524 5.50782 11.1524 5.32226C11.1524 4.93164 10.8399 4.6289 10.459 4.6289C10.2637 4.6289 10.1074 4.69726 9.98047 4.83398L4.81445 9.9707C4.68749 10.1074 4.60937 10.2637 4.60937 10.459C4.60937 10.8496 4.92187 11.1621 5.30273 11.1621C5.50781 11.1621 5.67383 11.084 5.79101 10.957Z" fill="currentColor"/>
+                                <path d="M9.96093 10.957C10.0879 11.084 10.2539 11.1621 10.459 11.1621C10.8399 11.1621 11.1524 10.8496 11.1524 10.459C11.1524 10.2637 11.0742 10.1074 10.9473 9.9707L5.78125 4.83398C5.65429 4.69726 5.49805 4.6289 5.30273 4.6289C4.92187 4.6289 4.60937 4.93164 4.60937 5.32226C4.60937 5.50782 4.68749 5.67382 4.81445 5.80078Z" fill="currentColor"/>
+                            </svg>
+                        </button>
                     </div>
                     <div class="ref-viz-tabs" id="refVizTabs"></div>
                     <div class="ref-viz-content" id="refVizContent"></div>
                     <div class="ref-info-grid" id="refInfoGrid"></div>
                 </div>
-                
-                <button class="btn btn-primary btn-margin-top" onclick="compareFaces()" id="compareBtn" disabled>Compare</button>
+
+                <button class="btn btn-primary btn-margin-top" onclick="compareFaces()" id="compareBtn"
+                    disabled>Compare</button>
             </div>
 
             <!-- Comparison Result -->
             <div class="comparison-result" id="comparisonResult">
                 <div class="comparison-content">
-                    <div class="comparison-side">
-                        <img id="queryImage" src="" alt="Query">
-                        <p class="preview-label">Your Image</p>
-                    </div>
                     <div class="comparison-center">
                         <div class="comparison-status" id="matchStatus">--</div>
-                            <h4 class="comparison-label">Similarity</h4>
-                            <div class="comparison-scores">
+                        <h4 class="comparison-label">Similarity</h4>
+                        <div class="comparison-scores-dropdown">
+                            <div class="scores-toggle" onclick="this.setAttribute('data-expanded', this.getAttribute('data-expanded') === 'true' ? 'false' : 'true'); this.nextElementSibling.setAttribute('data-visible', this.getAttribute('data-expanded') === 'true' ? 'true' : 'false')">
+                                <span class="toggle-icon">▶</span>
+                                <span>Show scores</span>
+                            </div>
+                            <div class="comparison-scores" data-visible="false">
                                 <div class="score-row">
                                     <span class="score-label">ArcFace:</span>
                                     <span class="score-value" id="arcfaceScore">--%</span>
@@ -186,7 +210,12 @@
                                     <span class="score-value" id="matchScore">--%</span>
                                 </div>
                             </div>
-                            <div class="match-reasons" id="matchReasons"></div>
+                        </div>
+                        <div class="match-reasons" id="matchReasons"></div>
+                    </div>
+                    <div class="comparison-side">
+                        <img id="queryImage" src="" alt="Query">
+                        <p class="preview-label">Your Image</p>
                     </div>
                     <div class="comparison-side">
                         <img id="refImage" src="" alt="Reference">
@@ -198,15 +227,15 @@
 
         <!-- Step 5 - Visualizations (full width below) -->
         <div class="step" id="step5">
-                <div class="step-checkmark">✓</div>
-                <div class="step-header">
-                    <div>
-                        <span class="step-number">AI Analysis</span>
-                        <h2>Visualizations</h2>
-                        <p>See how the AI analyzes faces in your images.</p>
-                    </div>
+            <div class="step-checkmark">✓</div>
+            <div class="step-header">
+                <div>
+                    <span class="step-number">AI Analysis</span>
+                    <h2>Visualizations</h2>
+                    <p>See how the AI analyzes faces in your images.</p>
                 </div>
-                <div class="viz-tabs" id="vizTabs">
+            </div>
+            <div class="viz-tabs" id="vizTabs">
                 <button class="viz-tab active" data-viz="detection">Detection</button>
                 <button class="viz-tab" data-viz="extraction">Extraction</button>
                 <button class="viz-tab" data-viz="preprocessing">Preprocessing</button>

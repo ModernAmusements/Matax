@@ -22,15 +22,95 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupEventListeners() {
+    // Convert viz-tabs to radio buttons if not already done
+    const vizTabs = document.getElementById('vizTabs');
+    if (vizTabs && !vizTabs.querySelector('.viz-input')) {
+        convertVizTabsToRadio();
+    }
+    
+    // Handle viz-tab clicks (for buttons/labels)
     document.querySelectorAll('.viz-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
+            const vizType = e.target.dataset.viz || e.target.getAttribute('for')?.replace('viz-', '');
+            if (vizType) {
+                document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.viz-input').forEach(r => r.checked = false);
+                e.target.classList.add('active');
+                const radio = document.querySelector(`.viz-input[data-viz="${vizType}"]`);
+                if (radio) radio.checked = true;
+                
+                // Update indicator position
+                const currentVizTabs = document.getElementById('vizTabs');
+                setTimeout(() => updateVizIndicatorPosition(currentVizTabs, vizType), 0);
+                
+                logToTerminal(`>>> CLICKED TAB: ${vizType}`, 'info');
+                showVisualization(vizType);
+            }
+        });
+    });
+}
+
+function convertVizTabsToRadio() {
+    const vizTabs = document.getElementById('vizTabs');
+    if (!vizTabs) return;
+    
+    const buttons = vizTabs.querySelectorAll('.viz-tab');
+    if (buttons.length === 0) return;
+    
+    // Get current active tab
+    const activeButton = vizTabs.querySelector('.viz-tab.active');
+    const activeViz = activeButton ? activeButton.dataset.viz : 'detection';
+    
+    // Create radio inputs
+    const radioHtml = Array.from(buttons).map((btn, i) => {
+        const vizType = btn.dataset.viz;
+        return `<input type="radio" name="viz" id="viz-${vizType}" class="viz-input" data-viz="${vizType}" ${vizType === activeViz ? 'checked' : ''}>`;
+    }).join('');
+    
+    // Update buttons to labels
+    const labelHtml = Array.from(buttons).map(btn => {
+        const vizType = btn.dataset.viz;
+        const label = btn.textContent;
+        const isActive = btn.classList.contains('active');
+        return `<label class="viz-tab ${isActive ? 'active' : ''}" for="viz-${vizType}" data-viz="${vizType}">${label}</label>`;
+    }).join('');
+    
+    vizTabs.innerHTML = radioHtml + labelHtml;
+    
+    // Add change listeners
+    const radios = vizTabs.querySelectorAll('.viz-input');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const vizType = radio.dataset.viz;
+            const currentVizTabs = document.getElementById('vizTabs');
             document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
-            e.target.classList.add('active');
-            const vizType = e.target.dataset.viz;
-            logToTerminal(`>>> CLICKED TAB: ${vizType}`, 'info');
+            document.querySelector(`.viz-tab[data-viz="${vizType}"]`)?.classList.add('active');
+            
+            // Update indicator position
+            setTimeout(() => updateVizIndicatorPosition(currentVizTabs, vizType), 0);
+            
+            logToTerminal(`>>> SELECTED TAB: ${vizType}`, 'info');
             showVisualization(vizType);
         });
     });
+    
+    // Track previous for directional animation
+    setTimeout(() => trackPrevious(vizTabs), 0);
+    
+    // Update indicator position
+    setTimeout(() => updateVizIndicatorPosition(vizTabs, activeViz), 0);
+}
+
+function updateVizIndicatorPosition(tabsEl, activeViz) {
+    const activeTab = tabsEl.querySelector(`.viz-tab[data-viz="${activeViz}"]`);
+    if (!activeTab) return;
+    
+    const containerRect = tabsEl.getBoundingClientRect();
+    const tabRect = activeTab.getBoundingClientRect();
+    const relativeLeft = tabRect.left - containerRect.left;
+    
+    tabsEl.style.setProperty('--indicator-left', `${relativeLeft}px`);
+    tabsEl.style.setProperty('--indicator-width', `${tabRect.width}px`);
 }
 
 async function checkAPI() {
@@ -560,18 +640,90 @@ function showReferenceDetails(refId, ref) {
         { id: 'saliency', label: 'Attention' }
     ];
     
-    tabsEl.innerHTML = tabs.map(t => 
-        `<div class="ref-viz-tab ${t.id === 'info' ? 'active' : ''}" data-tab="${t.id}" onclick="switchRefTab('${t.id}', ${refId})">${t.label}</div>`
-    ).join('');
+    // Generate radio buttons (hidden) + labels
+    const tabCount = tabs.length;
+    
+    const radioHtml = tabs.map((t, i) => `
+        <input type="radio" name="ref-viz" id="tab-${t.id}" 
+               class="ref-viz-input" data-tab="${t.id}" 
+               ${i === 0 ? 'checked' : ''} c-option="${i + 1}">
+    `).join('');
+    
+    const labelHtml = tabs.map((t, i) => `
+        <label class="ref-viz-tab ${i === 0 ? 'active' : ''}" 
+               for="tab-${t.id}" data-tab="${t.id}">
+            ${t.label}
+        </label>
+    `).join('');
+    
+    tabsEl.innerHTML = radioHtml + labelHtml;
+    tabsEl.style.setProperty('--tab-count', tabCount);
+    
+    // Position indicator based on actual tab positions
+    setTimeout(() => updateRefVizIndicator(tabsEl), 0);
+    
+    // Track previous for directional animation
+    setTimeout(() => trackPrevious(tabsEl), 0);
+    
+    // Add change listeners to radios
+    const radios = tabsEl.querySelectorAll('.ref-viz-input');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const tabId = radio.dataset.tab;
+            switchRefTab(tabId, refId);
+        });
+    });
     
     switchRefTab('info', refId);
+}
+
+function updateRefVizIndicator(tabsEl, activeTabId = null) {
+    const tabs = tabsEl.querySelectorAll('.ref-viz-tab');
+    const containerRect = tabsEl.getBoundingClientRect();
+    const paddingLeft = 20;
+    const gap = 8;
+    
+    // Calculate positions for each tab
+    let tabPositions = [];
+    tabs.forEach((tab, index) => {
+        const tabRect = tab.getBoundingClientRect();
+        const relativeLeft = tabRect.left - containerRect.left;
+        tabPositions.push({
+            id: tab.dataset.tab,
+            left: relativeLeft,
+            width: tabRect.width
+        });
+    });
+    
+    // If activeTabId provided, position the indicator
+    if (activeTabId) {
+        const active = tabPositions.find(t => t.id === activeTabId);
+        if (active) {
+            tabsEl.style.setProperty('--indicator-left', `${active.left}px`);
+            tabsEl.style.setProperty('--indicator-width', `${active.width}px`);
+        }
+    }
+    
+    return tabPositions;
 }
 
 async function switchRefTab(tabId, refId) {
     const ref = references[refId];
     const tabs = document.querySelectorAll('.ref-viz-tab');
+    const radios = document.querySelectorAll('.ref-viz-input');
+    const tabsEl = document.getElementById('refVizTabs');
+    
     tabs.forEach(t => t.classList.remove('active'));
-    document.querySelector(`.ref-viz-tab[data-tab="${tabId}"]`)?.classList.add('active');
+    radios.forEach(r => r.checked = false);
+    
+    const activeTab = document.querySelector(`.ref-viz-tab[data-tab="${tabId}"]`);
+    const activeRadio = document.querySelector(`.ref-viz-input[data-tab="${tabId}"]`);
+    
+    if (activeTab) activeTab.classList.add('active');
+    if (activeRadio) activeRadio.checked = true;
+    
+    // Update indicator position based on actual tab position
+    updateRefVizIndicator(tabsEl, tabId);
     
     const contentEl = document.getElementById('refVizContent');
     const infoEl = document.getElementById('refInfoGrid');
@@ -795,7 +947,15 @@ async function compareFaces() {
             // Display reasons
             const reasonsEl = document.getElementById('matchReasons');
             if (best.reasons && best.reasons.length > 0) {
-                reasonsEl.innerHTML = '<ul>' + best.reasons.map(r => `<li>${r}</li>`).join('') + '</ul>';
+                reasonsEl.innerHTML = `
+                    <div class="match-reasons-toggle" onclick="this.setAttribute('data-expanded', this.getAttribute('data-expanded') === 'true' ? 'false' : 'true'); this.nextElementSibling.setAttribute('data-visible', this.getAttribute('data-expanded') === 'true' ? 'true' : 'false')">
+                        <span class="toggle-icon">▶</span>
+                        <span>Show details (${best.reasons.length})</span>
+                    </div>
+                    <div class="match-reasons-content">
+                        <ul>${best.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+                    </div>
+                `;
             } else {
                 reasonsEl.innerHTML = '';
             }
@@ -1020,6 +1180,11 @@ async function startWebcam() {
         logToTerminal('> Starting webcam...', 'info');
         status.textContent = 'Requesting camera access...';
         
+        container.style.display = '';
+        container.style.border = '';
+        video.style.border = '';
+        container.classList.remove('hidden');
+        
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { 
                 width: { ideal: 1280 },
@@ -1106,7 +1271,11 @@ function stopWebcam() {
     }
     
     video.srcObject = null;
+    
+    video.style.border = 'none';
+    container.style.border = 'none';
     container.classList.add('hidden');
+    container.style.display = 'none';
     
     startBtn.disabled = false;
     captureBtn.disabled = true;
@@ -1116,3 +1285,42 @@ function stopWebcam() {
     status.className = 'status';
     logToTerminal('> Webcam stopped', 'info');
 }
+
+// Switcher/Tab Previous Value Tracker for Liquid Glass Animations
+const trackPrevious = (el) => {
+    const radios = el.querySelectorAll('input[type="radio"]');
+    let previousValue = null;
+
+    const initiallyChecked = el.querySelector('input[type="radio"]:checked');
+    if (initiallyChecked) {
+        previousValue = initiallyChecked.getAttribute("c-option");
+        el.setAttribute("c-previous", previousValue);
+    }
+
+    radios.forEach((radio) => {
+        radio.addEventListener("change", () => {
+            if (radio.checked) {
+                el.setAttribute("c-previous", previousValue ?? "");
+                previousValue = radio.getAttribute("c-option");
+            }
+        });
+    });
+};
+
+// Auto-initialize switchers when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    const switcher = document.querySelector(".switcher");
+    if (switcher) {
+        trackPrevious(switcher);
+        
+        // Theme switching functionality
+        const radios = switcher.querySelectorAll('input[name="theme"]');
+        radios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                const theme = radio.value;
+                document.body.setAttribute('data-theme', theme);
+                logToTerminal(`> Theme changed to: ${theme}`, 'info');
+            });
+        });
+    }
+});
