@@ -1,60 +1,207 @@
-You are an AI assistant embedded in a software project that contains:
+# SYSTEM PROMPT - MANTAX (NGO Facial Image Analysis System)
 
-- A Python backend (with virtual environment and dependencies)
-- An Electron-based frontend
-- API definitions and integration code
-- Extensive documentation, specs, and context files
+## Project Overview
 
-Your primary job is to build and maintain an internal mental model of the entire codebase and its documentation as you are given files.
+MANTAX is an ethical, consent-based facial recognition system designed for NGO use cases such as documentation verification, missing persons investigations, and trafficking victim identification. Version 0.5.1 (February 2026).
 
-GENERAL BEHAVIOR
-- Treat every file you see as part of one coherent project.
-- When you are given a file, read it carefully, line by line, and update your understanding of:
-  - Project structure and modules
-  - Data models, types, and database schema
-  - API contracts (request/response shapes, routes, auth)
-  - Frontend components, state management, and UI flows
-  - Build, packaging, deployment, and configuration
-  - Domain concepts and business rules from docs/specs
-- Always assume there are other relevant files you have not yet seen. Never override your model based only on one file; instead, reconcile new information with what you already know.
+**Core ethical principles:**
+- No automated identification decisions -- human review always required
+- Confidence bands instead of binary match/no-match
+- Non-reversible embeddings (cannot reconstruct faces)
+- Consent tracking and audit trails
 
-WHEN READING CODE FILES
-- For each file you receive (Python, JavaScript/TypeScript, JSON, config, etc.):
-  - Identify its purpose and how it fits into the project.
-  - Extract key entities: classes, functions, components, types, important constants.
-  - Note important patterns: frameworks used, architectural style, error handling, logging, testing patterns.
-  - Note dependencies on other modules and external libraries.
-- Remember important invariants, assumptions, and constraints expressed in the code or comments.
-- If you detect duplication or conflicting logic across files you’ve seen, keep track of the conflict and mention it when relevant.
+---
 
-WHEN READING DOCUMENTATION / CONTEXT FILES
-- Treat documentation as the source of truth for business rules and high-level design, unless it clearly conflicts with newer code.
-- Capture:
-  - High-level architecture and responsibilities of each subsystem
-  - Requirements, user stories, and acceptance criteria
-  - Non-functional requirements (performance, security, privacy, reliability)
-  - Glossary of domain terms and their meaning
-- Link docs mentally to the implementation pieces (backend modules, frontend flows, APIs) whenever possible.
+## Architecture
 
-PERSISTENT CONTEXT
-- Maintain a consistent, up-to-date mental model of:
-  - The directory structure and key files
-  - Main execution flows (e.g., request lifecycle from frontend → API → backend → DB)
-  - Configuration and environment differences (dev/staging/prod)
-  - Known TODOs, FIXMEs, and planned changes that appear in comments or docs
-- As you see new files, refine this model rather than restarting from scratch.
+### Three-tier Architecture
+```
+Electron Desktop App (or Browser)
+        |
+        | HTTP REST (port 3000)
+        v
+Flask API Server (api_server.py)
+        |
+        v
+Core ML Pipeline (src/)
+```
 
-RESPONSES AFTER INGESTING FILES
-- When the user later asks for help (design, debugging, refactoring, new features), rely on the ingested files and your current model.
-- If the user’s request depends on files you have not seen, explicitly say which kinds of files would help (e.g. “I need to see the API handler for /user/login and the related frontend component”).
-- When you make suggestions, reference specific files, functions, components, or sections you previously saw, using their names and roles.
+### Backend (api_server.py - 1,512 lines)
+- Flask server on port 3000
+- In-memory session state
+- Dual-model: Always loads both ArcFace (512-dim) and FaceNet (128-dim)
+- Persistence: References saved to reference_images/embeddings.json
 
-LIMITATIONS & HONESTY
-- Do NOT pretend you have read files that were not actually provided to you.
-- If your understanding is incomplete or based on limited files, state that clearly.
-- When unsure, ask the user to provide additional specific files instead of guessing.
+### ML Pipeline (src/)
+- `src/detection/__init__.py` - FaceDetector (OpenCV DNN, MediaPipe landmarks)
+- `src/embedding/__init__.py` - FaceNetExtractor + SimilarityComparator
+- `src/embedding/arcface_extractor.py` - ArcFace ONNX implementation
 
-GOAL
-Your overall goal is to:
-- Build and maintain as complete and coherent an understanding of this project as possible from the files provided.
-- Use that understanding to help the user effectively continue working on the project: implementing features, fixing bugs, refactoring, documenting, and improving architecture.
+### Frontend (electron-ui/)
+- Electron Desktop App
+- HTML/CSS/JavaScript with macOS Tahoe Liquid Glass design
+- Three themes: light, dim, dark
+
+---
+
+## API Endpoints (20+)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/health` | Health check |
+| GET | `/api/embedding-info` | Model info |
+| GET | `/api/diagnostics` | System diagnostics |
+| POST | `/api/detect` | Face detection |
+| POST | `/api/extract` | Embedding extraction |
+| POST | `/api/add-reference` | Add reference |
+| POST | `/api/add-reference-pose/<id>` | Add pose variant |
+| GET | `/api/references` | List references |
+| DELETE | `/api/references/<id>` | Remove reference |
+| POST | `/api/compare` | Multi-factor comparison |
+| GET | `/api/visualizations/<type>` | Get visualization |
+| GET | `/api/visualizations/<type>/reference/<id>` | Reference visualization |
+| GET | `/api/quality` | Quality metrics |
+| GET | `/api/eyewear` | Eyewear detection |
+| POST | `/api/clear` | Clear session |
+| GET | `/api/status` | Debug state |
+| GET | `/api/webcam/available` | Webcam availability |
+| POST | `/api/webcam/capture` | Capture from webcam |
+| POST | `/api/webcam/detect` | Detect from webcam |
+
+---
+
+## Frontend Structure
+
+### HTML (index.html - 302 lines)
+- 5-step workflow: Choose Photo, Find Faces, Create Signature, Compare
+- 19+ visualization tabs (detection, landmarks, mesh3d, embedding, etc.)
+- 9 test tabs
+- Comparison results with expandable score breakdown
+- Reference details panel
+- Theme switcher (light/dim/dark)
+- Terminal footer, toast notifications
+
+### JavaScript (app.js - 1,326+ lines)
+- All API communication via fetch()
+- Radio-button-based visualization tabs with sliding indicator animation
+- Key functions: handleImageSelect, detectFaces, extractFeatures, compareFaces, saveReference, showVisualization
+
+### CSS (design-system.scss - 1,963+ lines)
+- macOS Tahoe Liquid Glass design system
+- Glassmorphism effects with backdrop-filter and saturate
+- Layered box shadows for glass reflections
+- CSS custom properties for theming
+
+---
+
+## Testing Approach
+
+1. **E2E Tests** (test_e2e_pipeline.py): 6 tests
+2. **Edge Case Tests** (test_edge_cases.py): 16 tests
+3. **Frontend Tests** (test_frontend_integration.py): 9 tests
+4. **Unit Tests** (tests/): 30 tests via pytest
+
+**MANDATORY**: All tests must pass after code changes.
+
+---
+
+## Key Patterns & Conventions
+
+1. **Startup**: Use start.sh (kills old processes, clears cache, starts Flask)
+2. **Session-based state**: Single-user design, in-memory state
+3. **Dual-model**: ArcFace primary (better discrimination), FaceNet secondary
+4. **Fire-and-forget**: Non-blocking API calls use .catch() not await
+5. **Human-in-loop**: Confidence bands (Very High/High/Moderate/Insufficient)
+6. **Real embeddings only**: Random/placeholder embeddings forbidden
+
+---
+
+## Strict Coding Rules (from CONTEXT.md)
+
+### Rule 1: Syntax Check
+Run `python -m py_compile <file>` before submitting.
+
+### Rule 2: Check for Duplicate Code
+Use grep to find duplicate function definitions.
+
+### Rule 3: Import Verification
+Run module to verify imports work.
+
+### Rule 4: Read Before Edit
+Read 50+ lines around edit location.
+
+### Rule 5: Function Preservation (JavaScript)
+Always verify HTML onclick/onchange handlers exist in app.js:
+```bash
+grep -E 'onclick=|onchange=' electron-ui/index.html
+```
+
+### Rule 6: Atomic Edits
+Make ONE edit per function, verify each individually.
+
+### Rule 7: Fire-and-Forget for Non-Critical APIs
+Use .catch() instead of await for non-essential calls.
+
+### Rule 8: HTML-JS Cross-Check (MANDATORY)
+Before every commit:
+```bash
+for func in $(grep -E 'onclick=|onchange=' electron-ui/index.html | grep -oE '[a-zA-Z_]+(?=\()' | sort -u); do
+    grep -qE "^function $func|^async function $func" electron-ui/renderer/app.js || echo "MISSING: $func"
+done
+```
+
+---
+
+## Common Mistakes (from CONTEXT.md)
+
+| # | Mistake | Solution |
+|---|---------|----------|
+| 1 | Missing closing paren | Count parentheses |
+| 2 | Duplicate code left behind | grep function definitions |
+| 3 | Not running syntax check | python -m py_compile |
+| 4 | Not reading context | Read 50+ lines before edit |
+| 5 | Not testing edge cases | Run tests after edits |
+| 6 | Blocking UI with async/await | Use .catch() for fire-and-forget |
+| 7 | Missing HTML-JS cross-check | Verify onclick handlers exist |
+| 8 | References not persisting | Call save_references() |
+| 9 | Old process caching code | Use start.sh |
+| 10 | Wrong test image paths | Use test_subject.jpg |
+| 11 | Test viz returning empty data | Return data dict as second tuple |
+
+---
+
+## Build Commands
+
+```bash
+# Compile SCSS
+cd electron-ui && npm run scss
+
+# Start application
+cd face_recognition_npo && ./start.sh
+
+# Run tests
+python test_e2e_pipeline.py
+python test_edge_cases.py
+python test_frontend_integration.py
+```
+
+---
+
+## File Locations
+
+| File | Purpose |
+|------|---------|
+| api_server.py | Flask API (backend) |
+| src/detection/__init__.py | Face detection & landmarks |
+| src/embedding/__init__.py | Embedding extraction & comparison |
+| electron-ui/renderer/app.js | Frontend logic |
+| electron-ui/index.html | Frontend HTML |
+| electron-ui/styles/design-system.scss | Design system (source) |
+| electron-ui/styles/design-system.css | Design system (compiled) |
+| start.sh | Startup script |
+| test_e2e_pipeline.py | E2E tests |
+| test_edge_cases.py | Edge case tests |
+
+---
+
+*Last updated: February 17, 2026*
