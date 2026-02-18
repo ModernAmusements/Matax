@@ -414,7 +414,19 @@ p {
 
   &:hover {
     background: rgba(0, 0, 0, 1);
+    color: #fff;
     transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    background: $btn-primary-bg;
+    color: #fff;
+    transform: none;
   }
 
   &:active {
@@ -571,6 +583,25 @@ p {
   margin-bottom: 16px;
   flex-direction: column;
   gap: 12px;
+}
+
+.step-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+
+  small {
+    background: rgba(0, 122, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
 }
 
 .step-number {
@@ -1851,7 +1882,7 @@ input[type="file"] {
               box-shadow 300ms cubic-bezier(1, 0, 0.4, 1);
   z-index: 999;
   user-select: none;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 
 .titlebar-left {
@@ -2056,23 +2087,70 @@ input[type="file"] {
 }
 
 .step-nav-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: $liquid-bg;
+  backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  -webkit-backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  cursor: pointer;
+  box-shadow: $liquid-shadow;
+  transition: $liquid-transition;
+
+  img {
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    background: $liquid-bg-hover;
+    transform: $liquid-scale-hover;
+    box-shadow: $liquid-shadow-hover;
+  }
+
+  &:active {
+    transform: $liquid-scale-active;
+    background: $liquid-bg-active;
+  }
+
+  &.active {
+    background: $liquid-bg-hover;
+    transform: $liquid-scale-hover;
+  }
+}
+
+.step-nav-icon-mini {
   width: 24px;
   height: 24px;
-  cursor: pointer;
   padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
   border-radius: 50%;
-  opacity: 0.6;
-  transition: all 200ms ease;
-  filter: brightness(0);
-  
-  &:hover {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.2);
+  background: $liquid-bg;
+  backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  -webkit-backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  cursor: pointer;
+  box-shadow: $liquid-shadow;
+  transition: $liquid-transition;
+  vertical-align: middle;
+  margin-left: 8px;
+
+  img {
+    width: 16px;
+    height: 16px;
   }
-  
-  &.active {
-    opacity: 1;
-    background: rgba(255, 255, 255, 0.3);
+
+  &:hover {
+    background: $liquid-bg-hover;
+    transform: $liquid-scale-hover;
+    box-shadow: $liquid-shadow-hover;
   }
 }
 
@@ -2083,28 +2161,38 @@ input[type="file"] {
   min-width: 40px;
 }
 
-.step-nav-icon {
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 200ms;
-  filter: brightness(0);
-  
-  &:hover {
-    opacity: 1;
-  }
-}
-
 .menu-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: none;
+  border-radius: 50%;
+  background: $liquid-bg;
+  backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  -webkit-backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
   cursor: pointer;
-  opacity: 0.6;
-  filter: brightness(0);
+  box-shadow: $liquid-shadow;
+  transition: $liquid-transition;
+  opacity: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  img {
+    width: 18px;
+    height: 18px;
+  }
   
   &:hover {
-    opacity: 1;
+    background: $liquid-bg-hover;
+    transform: $liquid-scale-hover;
+    box-shadow: $liquid-shadow-hover;
+  }
+
+  &:active {
+    transform: $liquid-scale-active;
+    background: $liquid-bg-active;
   }
 }
 
@@ -2145,17 +2233,39 @@ input[type="file"] {
 $sidebar-width: 260px;
 
 .sidebar-toggle-icon {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: none;
+  border-radius: 50%;
+  background: $liquid-bg;
+  backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
+  -webkit-backdrop-filter: blur($liquid-blur) saturate($liquid-saturation);
   cursor: pointer;
   pointer-events: auto;
   -webkit-app-region: no-drag;
-  opacity: 0.8;
-  display: block;
-  filter: brightness(0);
+  box-shadow: $liquid-shadow;
+  transition: $liquid-transition;
+  opacity: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  img {
+    width: 18px;
+    height: 18px;
+  }
 
   &:hover {
-    opacity: 1;
+    background: $liquid-bg-hover;
+    transform: $liquid-scale-hover;
+    box-shadow: $liquid-shadow-hover;
+  }
+
+  &:active {
+    transform: $liquid-scale-active;
+    background: $liquid-bg-active;
   }
 }
 
@@ -2225,6 +2335,25 @@ $sidebar-width: 260px;
     width: 24px;
     height: 24px;
     filter: brightness(0);
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  &:hover .step-icon {
+    transform: $liquid-scale-hover;
+    box-shadow: $liquid-shadow-hover;
+  }
+
+  &:active .step-icon {
+    transform: $liquid-scale-active;
+    background: $liquid-bg-active;
+  }
+
+  &.active .step-icon {
+    transform: $liquid-scale-hover;
   }
 
   svg {
@@ -2232,6 +2361,26 @@ $sidebar-width: 260px;
     height: 24px;
     opacity: 0.7;
     filter: brightness(0);
+  }
+
+  .step-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+
+    span {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    small {
+      font-size: 12px;
+      opacity: 0.6;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 
   span {
@@ -2327,6 +2476,27 @@ $sidebar-width: 260px;
   }
 }
 
+.sidebar-terminal {
+  flex: 0 0 120px;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+.terminal-sidebar {
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 12px;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+
+  .terminal-log {
+    flex: 1;
+    overflow-y: auto;
+  }
+}
+
 .traffic-lights {
   display: flex;
   gap: 8px;
@@ -2341,19 +2511,6 @@ $sidebar-width: 260px;
     &.close { background: #FF5F57; }
     &.minimize { background: #FFBD2E; }
     &.maximize { background: #28CA41; }
-  }
-}
-
-.sidebar-toggle-icon {
-  width: 24px;
-  height: 24px;
-  cursor: pointer;
-  opacity: 1;
-  transition: opacity 200ms;
-  display: block;
-
-  &:hover {
-    opacity: 0.7;
   }
 }
 
