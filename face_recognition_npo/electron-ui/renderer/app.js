@@ -828,6 +828,37 @@ function updateReferenceList() {
         `;
         container.appendChild(div);
     });
+    
+    // Also update sidebar refs
+    updateSidebarRefs();
+}
+
+function updateSidebarRefs() {
+    const grid = document.getElementById('sidebarRefsGrid');
+    const countEl = document.getElementById('refCount');
+    
+    if (!grid) return;
+    
+    if (!references || references.length === 0) {
+        grid.innerHTML = '<small style="opacity:0.5">No references yet</small>';
+        if (countEl) countEl.textContent = '0';
+        return;
+    }
+    
+    if (countEl) countEl.textContent = references.length;
+    
+    // Show up to 8 most recent references
+    const recentRefs = references.slice(-8);
+    
+    grid.innerHTML = recentRefs.map((ref, i) => {
+        if (!ref || !ref.thumbnail) return '';
+        const name = ref.name || `Ref ${i + 1}`;
+        return `
+            <div class="ref-thumb" onclick="jumpToStep(2)" title="${name}">
+                <img src="data:image/png;base64,${ref.thumbnail}" alt="${name}">
+            </div>
+        `;
+    }).join('');
 }
 
 function selectReference(index) {

@@ -12,9 +12,64 @@
     <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
-            <div class="sidebar-step active" id="sidebar-step-1" onclick="jumpToStep(1)">
-                <img src="/styles/sf_icons/person.fill.svg" class="step-icon" alt="Step 1">
-                <span>Choose Photo</span>
+            <div class="sidebar-steps">
+                <div class="sidebar-steps-header">Steps</div>
+                <div class="sidebar-step active" id="sidebar-step-1" onclick="jumpToStep(1)">
+                    <img src="/styles/sf_icons/person.fill.svg" class="step-icon" alt="Step 1">
+                    <div class="step-label">
+                        <span>Choose Photo</span>
+                        <small>Select a photo with faces to analyze</small>
+                    </div>
+                </div>
+                <div class="sidebar-step" id="sidebar-step-2" onclick="jumpToStep(2)">
+                    <img src="/styles/sf_icons/face.dashed.fill.svg" class="step-icon" alt="Step 2">
+                    <div class="step-label">
+                        <span>Add References</span>
+                        <small>Add known faces to compare against</small>
+                    </div>
+                </div>
+                <div class="sidebar-step" id="sidebar-step-3" onclick="jumpToStep(3)">
+                    <img src="/styles/sf_icons/photo.badge.plus.svg" class="step-icon" alt="Step 3">
+                    <div class="step-label">
+                        <span>Compare</span>
+                        <small>Match detected faces to references</small>
+                    </div>
+                </div>
+                <div class="sidebar-step" id="sidebar-step-4" onclick="jumpToStep(4)">
+                    <img src="/styles/sf_icons/list.number.svg" class="step-icon" alt="Step 4">
+                    <div class="step-label">
+                        <span>Results</span>
+                        <small>View matching results and scores</small>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-help">
+                <div class="sidebar-help-header">How to Use</div>
+                <div class="sidebar-help-content">
+                    <p>1. Choose a photo with faces</p>
+                    <p>2. Add reference images</p>
+                    <p>3. Compare & see results</p>
+                </div>
+            </div>
+            <div class="sidebar-refs">
+                <div class="sidebar-refs-header">
+                    <span>References</span>
+                    <small id="refCount">0</small>
+                </div>
+                <div class="sidebar-refs-grid" id="sidebarRefsGrid">
+                    <!-- Reference images will be populated here -->
+                </div>
+            </div>
+            <div class="sidebar-terminal">
+                <div class="terminal-sidebar" id="terminalSidebar">
+                    <div class="terminal-log" id="terminalLog">
+                        <div class="terminal-log-content" id="terminalLogContent"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <small>u+i experimental</small>
+                <small>Face Recognition v1.0</small>
             </div>
         </div>
     </div>
@@ -29,30 +84,30 @@
                 <div class="light maximize" onclick="maximizeWindow()" title="Maximize"></div>
             </div>
             <!-- Sidebar Toggle -->
-            <img src="/styles/sf_icons/sidebar.left.svg" class="sidebar-toggle-icon" onclick="toggleSidebar()" alt="Toggle Sidebar">
+            <button class="sidebar-toggle-icon" onclick="toggleSidebar()" alt="Toggle Sidebar">
+                <img src="/styles/sf_icons/sidebar.left.svg" alt="">
+            </button>
         </div>
         <div class="titlebar-center">
             <!-- Step Icons -->
-            <img src="/styles/sf_icons/person.fill.svg" class="step-nav-icon" onclick="jumpToStep(1)" alt="Step 1">
-            <img src="/styles/sf_icons/face.dashed.fill.svg" class="step-nav-icon" onclick="jumpToStep(2)" alt="Step 2">
-            <img src="/styles/sf_icons/photo.badge.plus.svg" class="step-nav-icon" onclick="jumpToStep(3)" alt="Step 3">
-            <img src="/styles/sf_icons/list.number.svg" class="step-nav-icon" onclick="jumpToStep(4)" alt="Step 4">
+            <button class="step-nav-icon" onclick="jumpToStep(1)">
+                <img src="/styles/sf_icons/person.fill.svg" alt="Step 1">
+            </button>
+            <button class="step-nav-icon" onclick="jumpToStep(2)">
+                <img src="/styles/sf_icons/face.dashed.fill.svg" alt="Step 2">
+            </button>
+            <button class="step-nav-icon" onclick="jumpToStep(3)">
+                <img src="/styles/sf_icons/photo.badge.plus.svg" alt="Step 3">
+            </button>
+            <button class="step-nav-icon" onclick="jumpToStep(4)">
+                <img src="/styles/sf_icons/list.number.svg" alt="Step 4">
+            </button>
         </div>
         <div class="titlebar-right">
             <!-- 3-dot Menu -->
-            <img src="/styles/sf_icons/ellipsis.svg" class="menu-icon" alt="Menu">
-        </div>
-    </div>
-                    </svg>
-                </div>
-                <div class="switcher__option">
-                    <input type="radio" name="theme" value="dark" class="switcher__input" c-option="3">
-                    <svg class="switcher__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                        <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                </div>
-            </div>
+            <button class="menu-icon">
+                <img src="/styles/sf_icons/ellipsis.svg" alt="Menu">
+            </button>
         </div>
     </div>
 
@@ -67,6 +122,9 @@
                 <div class="step-header">
                     <div>
                         <span class="step-number">Step 1</span>
+                        <button class="step-nav-icon-mini">
+                            <img src="/styles/sf_icons/person.fill.svg" alt="">
+                        </button>
                         <h2>Choose Your Photo</h2>
                         <p>Select a photo containing faces you want to analyze.</p>
                     </div>
@@ -293,17 +351,6 @@
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <p class="loading-text" id="loadingText">Processing...</p>
-        </div>
-    </div>
-
-    <!-- Terminal Footer -->
-    <div class="terminal-footer" id="terminalFooter">
-        <div class="terminal-header" onclick="toggleTerminal()">
-            <span class="terminal-title">Terminal</span>
-            <span class="terminal-toggle" id="terminalToggle">[+]</span>
-        </div>
-        <div class="terminal-log" id="terminalLog">
-            <div class="terminal-log-content" id="terminalLogContent"></div>
         </div>
     </div>
 
