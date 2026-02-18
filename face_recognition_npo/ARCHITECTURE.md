@@ -1,8 +1,8 @@
 # NGO Facial Image Analysis System - Architecture
 
-**Version**: 0.5.0  
-**Last Updated**: February 15, 2026  
-**Status**: ✅ Fully Functional - Enhanced Features (LBP, Asymmetry, Multi-Pose, 3D Normalization)
+**Version**: 0.6.0  
+**Last Updated**: February 18, 2026  
+**Status**: ✅ Fully Functional - Liquid Glass UI Redesign
 
 ---
 

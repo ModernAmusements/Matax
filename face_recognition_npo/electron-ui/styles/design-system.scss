@@ -23,8 +23,14 @@ $liquid-bg-active: rgba(0, 0, 0, 0.05);
 $liquid-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 1px 1.5px 0px -1px rgba(255, 255, 255, 0.8), inset -1px -1px 0px -1px rgba(255, 255, 255, 0.7), inset -1px -2px 1px -2px rgba(255, 255, 255, 0.5), inset 0.2px 0.5px 1px 0px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.1);
 $liquid-shadow-hover: inset 0 0 0 1px rgba(255, 255, 255, 0.4), inset 1.5px 2px 0px -1.5px rgb(255, 255, 255), inset -1.5px -1.5px 0px -1.5px rgba(255, 255, 255, 0.9), inset -2px -3px 1px -2.5px rgba(255, 255, 255, 0.7), inset 0.3px 0.8px 1.5px 0px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.15);
 $liquid-transition: all 200ms cubic-bezier(0.5, 0, 0, 1);
-$liquid-scale-hover: scale(1.1);
+$liquid-scale-hover: scale(1.05);
 $liquid-scale-active: scale(0.95);
+
+// Button colors
+$btn-primary-bg: rgba(0, 0, 0, 0.95);
+$btn-success-bg: rgba(48, 209, 88, 0.8);
+$btn-danger-bg: rgba(255, 69, 58, 0.8);
+$btn-warning-bg: rgba(255, 159, 10, 0.8);
 
 // Theme Variables (default - light)
 :root {
@@ -36,6 +42,28 @@ $liquid-scale-active: scale(0.95);
   --glass-reflex-dark: 1;
   --glass-reflex-light: 1;
   --saturation: 150%;
+
+  /* Liquid Glass Effect */
+  --liquid-blur: 8px;
+  --liquid-saturation: 150%;
+  --liquid-bg: rgba(255, 255, 255, 0.6);
+  --liquid-bg-hover: rgba(255, 255, 255, 0.9);
+  --liquid-bg-active: rgba(0, 0, 0, 0.05);
+  --liquid-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 1px 1.5px 0px -1px rgba(255, 255, 255, 0.8), inset -1px -1px 0px -1px rgba(255, 255, 255, 0.7), inset -1px -2px 1px -2px rgba(255, 255, 255, 0.5), inset 0.2px 0.5px 1px 0px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.1);
+  --liquid-shadow-hover: inset 0 0 0 1px rgba(255, 255, 255, 0.4), inset 1.5px 2px 0px -1.5px rgb(255, 255, 255), inset -1.5px -1.5px 0px -1.5px rgba(255, 255, 255, 0.9), inset -2px -3px 1px -2.5px rgba(255, 255, 255, 0.7), inset 0.3px 0.8px 1.5px 0px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.15);
+  --liquid-transition: all 200ms cubic-bezier(0.5, 0, 0, 1);
+  --liquid-scale-hover: scale(1.05);
+  --liquid-scale-active: scale(0.95);
+
+  /* Button colors */
+  --btn-primary-bg: rgba(0, 0, 0, 0.8);
+  --btn-primary-border: rgba(0, 0, 0, 1);
+  --btn-success-bg: rgba(48, 209, 88, 0.8);
+  --btn-success-border: rgba(48, 209, 88, 1);
+  --btn-danger-bg: rgba(255, 69, 58, 0.8);
+  --btn-danger-border: rgba(255, 69, 58, 1);
+  --btn-warning-bg: rgba(255, 159, 10, 0.8);
+  --btn-warning-border: rgba(255, 159, 10, 1);
 }
 
 // Dim Theme
@@ -332,7 +360,7 @@ p {
   margin: 0 auto;
   padding: 24px;
   padding-bottom: 160px;
-  padding-top: 64px; // Account for fixed titlebar (40px + 24px)
+  padding-top: 75px;
 }
 
 // ==========================================================================
@@ -342,50 +370,81 @@ p {
 .btn {
   display: inline-block;
   padding: 10px 20px;
-  background: $bg;
-  border: $border;
-  border-radius: $radius;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: 15px;
   font-family: inherit;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  color: $color-text;
+  color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -2px -2px 2px 1px rgba(255, 255, 255, 0.3), 0 4px 8px 0 rgba(0, 0, 0, 0.2), 0 6px 20px 0 rgba(0, 0, 0, 0.2);
+  transition: all 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    background: $bg-secondary;
+    transform: scale(1.05);
+    background: rgba(255, 255, 255, 0.15);
+    color: rgba(0, 0, 0, 0.9);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   &:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
 .btn-primary {
-  background: $color-text;
-  color: white;
-  border-color: $color-text;
+  background: $btn-primary-bg;
+  color: #fff;
+  border: none;
+  box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -2px -2px 2px 1px rgba(255, 255, 255, 0.1), 0 4px 8px 0 rgba(0, 0, 0, 0.3), 0 6px 20px 0 rgba(0, 0, 0, 0.3);
 
   &:hover {
-    background: #333;
+    background: rgba(0, 0, 0, 1);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   &:disabled {
     opacity: 0.4;
-    background: $color-text;
+    background: $btn-primary-bg;
+    transform: none;
   }
 }
 
 .btn-success {
-  background: #34C759;
+  background: $btn-success-bg;
   color: white;
-  border-color: #34C759;
+  border: none;
+  box-shadow: inset 2px 2px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -2px -2px 2px 1px rgba(255, 255, 255, 0.1), 0 4px 8px 0 rgba(0, 0, 0, 0.3), 0 6px 20px 0 rgba(0, 0, 0, 0.3);
 
   &:hover {
-    background: #2DBF4E;
+    background: rgba(48, 209, 88, 1);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
   }
 
   &:disabled {
-    opacity: 0.4;
     background: #34C759;
   }
 }
@@ -459,20 +518,20 @@ p {
 // ==========================================================================
 
 .step {
-  background: $glass-bg;
+  background: rgba(187, 187, 188, 0.15);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid $glass-border;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 24px;
   padding: 20px 24px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 24px $glass-shadow, inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6), inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1), inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 400ms cubic-bezier(0.5, 0, 0, 1);
   position: relative;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.78);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+    background: rgba(187, 187, 188, 0.25);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 2px 3px 0px -2px rgba(255, 255, 255, 0.9), inset -2.5px -2.5px 0px -2px rgba(255, 255, 255, 0.8), inset -3px -8px 1px -5px rgba(255, 255, 255, 0.6), inset -0.4px -1.5px 3px 0px rgba(0, 0, 0, 0.12), inset -1.5px 2px 0px -1px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.15);
     transform: translateY(-2px);
   }
 }
@@ -604,15 +663,21 @@ p {
 }
 
 .preview-box {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 24px;
   text-align: center;
   min-width: 200px;
   overflow: hidden;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(187, 187, 188, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6), inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1), inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 300ms ease;
+
+  &:hover {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 2px 3px 0px -2px rgba(255, 255, 255, 0.9), inset -2.5px -2.5px 0px -2px rgba(255, 255, 255, 0.8), inset -3px -8px 1px -5px rgba(255, 255, 255, 0.6), inset -0.4px -1.5px 3px 0px rgba(0, 0, 0, 0.12), inset -1.5px 2px 0px -1px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.15);
+  }
 
   img {
     max-width: 100%;
@@ -2112,14 +2177,29 @@ $sidebar-width: 260px;
 .sidebar-content {
   width: $sidebar-width;
   height: 100vh;
-  background: $glass-bg;
+  background: rgba(187, 187, 188, 0.15);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-right: 1px solid $glass-border;
-  box-shadow: 0 4px 24px $glass-shadow;
-  padding: 16px;
-  padding-top: 56px;
+  border-right: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6), inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1), inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 56px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  transition: backdrop-filter 500ms ease, box-shadow 500ms ease;
+}
+
+.sidebar-steps {
+  flex: 0 0 auto;
   overflow-y: auto;
+}
+
+.sidebar-steps-header {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.7;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-step {
@@ -2157,6 +2237,93 @@ $sidebar-width: 260px;
   span {
     font-size: 14px;
     font-weight: 500;
+  }
+}
+
+.sidebar-help {
+  flex: 0 0 auto;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-help-header {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.7;
+  margin-bottom: 12px;
+}
+
+.sidebar-help-content {
+  font-size: 13px;
+  opacity: 0.6;
+  line-height: 1.6;
+
+  p {
+    margin: 0 0 6px 0;
+  }
+}
+
+.sidebar-refs {
+  flex: 0 0 auto;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-refs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.7;
+
+  small {
+    background: rgba(0, 122, 255, 0.2);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+  }
+}
+
+.sidebar-refs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+
+  .ref-thumb {
+    aspect-ratio: 1;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+    transition: all 200ms ease;
+
+    &:hover {
+      transform: scale(1.05);
+      border-color: rgba(0, 122, 255, 0.5);
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+}
+
+.sidebar-footer {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+
+  small {
+    font-size: 10px;
+    opacity: 0.5;
   }
 }
 

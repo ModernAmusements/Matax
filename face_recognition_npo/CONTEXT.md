@@ -6,6 +6,59 @@
 
 ---
 
+## Recent UI Updates (February 18, 2026)
+
+### Liquid Glass Design System
+- Added CSS variables for liquid glass effects in `:root`
+- All icons (titlebar, sidebar, steps) use consistent liquid styling
+- Sidebar, steps, preview-box all use same liquid glass background/shadow
+
+### CSS Variables Added
+```css
+--liquid-blur: 8px;
+--liquid-saturation: 150%;
+--liquid-bg: rgba(255, 255, 255, 0.6);
+--liquid-bg-hover: rgba(255, 255, 255, 0.9);
+--liquid-bg-active: rgba(0, 0, 0, 0.05);
+--liquid-shadow: ...;
+--liquid-shadow-hover: ...;
+--liquid-transition: all 200ms cubic-bezier(0.5, 0, 0, 1);
+--liquid-scale-hover: scale(1.05);
+--liquid-scale-active: scale(0.95);
+```
+
+### Sidebar Updates
+- Added "Steps" header section
+- Added step descriptions with small text
+- Added "How to Use" help section
+- Added References grid showing latest reference images
+- Added terminal in sidebar (fixed to bottom)
+- Added footer with "u+i experimental" and version
+
+### Button Updates
+- Liquid glass style with blur and shadows
+- Black background with white text
+- Scale animation on hover/active
+- No borders, uppercase text removed
+
+### Sidebar Structure
+```
+.sidebar-content
+├── .sidebar-steps
+│   ├── .sidebar-steps-header ("Steps")
+│   └── .sidebar-step (x4 with icons + labels)
+├── .sidebar-help
+│   ├── .sidebar-help-header
+│   └── .sidebar-help-content
+├── .sidebar-refs
+│   ├── .sidebar-refs-header
+│   └── .sidebar-refs-grid
+├── .sidebar-terminal
+└── .sidebar-footer
+```
+
+---
+
 ## ⚠️ CRITICAL WORKFLOW RULE - ALWAYS FOLLOW THIS
 
 **After EVERY code change, you MUST:**

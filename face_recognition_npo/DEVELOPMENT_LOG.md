@@ -1,9 +1,44 @@
 # NGO Facial Image Analysis System - Development Log
 
-**Last Updated**: February 15, 2026
+**Last Updated**: February 18, 2026
 **Project**: Face Recognition GUI for NGO Use
-**Version**: 0.5.0
-**Status**: ✅ Fully Functional - Enhanced Features (LBP, Asymmetry, Multi-Pose, 3D Normalization)
+**Version**: 0.6.0
+**Status**: ✅ Fully Functional - Liquid Glass UI Redesign
+
+---
+
+## Summary (February 18, 2026) - Liquid Glass UI
+
+### UI Changes (v0.6.0)
+
+| Component | Change |
+|-----------|--------|
+| Titlebar | Liquid glass styling with blur + inset shadows |
+| Sidebar | Added Steps header, descriptions, help section, references grid, terminal |
+| Buttons | Liquid glass style, black bg, white text, scale animation |
+| Steps | Liquid glass card styling with hover lift effect |
+| Preview-box | Liquid glass styling |
+| All Icons | Consistent 28-32px liquid glass buttons |
+
+### CSS Variables Added
+- `--liquid-blur`, `--liquid-saturation`, `--liquid-bg`, `--liquid-shadow`, etc.
+- `--btn-primary-bg`, `--btn-success-bg`, `--btn-danger-bg`
+
+### Sidebar Structure
+```
+.sidebar-content
+├── .sidebar-steps (with header)
+│   └── .sidebar-step x4 (icon + label + description)
+├── .sidebar-help (How to Use)
+├── .sidebar-refs (References grid)
+├── .sidebar-terminal (Terminal)
+└── .sidebar-footer (u+i experimental)
+```
+
+### Key Files Changed
+- `electron-ui/index.html` - Added sidebar sections
+- `electron-ui/styles/design-system.css` - Liquid glass styling
+- `electron-ui/renderer/app.js` - Added `updateSidebarRefs()`
 
 ---
 
