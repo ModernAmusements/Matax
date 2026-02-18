@@ -6,6 +6,18 @@
 
 ---
 
+## ⚠️ CRITICAL RULE: NEVER EDIT CSS FILES DIRECTLY
+
+**ALWAYS edit SCSS files only:**
+- Source: `electron-ui/styles/design-system.scss`
+- Compiled: `electron-ui/styles/design-system.css`
+- After editing SCSS, compile with: `npm run scss`
+- Or use `./start.sh` which auto-compiles
+
+**NEVER make changes directly to `.css` files - they will be overwritten!**
+
+---
+
 ## Recent UI Updates (February 18, 2026)
 
 ### Liquid Glass Design System
