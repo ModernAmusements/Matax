@@ -310,6 +310,7 @@ p {
 .preview-label {
   font-size: 12px;
   color: #666;
+  margin: 0;
 }
 
 .gallery {

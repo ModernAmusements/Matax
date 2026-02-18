@@ -869,6 +869,7 @@ p {
   border: 1px solid $color-border;
   border-radius: $radius;
   padding: 8px;
+  margin-bottom: 16px;
 }
 
 .ref-info-label {
@@ -902,6 +903,7 @@ p {
 
   &.active {
     display: block;
+    margin-bottom: 20px;
   }
 }
 
