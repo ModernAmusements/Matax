@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-MANTAX is an ethical, consent-based facial recognition system designed for NGO use cases such as documentation verification, missing persons investigations, and trafficking victim identification. Version 0.5.1 (February 2026).
+MANTAX is an ethical, consent-based facial recognition system designed for NGO use cases such as documentation verification, missing persons investigations, and trafficking victim identification. Version 0.5.2 (February 2026).
 
 **Core ethical principles:**
 - No automated identification decisions -- human review always required
@@ -38,9 +38,97 @@ Core ML Pipeline (src/)
 - `src/embedding/arcface_extractor.py` - ArcFace ONNX implementation
 
 ### Frontend (electron-ui/)
-- Electron Desktop App
+- Electron Desktop App (frameless with custom titlebar)
 - HTML/CSS/JavaScript with macOS Tahoe Liquid Glass design
+- Custom titlebar with traffic lights, sidebar toggle, step navigation
 - Three themes: light, dim, dark
+
+---
+
+## NEW: Apple Tahoe Sidebar (v0.5.2)
+
+### Sidebar Features
+- Slides in/out with smooth animation (260px width)
+- Overlay mode: slides under titlebar (z-index: 998)
+- Content pushes main container when open
+- Glass liquid effect with backdrop-filter blur
+
+### Sidebar HTML Structure
+```html
+<div class="sidebar" id="sidebar">
+    <div class="sidebar-content">
+        <div class="sidebar-step active" onclick="jumpToStep(1)">
+            <img src="person.fill.svg" class="step-icon">
+            <span>Choose Photo</span>
+        </div>
+    </div>
+</div>
+```
+
+### Sidebar CSS
+- `.sidebar`: position: fixed, width: 260px, z-index: 998
+- `.sidebar.open`: transform: translateX(0)
+- `.container.sidebar-open`: margin-left: 260px
+
+---
+
+## NEW: Custom Titlebar (v0.5.2)
+
+### Configuration
+- Electron: `frame: false, titleBarStyle: 'hidden', trafficLightPosition: { x: -100, y: 0 }`
+- Custom traffic lights in HTML (connected via IPC)
+
+### Titlebar Layout
+```
+┌─────────────────────────────────────────────────────────┐
+│ [☰] [●○○] [Step1] [Step2] [Step3] [Step4]   [⋮]    │
+│  ↑     ↑       ↑                              ↑        │
+│ Side  Traffic Step nav icons (click→jump)   Menu     │
+│ toggle Lights (liquid glass style)          (nothing) │
+└─────────────────────────────────────────────────────────┘
+```
+
+### HTML Structure
+```html
+<div class="titlebar">
+    <div class="titlebar-left">
+        <div class="traffic-lights">
+            <div class="light close" onclick="closeWindow()"></div>
+            <div class="light minimize" onclick="minimizeWindow()"></div>
+            <div class="light maximize" onclick="maximizeWindow()"></div>
+        </div>
+        <img src="sidebar.left.svg" onclick="toggleSidebar()">
+    </div>
+    <div class="titlebar-center">
+        <img src="person.fill.svg" class="step-nav-icon" onclick="jumpToStep(1)">
+        <img src="face.dashed.fill.svg" class="step-nav-icon" onclick="jumpToStep(2)">
+        <img src="photo.badge.plus.svg" class="step-nav-icon" onclick="jumpToStep(3)">
+        <img src="list.number.svg" class="step-nav-icon" onclick="jumpToStep(4)">
+    </div>
+    <div class="titlebar-right">
+        <img src="ellipsis.svg" class="menu-icon">
+    </div>
+</div>
+```
+
+### Step Navigation
+- Click step icon → jumpToStep(n) → scrolls to step AND highlights icon
+- Active state: `.step-nav-icon.active` with background highlight
+- Liquid glass container style in `.titlebar-center`
+
+### Traffic Light IPC
+- preload.js exposes: close(), minimize(), maximize()
+- main.js handles: ipcMain.on('window-close/minimize/maximize')
+
+### Available Icons (sf_icons/)
+| Icon | Use |
+|------|-----|
+| sidebar.left.svg | Sidebar toggle |
+| person.fill.svg | Step 1 - Choose Photo |
+| face.dashed.fill.svg | Step 2 - Find Faces |
+| photo.badge.plus.svg | Step 3 - Create Signature |
+| list.number.svg | Step 4 - Compare |
+| ellipsis.svg | 3-dot menu |
 
 ---
 
@@ -72,25 +160,30 @@ Core ML Pipeline (src/)
 
 ## Frontend Structure
 
-### HTML (index.html - 302 lines)
+### HTML (index.html - 350+ lines)
 - 5-step workflow: Choose Photo, Find Faces, Create Signature, Compare
+- Sidebar with step navigation
+- Custom titlebar with traffic lights, toggle, step icons, menu
 - 19+ visualization tabs (detection, landmarks, mesh3d, embedding, etc.)
 - 9 test tabs
 - Comparison results with expandable score breakdown
 - Reference details panel
-- Theme switcher (light/dim/dark)
 - Terminal footer, toast notifications
 
-### JavaScript (app.js - 1,326+ lines)
+### JavaScript (app.js - 1,400+ lines)
 - All API communication via fetch()
+- Sidebar: toggleSidebar(), jumpToStep(n)
+- Traffic lights: closeWindow(), minimizeWindow(), maximizeWindow()
 - Radio-button-based visualization tabs with sliding indicator animation
 - Key functions: handleImageSelect, detectFaces, extractFeatures, compareFaces, saveReference, showVisualization
 
-### CSS (design-system.scss - 1,963+ lines)
+### CSS (design-system.scss - 2,100+ lines)
 - macOS Tahoe Liquid Glass design system
 - Glassmorphism effects with backdrop-filter and saturate
 - Layered box shadows for glass reflections
 - CSS custom properties for theming
+- Sidebar styles (.sidebar, .sidebar.open, .container.sidebar-open)
+- Titlebar styles (.titlebar-center, .step-nav-icon, .traffic-lights)
 
 ---
 
@@ -198,10 +291,12 @@ python test_frontend_integration.py
 | electron-ui/index.html | Frontend HTML |
 | electron-ui/styles/design-system.scss | Design system (source) |
 | electron-ui/styles/design-system.css | Design system (compiled) |
+| electron-ui/main.js | Electron main process |
+| electron-ui/preload.js | Electron preload (IPC) |
 | start.sh | Startup script |
 | test_e2e_pipeline.py | E2E tests |
 | test_edge_cases.py | Edge case tests |
 
 ---
 
-*Last updated: February 17, 2026*
+*Last updated: February 18, 2026*

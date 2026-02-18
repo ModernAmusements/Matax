@@ -45,8 +45,9 @@ function createWindow() {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js')
         },
-        frame: true,
-        titleBarStyle: 'hiddenInset',
+        frame: false,
+        titleBarStyle: 'hidden',
+        trafficLightPosition: { x: -100, y: 0 },
         show: false
     });
 
@@ -125,6 +126,25 @@ function showAbout() {
         detail: 'NGO Facial Image Analysis System\n\nVersion 1.0.0\n\nAdvanced face detection and recognition powered by AI.'
     });
 }
+
+// IPC handlers for window controls
+ipcMain.on('window-close', () => {
+    if (mainWindow) mainWindow.close();
+});
+
+ipcMain.on('window-minimize', () => {
+    if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.on('window-maximize', () => {
+    if (mainWindow) {
+        if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+        } else {
+            mainWindow.maximize();
+        }
+    }
+});
 
 app.whenReady().then(async () => {
     const serverRunning = await checkApiServer();

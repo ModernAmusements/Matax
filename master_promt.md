@@ -64,7 +64,7 @@ done
 
 ### Technology Stack
 - **Backend**: Python Flask (api_server.py)
-- **Frontend**: Electron + Vanilla JS + SCSS
+- **Frontend**: Electron + Vanilla JS + SCSS (frameless with custom titlebar)
 - **ML**: ArcFace (ONNX) + FaceNet (PyTorch)
 - **Design**: macOS Tahoe Liquid Glass
 
@@ -84,4 +84,26 @@ cd electron-ui && npm run scss
 
 ---
 
-*Last updated: February 17, 2026*
+## NEW Features (v0.5.2)
+
+### Apple Tahoe Sidebar
+- Slides in/out (260px width)
+- Overlay mode under titlebar
+- Glass liquid effect
+
+### Custom Titlebar
+- Frameless window with custom traffic lights
+- Step navigation icons in center (liquid glass style)
+- Sidebar toggle on left, 3-dot menu on right
+
+### Available Icons (electron-ui/styles/sf_icons/)
+- sidebar.left.svg - Sidebar toggle
+- person.fill.svg - Step 1
+- face.dashed.fill.svg - Step 2
+- photo.badge.plus.svg - Step 3
+- list.number.svg - Step 4
+- ellipsis.svg - Menu
+
+---
+
+*Last updated: February 18, 2026*

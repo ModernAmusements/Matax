@@ -302,11 +302,10 @@ p {
 // ==========================================================================
 
 .container {
-  max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
   padding-bottom: 160px;
-  padding-top: 76px; // Account for fixed titlebar (52px + 24px)
+  padding-top: 64px; // Account for fixed titlebar (40px + 24px)
 }
 
 // ==========================================================================
@@ -1733,7 +1732,7 @@ input[type="file"] {
   top: 0;
   left: 0;
   right: 0;
-  height: 52px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1752,7 +1751,7 @@ input[type="file"] {
   transition: background 300ms cubic-bezier(1, 0, 0.4, 1), 
               backdrop-filter 300ms cubic-bezier(1, 0, 0.4, 1),
               box-shadow 300ms cubic-bezier(1, 0, 0.4, 1);
-  z-index: 1000;
+  z-index: 999;
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -1760,7 +1759,14 @@ input[type="file"] {
 .titlebar-left {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  width: 100px;
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
   gap: 8px;
+  
+  &.sidebar-open {
+    width: 235px;
+  }
 }
 
 .titlebar-btn {
@@ -1932,6 +1938,76 @@ input[type="file"] {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 99em;
+  background: rgba(187, 187, 188, 0.12);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  box-shadow: 
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9),
+    inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8),
+    inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6),
+    inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1),
+    inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+  gap: 4px;
+}
+
+.step-nav-icon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  opacity: 0.6;
+  transition: all 200ms ease;
+  filter: brightness(0);
+  
+  &:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  &.active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 40px;
+}
+
+.step-nav-icon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 200ms;
+  filter: brightness(0);
+  
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.menu-icon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 0.6;
+  filter: brightness(0);
+  
+  &:hover {
+    opacity: 1;
+  }
 }
 
 .titlebar-title {
@@ -1962,4 +2038,127 @@ input[type="file"] {
   .steps-row {
     flex-direction: column;
   }
+}
+
+// ==========================================================================
+// 25. SIDEBAR
+// ==========================================================================
+
+$sidebar-width: 260px;
+
+.sidebar-toggle-icon {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+  opacity: 0.8;
+  display: block;
+  filter: brightness(0);
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: $sidebar-width;
+  height: 100vh;
+  z-index: 998;
+  transform: translateX(-100%);
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.open {
+    transform: translateX(0);
+  }
+}
+
+.sidebar-content {
+  width: $sidebar-width;
+  height: 100vh;
+  background: $glass-bg;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-right: 1px solid $glass-border;
+  box-shadow: 0 4px 24px $glass-shadow;
+  padding: 16px;
+  padding-top: 56px;
+  overflow-y: auto;
+}
+
+.sidebar-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: all 200ms ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  &.active {
+    background: rgba(0, 122, 255, 0.15);
+    border: 1px solid rgba(0, 122, 255, 0.3);
+  }
+
+  .step-icon {
+    width: 24px;
+    height: 24px;
+    filter: brightness(0);
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+    opacity: 0.7;
+    filter: brightness(0);
+  }
+
+  span {
+    font-size: 14px;
+    font-weight: 500;
+  }
+}
+
+.traffic-lights {
+  display: flex;
+  gap: 8px;
+  
+  .light {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    
+    &.close { background: #FF5F57; }
+    &.minimize { background: #FFBD2E; }
+    &.maximize { background: #28CA41; }
+  }
+}
+
+.sidebar-toggle-icon {
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity 200ms;
+  display: block;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
+
+.container.sidebar-open {
+  margin-left: $sidebar-width;
+  max-width: calc(1200px - $sidebar-width);
+  transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1), max-width 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }

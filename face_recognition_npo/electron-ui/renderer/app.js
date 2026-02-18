@@ -1324,3 +1324,76 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==========================================================================
+// SIDEBAR FUNCTIONS
+// ==========================================================================
+
+let sidebarOpen = false;
+
+function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    const sidebar = document.getElementById('sidebar');
+    const container = document.querySelector('.container');
+    const titlebarLeft = document.querySelector('.titlebar-left');
+    
+    if (sidebarOpen) {
+        sidebar.classList.add('open');
+        container.classList.add('sidebar-open');
+        titlebarLeft.classList.add('sidebar-open');
+        logToTerminal('> Sidebar opened', 'info');
+    } else {
+        sidebar.classList.remove('open');
+        container.classList.remove('sidebar-open');
+        titlebarLeft.classList.remove('sidebar-open');
+        logToTerminal('> Sidebar closed', 'info');
+    }
+}
+
+function jumpToStep(stepNum) {
+    // Highlight in sidebar
+    document.querySelectorAll('.sidebar-step').forEach(el => el.classList.remove('active'));
+    const stepEl = document.getElementById(`sidebar-step-${stepNum}`);
+    if (stepEl) {
+        stepEl.classList.add('active');
+    }
+    
+    // Highlight in titlebar
+    document.querySelectorAll('.step-nav-icon').forEach(el => el.classList.remove('active'));
+    const navIcons = document.querySelectorAll('.step-nav-icon');
+    if (navIcons[stepNum - 1]) {
+        navIcons[stepNum - 1].classList.add('active');
+    }
+    
+    // Scroll to step in main content
+    const stepElement = document.getElementById(`step${stepNum}`);
+    if (stepElement) {
+        stepElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        logToTerminal(`> Jumped to Step ${stepNum}`, 'info');
+    }
+}
+
+// Traffic light handlers (Electron only)
+function closeWindow() {
+    if (window.electronAPI) {
+        window.electronAPI.close();
+    } else {
+        logToTerminal('> Close window (Electron only)', 'info');
+    }
+}
+
+function minimizeWindow() {
+    if (window.electronAPI) {
+        window.electronAPI.minimize();
+    } else {
+        logToTerminal('> Minimize window (Electron only)', 'info');
+    }
+}
+
+function maximizeWindow() {
+    if (window.electronAPI) {
+        window.electronAPI.maximize();
+    } else {
+        logToTerminal('> Maximize window (Electron only)', 'info');
+    }
+}
