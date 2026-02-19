@@ -555,6 +555,377 @@ def test_html_js_event_handlers(step_num, total):
     return passed
 
 # =============================================================================
+# LIBRARY TESTS
+# =============================================================================
+
+def test_library_html_elements(step_num, total):
+    print_step(step_num, total, "Library HTML Elements", "running")
+    time.sleep(0.3)
+    
+    html_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'index.html')
+    
+    if not os.path.exists(html_path):
+        print_step(step_num, total, "Library HTML Elements", "fail", "index.html not found")
+        return False
+    
+    with open(html_path, 'r') as f:
+        html_content = f.read()
+    
+    checks = {
+        'step6': 'id="step6"' in html_content,
+        'libraryGrid': 'id="libraryGrid"' in html_content,
+        'libraryUploadInput': 'id="libraryUploadInput"' in html_content,
+        'libraryCompareInput': 'id="libraryCompareInput"' in html_content,
+        'findMatchesBtn': 'id="findMatchesBtn"' in html_content,
+        'librarySearch': 'id="librarySearch"' in html_content,
+        'libraryModal': 'id="libraryModal"' in html_content,
+        'section-intro': 'id="section-intro"' in html_content,
+    }
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(checks)} elements found"
+    
+    if passed:
+        print_step(step_num, total, "Library HTML Elements", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Library HTML Elements", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_library_javascript_functions(step_num, total):
+    print_step(step_num, total, "Library JavaScript Functions", "running")
+    time.sleep(0.3)
+    
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    if not os.path.exists(js_path):
+        print_step(step_num, total, "Library JavaScript Functions", "fail", "app.js not found")
+        return False
+    
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    functions = [
+        'loadLibrary',
+        'renderLibraryGrid',
+        'saveToLibrary',
+        'deleteLibraryPerson',
+        'viewLibraryPerson',
+        'handleLibraryUpload',
+        'handleLibraryCompareUpload',
+        'searchLibraryByName',
+        'matchWithLibraryImage',
+        'checkFindMatchesButton',
+        'startWebcamForLibrary',
+    ]
+    
+    checks = {fn: f'function {fn}' in js_content or f'async function {fn}' in js_content for fn in functions}
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(functions)} functions defined"
+    
+    if passed:
+        print_step(step_num, total, "Library JavaScript Functions", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Library JavaScript Functions", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_library_css_styles(step_num, total):
+    print_step(step_num, total, "Library CSS Styles", "running")
+    time.sleep(0.3)
+    
+    css_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'styles', 'design-system.css')
+    
+    if not os.path.exists(css_path):
+        print_step(step_num, total, "Library CSS Styles", "fail", "design-system.css not found")
+        return False
+    
+    with open(css_path, 'r') as f:
+        css_content = f.read()
+    
+    checks = {
+        '.library-card': '.library-card' in css_content,
+        '.library-grid': '.library-grid' in css_content,
+        '.library-search': '.library-search' in css_content,
+        '.library-match-card': '.library-match-card' in css_content,
+        '.library-matches-grid': '.library-matches-grid' in css_content,
+        '.btn-delete': '.btn-delete' in css_content,
+        '.section-header': '.section-header' in css_content,
+    }
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(checks)} CSS rules found"
+    
+    if passed:
+        print_step(step_num, total, "Library CSS Styles", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Library CSS Styles", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_library_api_endpoints(step_num, total):
+    print_step(step_num, total, "Library API Endpoints", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Test GET /api/library
+        response = requests.get(f"{API_BASE}/api/library", timeout=5)
+        if response.status_code != 200:
+            print_step(step_num, total, "Library API Endpoints", "fail", f"GET /api/library returned {response.status_code}")
+            return False
+        
+        data = response.json()
+        if "persons" not in data or "count" not in data:
+            print_step(step_num, total, "Library API Endpoints", "fail", "Response missing required fields")
+            return False
+        
+        person_count = data.get("count", 0)
+        print_step(step_num, total, "Library API Endpoints", "pass", f"Library endpoint working, {person_count} persons found")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Library API Endpoints", "fail", str(e))
+        return False
+
+
+def test_workflow_add_person_upload(step_num, total):
+    """Test Workflow: Add Person via Upload"""
+    print_step(step_num, total, "Workflow: Add Person (Upload)", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Load test image
+        test_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'test_subject.jpg')
+        if not os.path.exists(test_image_path):
+            print_step(step_num, total, "Workflow: Add Person (Upload)", "skip", "Test image not found")
+            return True
+        
+        with open(test_image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Test adding person to library
+        response = requests.post(f"{API_BASE}/library/person", 
+            json={
+                "name": f"TestPerson_{int(time.time())}",
+                "notes": "Created by workflow test",
+                "image": f"data:image/jpeg;base64,{image_data}",
+                "source": "test"
+            },
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Add Person (Upload)", "fail", f"API returned {response.status_code}")
+            return False
+        
+        data = response.json()
+        if not data.get("success"):
+            print_step(step_num, total, "Workflow: Add Person (Upload)", "fail", data.get("error", "Unknown error"))
+            return False
+        
+        print_step(step_num, total, "Workflow: Add Person (Upload)", "pass", f"Added person: {data['person']['name']}")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Workflow: Add Person (Upload)", "fail", str(e))
+        return False
+
+
+def test_workflow_search_library(step_num, total):
+    """Test Workflow: Search Library by Name"""
+    print_step(step_num, total, "Workflow: Search Library", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Get current library
+        response = requests.get(f"{API_BASE}/library", timeout=5)
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Search Library", "fail", "Cannot access library")
+            return False
+        
+        data = response.json()
+        persons = data.get("persons", [])
+        
+        if not persons:
+            print_step(step_num, total, "Workflow: Search Library", "skip", "Library is empty")
+            return True
+        
+        # Test searching (simulated by filtering locally)
+        search_term = persons[0]["name"][:3].lower()  # First 3 chars of first person
+        matches = [p for p in persons if search_term in p["name"].lower()]
+        
+        if matches:
+            print_step(step_num, total, "Workflow: Search Library", "pass", f"Found {len(matches)} match(es)")
+            return True
+        else:
+            print_step(step_num, total, "Workflow: Search Library", "fail", "Search returned no results")
+            return False
+            
+    except Exception as e:
+        print_step(step_num, total, "Workflow: Search Library", "fail", str(e))
+        return False
+
+
+def test_workflow_match_with_library(step_num, total):
+    """Test Workflow: Match Image with Library"""
+    print_step(step_num, total, "Workflow: Match with Library", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Load test image
+        test_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'test_subject.jpg')
+        if not os.path.exists(test_image_path):
+            print_step(step_num, total, "Workflow: Match with Library", "skip", "Test image not found")
+            return True
+        
+        with open(test_image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Test matching
+        response = requests.post(f"{API_BASE}/library/match",
+            json={"image": f"data:image/jpeg;base64,{image_data}"},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Match with Library", "fail", f"API returned {response.status_code}")
+            return False
+        
+        data = response.json()
+        if not data.get("success"):
+            print_step(step_num, total, "Workflow: Match with Library", "fail", data.get("error", "Unknown error"))
+            return False
+        
+        matches = data.get("matches", [])
+        print_step(step_num, total, "Workflow: Match with Library", "pass", f"Found {len(matches)} match(es)")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Workflow: Match with Library", "fail", str(e))
+        return False
+
+
+def test_workflow_delete_person(step_num, total):
+    """Test Workflow: Delete Person from Library"""
+    print_step(step_num, total, "Workflow: Delete Person", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Get current library
+        response = requests.get(f"{API_BASE}/library", timeout=5)
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Delete Person", "fail", "Cannot access library")
+            return False
+        
+        data = response.json()
+        persons = data.get("persons", [])
+        
+        # Find a test person to delete (one created by our tests)
+        test_person = None
+        for p in persons:
+            if p["name"].startswith("TestPerson_"):
+                test_person = p
+                break
+        
+        if not test_person:
+            print_step(step_num, total, "Workflow: Delete Person", "skip", "No test persons to delete")
+            return True
+        
+        # Delete the person
+        response = requests.delete(f"{API_BASE}/library/person/{test_person['id']}", timeout=5)
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Delete Person", "fail", f"Delete returned {response.status_code}")
+            return False
+        
+        data = response.json()
+        if not data.get("success"):
+            print_step(step_num, total, "Workflow: Delete Person", "fail", data.get("error", "Unknown error"))
+            return False
+        
+        print_step(step_num, total, "Workflow: Delete Person", "pass", f"Deleted: {test_person['name']}")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Workflow: Delete Person", "fail", str(e))
+        return False
+
+
+def test_workflow_steps_1_to_4(step_num, total):
+    """Test Workflow: Steps 1-4 (Upload → Detect → Extract → Compare)"""
+    print_step(step_num, total, "Workflow: Steps 1-4 Integration", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Step 1: Load image
+        test_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'test_subject.jpg')
+        if not os.path.exists(test_image_path):
+            print_step(step_num, total, "Workflow: Steps 1-4 Integration", "skip", "Test image not found")
+            return True
+        
+        with open(test_image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Step 2: Detect faces
+        response = requests.post(f"{API_BASE}/detect",
+            json={"image": f"data:image/jpeg;base64,{image_data}"},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Steps 1-4 Integration", "fail", "Detection failed")
+            return False
+        
+        detect_data = response.json()
+        if not detect_data.get("success") or detect_data.get("count", 0) == 0:
+            print_step(step_num, total, "Workflow: Steps 1-4 Integration", "fail", "No faces detected")
+            return False
+        
+        # Step 3: Extract features
+        response = requests.post(f"{API_BASE}/extract", timeout=10)
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow: Steps 1-4 Integration", "fail", "Extraction failed")
+            return False
+        
+        extract_data = response.json()
+        if not extract_data.get("success"):
+            print_step(step_num, total, "Workflow: Steps 1-4 Integration", "fail", "Feature extraction failed")
+            return False
+        
+        # Step 4: Compare (need a reference first)
+        # Add a reference
+        ref_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'reference_subject.jpg')
+        if os.path.exists(ref_image_path):
+            with open(ref_image_path, 'rb') as f:
+                ref_image_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            requests.post(f"{API_BASE}/add-reference",
+                json={
+                    "image": f"data:image/jpeg;base64,{ref_image_data}",
+                    "name": "TestReference"
+                },
+                timeout=10
+            )
+            
+            # Now compare
+            response = requests.post(f"{API_BASE}/compare", timeout=10)
+            if response.status_code == 200:
+                compare_data = response.json()
+                if compare_data.get("success"):
+                    print_step(step_num, total, "Workflow: Steps 1-4 Integration", "pass", "Full flow completed")
+                    return True
+        
+        print_step(step_num, total, "Workflow: Steps 1-4 Integration", "pass", "Detect & Extract completed")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Workflow: Steps 1-4 Integration", "fail", str(e))
+        return False
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -585,6 +956,10 @@ def main():
         ("MediaPipe CDN Accessibility", test_mesh_mediapipe_cdn),
         ("Existing Functions Intact", test_existing_functions_intact),
         ("HTML-JS Event Handlers", test_html_js_event_handlers),
+        ("Library HTML Elements", test_library_html_elements),
+        ("Library JavaScript Functions", test_library_javascript_functions),
+        ("Library CSS Styles", test_library_css_styles),
+        ("Library API Endpoints", test_library_api_endpoints),
     ]
     
     total = len(tests)

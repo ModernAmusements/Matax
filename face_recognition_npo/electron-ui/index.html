@@ -15,7 +15,14 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <div class="sidebar-steps">
-                <div class="sidebar-steps-header">Steps</div>
+                <div class="sidebar-steps-header">Navigation</div>
+                <div class="sidebar-step" id="sidebar-step-library" onclick="jumpToStep(6)">
+                    <img src="/styles/sf_icons/person.fill.svg" class="step-icon" alt="Library">
+                    <div class="step-label">
+                        <span>Reference Library</span>
+                        <small>Manage saved persons</small>
+                    </div>
+                </div>
                 <div class="sidebar-step active" id="sidebar-step-1" onclick="jumpToStep(1)">
                     <img src="/styles/sf_icons/person.fill.svg" class="step-icon" alt="Step 1">
                     <div class="step-label">
@@ -116,6 +123,64 @@
     <div class="container">
         <!-- Title moved to titlebar -->
 
+        <!-- General App Info Section -->
+        <div class="step section-header" id="section-intro">
+            <div class="section-header-content">
+                <span class="section-number">About</span>
+                <h1>MANTAX Reference Library</h1>
+                <p class="app-description">
+                    <strong>MANTAX</strong> is a privacy-focused facial recognition system designed for ethical use cases 
+                    such as missing persons identification, documentation verification, and consented identity matching.
+                </p>
+                <p class="ethics-notice">
+                    <strong>Ethical Use Only:</strong> This tool must only be used with explicit consent and for legitimate, 
+                    legal purposes. All data is stored locally and never transmitted to external servers. Users are 
+                    responsible for complying with privacy laws (GDPR, CCPA) and obtaining proper authorization 
+                    before processing biometric data.
+                </p>
+                <p class="scientific-note">
+                    <strong>Scientific & Safety Information:</strong> MANTAX uses state-of-the-art neural networks 
+                    (ArcFace, FaceNet) with confidence scoring. Match results include probability bands, not binary 
+                    yes/no answers. Always verify matches with additional evidence. Human-in-the-loop review is 
+                    mandatory for all critical decisions. False positives and false negatives are possible.
+                </p>
+            </div>
+        </div>
+
+        <!-- Reference Library Section -->
+        <div class="step" id="step6">
+            <div class="step-checkmark">✓</div>
+            <div class="step-header">
+                <div>
+                    <span class="step-number">Step 6</span>
+                    <h2>Reference Library</h2>
+                    <p>Manage your saved reference persons. Upload images or capture from webcam to add to the library.</p>
+                    <p id="libraryStatus" class="status">Loading library...</p>
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="document.getElementById('libraryUploadInput').click()">+ Add Person (Upload)</button>
+                <button class="btn" onclick="startWebcamForLibrary()">+ Add Person (Webcam)</button>
+                <input type="file" id="libraryUploadInput" accept="image/*" onchange="handleLibraryUpload(event)" style="display:none">
+            </div>
+
+            <div class="library-section-title">Search & Compare</div>
+            <div class="library-search">
+                <input type="text" id="librarySearch" placeholder="Search by name..." onkeyup="if(event.key === 'Enter') searchLibraryByName(this.value)">
+                <button class="btn" onclick="searchLibraryByName(document.getElementById('librarySearch').value)">Search</button>
+                <button class="btn" onclick="document.getElementById('librarySearch').value=''; renderLibraryGrid()">Clear</button>
+            </div>
+            <div class="library-actions">
+                <button class="btn btn-success" onclick="matchWithLibraryImage(currentImage)" id="findMatchesBtn" disabled>Find Matches (Current Image)</button>
+                <button class="btn" onclick="document.getElementById('libraryCompareInput').click()">Upload & Compare</button>
+                <input type="file" id="libraryCompareInput" accept="image/*" onchange="handleLibraryCompareUpload(event)" style="display:none">
+            </div>
+
+            <div class="library-grid" id="libraryGrid">
+                <div class="empty-state">No persons in library. Add your first reference!</div>
+            </div>
+        </div>
+
         <!-- Input Methods Row -->
         <div class="steps-row">
             <!-- Step 1 -->
@@ -168,6 +233,10 @@
                     <canvas id="meshCanvas" class="mesh-canvas"></canvas>
                     <canvas id="webcamCanvas" class="hidden"></canvas>
                 </div>
+                <div class="capture-actions hidden" id="captureActions">
+                    <button class="btn" onclick="useForMatching()">Use for Matching</button>
+                    <button class="btn btn-success" onclick="showLibraryModal()">Save to Library</button>
+                </div>
             </div>
         </div>
 
@@ -213,13 +282,22 @@
                     <div>
                         <span class="step-number">Step 4</span>
                         <h2>Compare</h2>
-                        <p>Match extracted features against your reference database.</p>
+                        <p>Match extracted features against your reference library or upload temporary references.</p>
                         <p id="compareStatus" class="status">Waiting for extraction...</p>
                     </div>
                 </div>
-                <button class="btn" onclick="addReference()">+ Add Reference</button>
-                <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)">
-                <p class="step-hint">Upload a reference image to compare against</p>
+                
+                <!-- Library References Section -->
+                <div class="step-section-title">Library References</div>
+                <div class="library-refs-list" id="step4LibraryList">
+                    <p class="empty-hint">No library persons. Add persons in Step 6.</p>
+                </div>
+                
+                <!-- Temporary Upload Section -->
+                <div class="step-section-title">Or Upload Temporary Reference</div>
+                <button class="btn" onclick="addReference()">+ Upload Reference</button>
+                <input type="file" id="refInput" accept="image/*" onchange="handleReferenceSelect(event)" style="display:none">
+                <p class="step-hint">For one-time comparison only (not saved to library)</p>
                 <div class="reference-list" id="referenceList"></div>
 
                 <div class="reference-details" id="referenceDetails">
@@ -238,7 +316,9 @@
                 </div>
 
                 <button class="btn btn-primary btn-margin-top" onclick="compareFaces()" id="compareBtn"
-                    disabled>Compare</button>
+                    disabled>Compare with Selected</button>
+                <button class="btn btn-success btn-margin-top" onclick="compareWithLibrary()" id="compareLibraryBtn"
+                    disabled>Compare with All Library</button>
             </div>
 
             <!-- Comparison Result -->
@@ -347,6 +427,43 @@
                     <p>Run analysis to see visualizations</p>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Library Modal -->
+    <div class="modal hidden" id="libraryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Save to Reference Library</h3>
+                <button class="btn-close-liquid" onclick="closeLibraryModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <img id="libraryPreviewImg" class="preview-thumb" src="" alt="Preview">
+                <div class="form-group">
+                    <label>Person Name *</label>
+                    <input type="text" id="libraryPersonName" placeholder="Enter name">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="libraryPersonNotes" placeholder="Optional notes"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn" onclick="closeLibraryModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveToLibrary()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Library Info Popup -->
+    <div class="library-popup-overlay" id="libraryPopupOverlay" onclick="closeLibraryInfoPopup()"></div>
+    <div class="library-info-popup" id="libraryInfoPopup">
+        <div class="popup-header">
+            <h4 id="popupPersonName">Person Details</h4>
+            <button class="btn-close" onclick="closeLibraryInfoPopup()">×</button>
+        </div>
+        <div class="popup-content" id="popupContent">
+            <!-- Content populated by JS -->
         </div>
     </div>
 

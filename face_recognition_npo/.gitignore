@@ -78,3 +78,6 @@ tmp/
 *.tmp
 *.bak
 *~
+
+# Reference Library (contains personal/biometric data - never commit)
+reference_library/

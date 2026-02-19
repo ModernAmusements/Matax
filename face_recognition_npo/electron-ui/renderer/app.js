@@ -267,6 +267,8 @@ function handleImageSelect(event) {
         resetSteps();
         markStepComplete('step1', 'detectBtn');
         event.target.value = '';
+        checkLibraryCompareButton();
+        checkFindMatchesButton();
     };
     reader.onerror = (err) => {
         logToTerminal('> Error reading file', 'error');
@@ -526,6 +528,8 @@ async function extractFeatures() {
         showToast('Error: ' + err.message, 'error');
     } finally {
         hideLoading();
+        checkLibraryCompareButton();
+        checkFindMatchesButton();
     }
 }
 
@@ -831,6 +835,101 @@ function updateReferenceList() {
     
     // Also update sidebar refs
     updateSidebarRefs();
+    
+    // Also update Step 4 library list
+    loadStep4Library();
+}
+
+// Load library persons into Step 4
+async function loadStep4Library() {
+    const container = document.getElementById('step4LibraryList');
+    if (!container) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/library`);
+        const data = await response.json();
+        
+        if (!data.persons || data.persons.length === 0) {
+            container.innerHTML = '<p class="empty-hint">No library persons. Add persons in Step 6.</p>';
+            updateCompareButtons(false);
+            return;
+        }
+        
+        container.innerHTML = data.persons.map(person => {
+            const thumbnail = person.first_image_thumbnail || '';
+            
+            return `
+                <div class="library-ref-item" onclick="selectLibraryRefForCompare('${person.id}', '${person.name}')">
+                    <img src="${thumbnail}" class="library-ref-thumb" alt="${person.name}">
+                    <div class="library-ref-info">
+                        <span class="library-ref-name">${person.name}</span>
+                        <span class="library-ref-count">${person.image_count} image(s)</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        // Enable compare buttons since library has persons
+        updateCompareButtons(true);
+        
+    } catch (err) {
+        console.error('Failed to load Step 4 library:', err);
+        container.innerHTML = '<p class="empty-hint">Error loading library</p>';
+        updateCompareButtons(false);
+    }
+}
+
+// Update compare buttons based on library status
+function updateCompareButtons(hasLibraryPersons) {
+    const compareBtn = document.getElementById('compareBtn');
+    const compareLibraryBtn = document.getElementById('compareLibraryBtn');
+    
+    // Compare with Library button - enabled if library has persons
+    if (compareLibraryBtn) {
+        compareLibraryBtn.disabled = !hasLibraryPersons;
+    }
+    
+    // Compare with Selected button - enabled if has references OR selected library refs
+    if (compareBtn) {
+        const hasRefs = references && references.length > 0;
+        const hasSelected = selectedLibraryRefs && selectedLibraryRefs.length > 0;
+        compareBtn.disabled = !hasRefs && !hasSelected;
+    }
+}
+
+// Track selected library refs for comparison
+let selectedLibraryRefs = [];
+
+function selectLibraryRefForCompare(personId, personName) {
+    // Toggle selection
+    const index = selectedLibraryRefs.indexOf(personId);
+    if (index > -1) {
+        selectedLibraryRefs.splice(index, 1);
+    } else {
+        selectedLibraryRefs.push(personId);
+    }
+    
+    // Update UI to show selection
+    const items = document.querySelectorAll('.library-ref-item');
+    items.forEach(item => {
+        const onclickAttr = item.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes(`'${personId}'`)) {
+            item.classList.toggle('selected');
+        }
+    });
+    
+    // Enable/disable compare button
+    const compareBtn = document.getElementById('compareBtn');
+    if (compareBtn) {
+        compareBtn.disabled = selectedLibraryRefs.length === 0 && (!references || references.length === 0);
+        if (selectedLibraryRefs.length > 0) {
+            compareBtn.textContent = `Compare with Selected (${selectedLibraryRefs.length})`;
+        } else {
+            compareBtn.textContent = 'Compare with Selected';
+        }
+    }
+    
+    logToTerminal(`> Selected library ref: ${personName}`, 'info');
 }
 
 function updateSidebarRefs() {
@@ -1290,6 +1389,11 @@ function captureWebcam() {
     logToTerminal('> Frame captured, processing...', 'info');
     handleImageSelect(mockEvent);
     
+    // Show capture actions and enable library buttons
+    showCaptureActions();
+    checkLibraryCompareButton();
+    checkFindMatchesButton();
+    
     status.textContent = 'Photo captured! Continue with Step 2';
     showToast('Photo captured from webcam', 'success');
 }
@@ -1617,3 +1721,554 @@ function maximizeWindow() {
         logToTerminal('> Maximize window (Electron only)', 'info');
     }
 }
+
+// =============================================================================
+// REFERENCE LIBRARY FUNCTIONS
+// =============================================================================
+
+let libraryPersons = [];
+let libraryImageData = null;
+let librarySource = 'upload';
+
+// Show capture actions after webcam capture
+function showCaptureActions() {
+    const el = document.getElementById('captureActions');
+    if (el) el.classList.remove('hidden');
+}
+
+function hideCaptureActions() {
+    const el = document.getElementById('captureActions');
+    if (el) el.classList.add('hidden');
+}
+
+// Use current image for matching (existing behavior)
+function useForMatching() {
+    hideCaptureActions();
+    logToTerminal('> Use for matching', 'info');
+}
+
+// Show library modal
+function showLibraryModal() {
+    const modal = document.getElementById('libraryModal');
+    const preview = document.getElementById('libraryPreviewImg');
+    
+    if (!modal) {
+        console.warn('Library modal not found');
+        return;
+    }
+    
+    if (preview && currentImage) {
+        preview.src = currentImage;
+        preview.style.display = 'block';
+        libraryImageData = currentImage;
+        librarySource = currentWebcamActive ? 'webcam' : 'upload';
+    } else if (preview) {
+        preview.style.display = 'none';
+    }
+    
+    modal.classList.remove('hidden');
+    
+    const nameInput = document.getElementById('libraryPersonName');
+    if (nameInput) nameInput.focus();
+}
+
+// Close library modal
+function closeLibraryModal() {
+    const modal = document.getElementById('libraryModal');
+    modal.classList.add('hidden');
+    document.getElementById('libraryPersonName').value = '';
+    document.getElementById('libraryPersonNotes').value = '';
+    libraryImageData = null;
+}
+
+// Save to library
+async function saveToLibrary() {
+    const name = document.getElementById('libraryPersonName').value.trim();
+    const notes = document.getElementById('libraryPersonNotes').value.trim();
+    
+    if (!name) {
+        showToast('Please enter a name', 'warning');
+        return;
+    }
+    
+    if (!libraryImageData) {
+        showToast('No image to save', 'warning');
+        return;
+    }
+    
+    showLoading('Saving to library...');
+    
+    try {
+        const response = await fetch(`${API_BASE}/library/person`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                notes: notes,
+                image: libraryImageData,
+                source: librarySource
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast(`Saved "${name}" to library`, 'success');
+            closeLibraryModal();
+            hideCaptureActions();
+            loadLibrary();
+        } else {
+            showToast(data.error || 'Failed to save', 'error');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Load library on startup
+async function loadLibrary() {
+    try {
+        const response = await fetch(`${API_BASE}/library`);
+        const data = await response.json();
+        
+        if (data.persons) {
+            libraryPersons = data.persons;
+            renderLibraryGrid();
+            const statusEl = document.getElementById('libraryStatus');
+            if (statusEl) {
+                statusEl.textContent = `${data.count} person(s) in library`;
+            }
+        }
+    } catch (err) {
+        console.error('Failed to load library:', err);
+        const statusEl = document.getElementById('libraryStatus');
+        if (statusEl) {
+            statusEl.textContent = 'Error loading library';
+        }
+    }
+}
+
+// Render library grid
+function renderLibraryGrid() {
+    const grid = document.getElementById('libraryGrid');
+    
+    if (!grid) {
+        console.warn('Library grid element not found');
+        return;
+    }
+    
+    // Ensure grid is active/visible in normal grid mode
+    grid.classList.add('active');
+    grid.classList.remove('hidden');
+    grid.classList.remove('results-mode');
+    
+    if (!libraryPersons.length) {
+        grid.innerHTML = '<div class="empty-state">No persons in library. Add your first reference!</div>';
+        return;
+    }
+    
+    grid.innerHTML = libraryPersons.map(person => {
+        const thumbnail = person.first_image_thumbnail || '';
+        const personId = person.id;
+        
+        return `
+        <div class="library-card" data-person-id="${personId}">
+            <div class="library-card-image-container">
+                <img src="${thumbnail}" class="library-card-thumb" alt="${person.name}">
+            </div>
+            <div class="library-card-content">
+                <div class="library-card-name">${person.name}</div>
+                <div class="library-card-info">${person.image_count} image(s)</div>
+            </div>
+            <div class="library-card-actions">
+                <button class="btn-icon-small" onclick="event.stopPropagation(); viewLibraryPerson('${personId}')" title="View Info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                    </svg>
+                </button>
+                <button class="btn-icon-small btn-icon-danger" onclick="event.stopPropagation(); deleteLibraryPerson('${personId}')" title="Delete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `}).join('');
+    
+    // Update Step 4 library list as well
+    loadStep4Library();
+}
+
+// View person details in popup
+async function viewLibraryPerson(personId) {
+    try {
+        const response = await fetch(`${API_BASE}/library/person/${personId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+            showLibraryInfoPopup(data.person, data.embeddings);
+        }
+    } catch (err) {
+        showToast('Error loading person', 'error');
+    }
+}
+
+// Show library info popup with meta info
+function showLibraryInfoPopup(person, embeddings) {
+    const popup = document.getElementById('libraryInfoPopup');
+    const overlay = document.getElementById('libraryPopupOverlay');
+    const nameEl = document.getElementById('popupPersonName');
+    const contentEl = document.getElementById('popupContent');
+    
+    if (!popup || !overlay || !nameEl || !contentEl) return;
+    
+    // Set name
+    nameEl.textContent = person.name;
+    
+    // Get first image data
+    const firstImage = embeddings && embeddings.images && embeddings.images[0] ? embeddings.images[0] : null;
+    
+    // Build meta info HTML
+    let metaHTML = '';
+    
+    // Basic info
+    metaHTML += `
+        <div class="meta-item">
+            <span class="meta-label">ID</span>
+            <span class="meta-value">${person.id}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Images</span>
+            <span class="meta-value">${person.image_count}</span>
+        </div>
+    `;
+    
+    // Dates
+    if (person.created_at) {
+        const createdDate = new Date(person.created_at).toLocaleDateString();
+        metaHTML += `
+            <div class="meta-item">
+                <span class="meta-label">Created</span>
+                <span class="meta-value">${createdDate}</span>
+            </div>
+        `;
+    }
+    
+    // Notes
+    if (person.notes) {
+        metaHTML += `
+            <div class="meta-item">
+                <span class="meta-label">Notes</span>
+                <span class="meta-value">${person.notes}</span>
+            </div>
+        `;
+    }
+    
+    // Image details if available
+    if (firstImage) {
+        if (firstImage.pose_category) {
+            metaHTML += `
+                <div class="meta-item">
+                    <span class="meta-label">Pose</span>
+                    <span class="meta-value">${firstImage.pose_category}</span>
+                </div>
+            `;
+        }
+        
+        if (firstImage.quality) {
+            const quality = firstImage.quality;
+            const blurScore = quality.blur_score ? (quality.blur_score * 100).toFixed(1) + '%' : 'N/A';
+            const brightness = quality.brightness ? (quality.brightness * 100).toFixed(1) + '%' : 'N/A';
+            metaHTML += `
+                <div class="meta-item">
+                    <span class="meta-label">Quality</span>
+                    <span class="meta-value">Sharp: ${blurScore}, Bright: ${brightness}</span>
+                </div>
+            `;
+        }
+        
+        // Add thumbnail
+        if (firstImage.thumbnail) {
+            metaHTML += `<img src="data:image/jpeg;base64,${firstImage.thumbnail}" class="meta-image" alt="${person.name}">`;
+        }
+    }
+    
+    contentEl.innerHTML = metaHTML;
+    
+    // Show popup
+    popup.classList.add('active');
+    overlay.classList.add('active');
+}
+
+// Close library info popup
+function closeLibraryInfoPopup() {
+    const popup = document.getElementById('libraryInfoPopup');
+    const overlay = document.getElementById('libraryPopupOverlay');
+    
+    if (popup) popup.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+}
+
+// Delete person
+async function deleteLibraryPerson(personId) {
+    if (!confirm('Delete this person from library?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/library/person/${personId}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Person deleted', 'success');
+            loadLibrary();
+        } else {
+            showToast(data.error || 'Error deleting', 'error');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    }
+}
+
+// Handle library upload
+function handleLibraryUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        libraryImageData = e.target.result;
+        librarySource = 'upload';
+        showLibraryModal();
+    };
+    reader.readAsDataURL(file);
+    event.target.value = '';
+}
+
+// Start webcam for library
+let currentWebcamActive = false;
+
+async function startWebcamForLibrary() {
+    currentWebcamActive = true;
+    await startWebcam();
+    
+    // Scroll to webcam section
+    const webcamStep = document.getElementById('webcamStep');
+    if (webcamStep) {
+        webcamStep.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    currentWebcamActive = false;
+}
+
+// Compare with library
+async function compareWithLibrary() {
+    if (!currentImage) {
+        showToast('No image to compare', 'warning');
+        return;
+    }
+    
+    showLoading('Comparing with library...');
+    logToTerminal('> Comparing with library...', 'command');
+    
+    try {
+        const response = await fetch(`${API_BASE}/library/match`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: currentImage })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.matches.length > 0) {
+            const best = data.matches[0];
+            logToTerminal(`> Best match: ${best.person_name} (${(best.score * 100).toFixed(1)}%)`, 'success');
+            showToast(`Best match: ${best.person_name}`, 'success');
+            
+            // Update comparison result display
+            document.getElementById('matchStatus').textContent = best.person_name;
+            document.getElementById('matchScore').textContent = `${(best.score * 100).toFixed(1)}%`;
+            
+            // Show thumbnail if available
+            if (best.best_image && best.best_image.thumbnail) {
+                document.getElementById('refImage').src = `data:image/jpeg;base64,${best.best_image.thumbnail}`;
+            }
+        } else if (data.success && data.matches.length === 0) {
+            logToTerminal('> No matches found in library', 'info');
+            showToast('No matches found', 'info');
+        } else {
+            logToTerminal(`> Error: ${data.error}`, 'error');
+            showToast(data.error || 'Match failed', 'error');
+        }
+    } catch (err) {
+        logToTerminal(`> Error: ${err.message}`, 'error');
+        showToast('Error: ' + err.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Enable library compare button when we have an image
+function checkLibraryCompareButton() {
+    const btn = document.getElementById('compareLibraryBtn');
+    if (btn) {
+        btn.disabled = !currentImage;
+    }
+}
+
+function checkFindMatchesButton() {
+    const btn = document.getElementById('findMatchesBtn');
+    if (btn) {
+        btn.disabled = !currentImage;
+    }
+}
+
+// Search library by name
+async function searchLibraryByName(name) {
+    if (!name || name.length < 1) {
+        renderLibraryGrid();
+        return;
+    }
+    
+    const searchTerm = name.toLowerCase();
+    const found = libraryPersons.filter(p => 
+        p.name.toLowerCase().includes(searchTerm)
+    );
+    
+    const grid = document.getElementById('libraryGrid');
+    if (!grid) {
+        console.warn('Library grid element not found');
+        return;
+    }
+    
+    if (found.length === 0) {
+        grid.innerHTML = '<div class="empty-state">No persons found matching "' + name + '"</div>';
+    } else {
+        grid.innerHTML = found.map(person => `
+            <div class="library-card" onclick="viewLibraryPerson('${person.id}')">
+                <div class="library-card-name">${person.name}</div>
+                <div class="library-card-info">${person.image_count} image(s)</div>
+                <button class="btn-delete" onclick="event.stopPropagation(); deleteLibraryPerson('${person.id}')">Delete</button>
+            </div>
+        `).join('');
+    }
+}
+
+// Match current image with library - uses comparison-result style
+async function matchWithLibraryImage(imageData) {
+    if (!imageData) {
+        showToast('No image to match', 'warning');
+        return;
+    }
+    
+    showLoading('Matching with library...');
+    
+    try {
+        const response = await fetch(`${API_BASE}/library/match`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: imageData })
+        });
+        
+        const data = await response.json();
+        const grid = document.getElementById('libraryGrid');
+        
+        if (!grid) {
+            console.warn('Library grid element not found');
+            return;
+        }
+        
+        // Switch to results mode (flex column)
+        grid.classList.add('results-mode');
+        
+        if (data.success && data.matches.length > 0) {
+            logToTerminal(`> Found ${data.matches.length} match(es) in library`, 'success');
+            
+            // Use comparison-result style for matches
+            grid.innerHTML = `
+                <div class="library-matches-header">
+                    <h3>Best Matches</h3>
+                    <button class="btn" onclick="renderLibraryGrid()">Back to Library</button>
+                </div>
+                <div class="library-matches-grid">
+                    ${data.matches.map((match, index) => `
+                        <div class="library-match-card ${index === 0 ? 'best-match' : ''}" onclick="viewLibraryPerson('${match.person_id}')">
+                            <div class="match-rank">#${index + 1}</div>
+                            <div class="match-thumbnail">
+                                ${match.best_image && match.best_image.thumbnail ? 
+                                    `<img src="data:image/jpeg;base64,${match.best_image.thumbnail}" alt="${match.person_name}">` : 
+                                    '<div class="no-thumb">👤</div>'}
+                            </div>
+                            <div class="match-info">
+                                <div class="match-name">${match.person_name}</div>
+                                <div class="match-score ${getScoreClass(match.score)}">${(match.score * 100).toFixed(1)}%</div>
+                                <div class="match-label">${getMatchLabel(match.score)}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            showToast(`Found ${data.matches.length} match(es)!`, 'success');
+        } else {
+            grid.innerHTML = '<div class="empty-state">No matches found in library</div>';
+            showToast('No matches found', 'info');
+        }
+    } catch (err) {
+        console.error('Match error:', err);
+        showToast('Error: ' + err.message, 'error');
+        renderLibraryGrid();
+    } finally {
+        hideLoading();
+    }
+}
+
+// Helper functions for match display
+function getScoreClass(score) {
+    if (score >= 0.7) return 'high';
+    if (score >= 0.5) return 'medium';
+    return 'low';
+}
+
+function getMatchLabel(score) {
+    if (score >= 0.7) return 'Strong Match';
+    if (score >= 0.5) return 'Possible Match';
+    return 'Weak Match';
+}
+
+// Handle upload specifically for comparing (not adding to library)
+function handleLibraryCompareUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const imageData = e.target.result;
+        matchWithLibraryImage(imageData);
+    };
+    reader.readAsDataURL(file);
+    event.target.value = ''; // Reset so same file can be selected again
+}
+
+// Legacy function - redirects to correct handler
+async function searchLibrary(query) {
+    if (!query) {
+        renderLibraryGrid();
+        return;
+    }
+    if (typeof query === 'string' && query.startsWith('data:image')) {
+        await matchWithLibraryImage(query);
+    } else {
+        await searchLibraryByName(query);
+    }
+}
+
+// Load library on startup
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(loadLibrary, 1000);
+});

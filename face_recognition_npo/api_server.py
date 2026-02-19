@@ -10,6 +10,9 @@ import json
 import base64
 import io
 import threading
+import uuid
+import shutil
+import datetime
 from typing import List, Dict, Tuple, Optional
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -1502,6 +1505,321 @@ def webcam_detect():
         'faces': [{'x': x, 'y': y, 'w': w, 'h': h} for x, y, w, h in current_faces],
         'image': f'data:image/jpeg;base64,{image_base64}'
     })
+
+
+# =============================================================================
+# REFERENCE LIBRARY ENDPOINTS
+# =============================================================================
+
+LIBRARY_DIR = "reference_library"
+PERSONS_DIR = os.path.join(LIBRARY_DIR, "persons")
+os.makedirs(PERSONS_DIR, exist_ok=True)
+
+
+def get_person_by_name(name: str) -> Optional[str]:
+    """Check if person exists by name, return folder if found."""
+    sanitized = secure_filename(name).replace('_', '-')
+    if not os.path.exists(PERSONS_DIR):
+        return None
+    for folder in os.listdir(PERSONS_DIR):
+        if folder.endswith(f"-{sanitized}"):
+            return folder
+    return None
+
+
+def secure_filename(s: str) -> str:
+    """Simple filename sanitization."""
+    import re
+    s = re.sub(r'[^\w\s-]', '', s)
+    s = s.strip().replace(' ', '_')
+    return s
+
+
+def save_person_image(face_image: np.ndarray, person_dir: str, image_id: str) -> str:
+    """Save compressed face image (JPEG 80%), return filename."""
+    filename = f"{image_id}.jpg"
+    filepath = os.path.join(person_dir, "images", filename)
+    os.makedirs(os.path.join(person_dir, "images"), exist_ok=True)
+    cv2.imwrite(filepath, face_image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+    return filename
+
+
+@app.route('/api/library', methods=['GET'])
+def get_library():
+    """List all persons in the library."""
+    persons = []
+    if not os.path.exists(PERSONS_DIR):
+        return jsonify({"persons": [], "count": 0})
+    
+    for folder in os.listdir(PERSONS_DIR):
+        meta_path = os.path.join(PERSONS_DIR, folder, "metadata.json")
+        if os.path.exists(meta_path):
+            try:
+                with open(meta_path, 'r') as f:
+                    person = json.load(f)
+                
+                # Also get thumbnail from embeddings
+                emb_path = os.path.join(PERSONS_DIR, folder, "embeddings.json")
+                if os.path.exists(emb_path):
+                    try:
+                        with open(emb_path, 'r') as f:
+                            emb_data = json.load(f)
+                        images = emb_data.get("images", [])
+                        if images and len(images) > 0:
+                            # Get thumbnail from first image
+                            thumb = images[0].get("thumbnail", "")
+                            if thumb:
+                                person["first_image_thumbnail"] = f"data:image/jpeg;base64,{thumb}"
+                    except:
+                        pass
+                
+                persons.append(person)
+            except:
+                pass
+    
+    return jsonify({"persons": persons, "count": len(persons)})
+
+
+@app.route('/api/library/person', methods=['POST'])
+def add_person():
+    """Add a new person with their first reference image."""
+    try:
+        data = request.json
+        name = data.get('name', '').strip()
+        notes = data.get('notes', '')
+        image_data = data.get('image', '')
+        source = data.get('source', 'upload')
+        
+        if not name:
+            return jsonify({"success": False, "error": "Name is required"})
+        
+        if not image_data:
+            return jsonify({"success": False, "error": "Image is required"})
+        
+        # Check for duplicate
+        if get_person_by_name(name):
+            return jsonify({"success": False, "error": "Person already exists"})
+        
+        # Create folder
+        person_uuid = str(uuid.uuid4())[:8]
+        sanitized = secure_filename(name)
+        folder_name = f"{person_uuid}-{sanitized}"
+        person_dir = os.path.join(PERSONS_DIR, folder_name)
+        os.makedirs(person_dir, exist_ok=True)
+        os.makedirs(os.path.join(person_dir, "images"), exist_ok=True)
+        
+        # Process image
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]
+        
+        ref_image = base64_to_image(image_data)
+        ref_faces = detector.detect_faces(ref_image)
+        
+        if not ref_faces:
+            shutil.rmtree(person_dir)
+            return jsonify({'success': False, 'error': 'No faces detected'})
+        
+        fx, fy, fw, fh = ref_faces[0]
+        ref_face = ref_image[fy:fy+fh, fx:fx+fw]
+        
+        # Extract all features (same as add_reference)
+        arcface_emb = arcface_extractor.extract_embedding(ref_face) if arcface_extractor else None
+        facenet_emb = facenet_extractor.extract_embedding(ref_face)
+        landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        alignment = detector.compute_alignment(ref_face, landmarks)
+        quality = detector.compute_quality_metrics(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        ref_activations = facenet_extractor.get_activations(ref_face)
+        lbp_hist = detector.compute_lbp_descriptor(ref_face)
+        asymmetry = detector.compute_facial_asymmetry(landmarks)
+        
+        mesh_landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
+        aligned = detector.normalize_face_with_mesh(ref_face, mesh_landmarks)
+        normalized_emb = arcface_extractor.extract_embedding(aligned) if arcface_extractor else None
+        
+        pose_cat = categorize_pose(alignment.get('yaw', 0), alignment.get('pitch', 0))
+        
+        # Save image (compressed 80%)
+        image_id = f"{person_uuid}_0"
+        filename = save_person_image(ref_face, person_dir, image_id)
+        
+        # Save embeddings
+        embeddings_data = {
+            "person_id": person_uuid,
+            "person_name": name,
+            "images": [{
+                "image_id": image_id,
+                "filename": filename,
+                "added_at": datetime.datetime.now().isoformat(),
+                "source": source,
+                "embedding": {
+                    "arcface": arcface_emb.tolist() if arcface_emb is not None else None,
+                    "facenet": facenet_emb.tolist() if facenet_emb is not None else None
+                },
+                "normalized_embedding": normalized_emb.tolist() if normalized_emb is not None else None,
+                "pose": {
+                    "yaw": float(alignment.get('yaw', 0)),
+                    "pitch": float(alignment.get('pitch', 0)),
+                    "roll": float(alignment.get('roll', 0))
+                },
+                "pose_category": pose_cat,
+                "quality": {k: float(v) if isinstance(v, (int, float)) else v for k, v in quality.items()} if quality else None,
+                "landmarks": extract_landmark_features(landmarks),
+                "activations": {k: v.tolist() if isinstance(v, np.ndarray) else v for k, v in ref_activations.items()} if ref_activations else {},
+                "lbp_histogram": lbp_hist.tolist() if lbp_hist is not None else None,
+                "asymmetry": asymmetry,
+                "thumbnail": image_to_base64(ref_face)
+            }]
+        }
+        
+        with open(os.path.join(person_dir, "embeddings.json"), 'w') as f:
+            json.dump(embeddings_data, f, indent=2)
+        
+        # Save metadata
+        metadata = {
+            "id": person_uuid,
+            "name": name,
+            "notes": notes,
+            "created_at": datetime.datetime.now().isoformat(),
+            "updated_at": datetime.datetime.now().isoformat(),
+            "image_count": 1,
+            "folder": folder_name
+        }
+        
+        with open(os.path.join(person_dir, "metadata.json"), 'w') as f:
+            json.dump(metadata, f, indent=2)
+        
+        return jsonify({"success": True, "person": metadata})
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
+
+
+@app.route('/api/library/person/<person_id>', methods=['GET'])
+def get_person(person_id):
+    """Get person details with all their images/embeddings."""
+    if not os.path.exists(PERSONS_DIR):
+        return jsonify({"success": False, "error": "Library empty"})
+    
+    person_dir = None
+    for folder in os.listdir(PERSONS_DIR):
+        if folder.startswith(person_id):
+            person_dir = os.path.join(PERSONS_DIR, folder)
+            break
+    
+    if not person_dir:
+        return jsonify({"success": False, "error": "Person not found"})
+    
+    with open(os.path.join(person_dir, "metadata.json"), 'r') as f:
+        metadata = json.load(f)
+    with open(os.path.join(person_dir, "embeddings.json"), 'r') as f:
+        embeddings = json.load(f)
+    
+    return jsonify({"success": True, "person": metadata, "embeddings": embeddings})
+
+
+@app.route('/api/library/person/<person_id>', methods=['DELETE'])
+def delete_person(person_id):
+    """Delete a person and all their data."""
+    if not os.path.exists(PERSONS_DIR):
+        return jsonify({"success": False, "error": "Library empty"})
+    
+    for folder in os.listdir(PERSONS_DIR):
+        if folder.startswith(person_id):
+            shutil.rmtree(os.path.join(PERSONS_DIR, folder))
+            return jsonify({"success": True})
+    
+    return jsonify({"success": False, "error": "Person not found"})
+
+
+@app.route('/api/library/match', methods=['POST'])
+def match_library():
+    """Match a query image against the entire library."""
+    try:
+        data = request.json
+        image_data = data.get('image', '')
+        
+        if not image_data:
+            return jsonify({"success": False, "error": "Image is required"})
+        
+        if image_data.startswith('data:image'):
+            image_data = image_data.split(',')[1]
+        
+        query_image = base64_to_image(image_data)
+        query_faces = detector.detect_faces(query_image)
+        
+        if not query_faces:
+            return jsonify({"success": False, "error": "No face detected"})
+        
+        fx, fy, fw, fh = query_faces[0]
+        query_face = query_image[fy:fy+fh, fx:fx+fw]
+        
+        # Extract query embedding
+        q_arc = arcface_extractor.extract_embedding(query_face) if arcface_extractor else None
+        q_face = facenet_extractor.extract_embedding(query_face)
+        
+        matches = []
+        
+        if not os.path.exists(PERSONS_DIR):
+            return jsonify({"success": True, "matches": []})
+        
+        for folder in os.listdir(PERSONS_DIR):
+            emb_path = os.path.join(PERSONS_DIR, folder, "embeddings.json")
+            meta_path = os.path.join(PERSONS_DIR, folder, "metadata.json")
+            
+            if not os.path.exists(emb_path):
+                continue
+            
+            try:
+                with open(emb_path, 'r') as f:
+                    emb_data = json.load(f)
+                with open(meta_path, 'r') as f:
+                    meta = json.load(f)
+            except:
+                continue
+            
+            # Find best match across all images
+            best_score = 0
+            best_image = None
+            
+            for img in emb_data.get("images", []):
+                ref_emb = img.get("embedding", {})
+                r_arc = np.array(ref_emb.get("arcface")) if ref_emb.get("arcface") else None
+                r_face = np.array(ref_emb.get("facenet")) if ref_emb.get("facenet") else None
+                
+                # Calculate similarity
+                if q_arc is not None and r_arc is not None:
+                    sim = comparator.cosine_similarity(q_arc, r_arc)
+                elif r_face is not None:
+                    sim = comparator.cosine_similarity(q_face, r_face)
+                else:
+                    sim = 0
+                
+                if sim > best_score:
+                    best_score = sim
+                    best_image = img
+            
+            if best_image:
+                matches.append({
+                    "person_id": meta["id"],
+                    "person_name": meta["name"],
+                    "score": float(best_score),
+                    "best_image": best_image
+                })
+        
+        # Sort by score
+        matches.sort(key=lambda x: x["score"], reverse=True)
+        
+        return jsonify({
+            "success": True,
+            "matches": matches[:10]  # Top 10
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "error": str(e)})
 
 
 if __name__ == '__main__':
