@@ -58,13 +58,16 @@ body[data-theme=dark] {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
   color: #000;
-  background: #fff;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%), #fff;
   margin: 0;
   padding: 0;
   font-size: 14px;
   line-height: 1.5;
+  min-height: 100vh;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -174,6 +177,7 @@ p {
 }
 .btn-success:hover {
   background: rgb(48, 209, 88);
+  color: white;
   transform: scale(1.05);
 }
 .btn-success:active {
@@ -247,6 +251,30 @@ p {
   background: rgba(187, 187, 188, 0.25);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 2px 3px 0px -2px rgba(255, 255, 255, 0.9), inset -2.5px -2.5px 0px -2px rgba(255, 255, 255, 0.8), inset -3px -8px 1px -5px rgba(255, 255, 255, 0.6), inset -0.4px -1.5px 3px 0px rgba(0, 0, 0, 0.12), inset -1.5px 2px 0px -1px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.15);
   transform: translateY(-2px);
+}
+
+#webcamStep {
+  min-height: auto;
+  width: auto;
+  flex: 1;
+  transition: all 400ms ease;
+}
+#webcamStep.visible {
+  flex: 2;
+  max-height: 645px;
+}
+#webcamStep.visible #webcamContainer {
+  width: 100%;
+  max-width: 100%;
+}
+#webcamStep.visible #webcamContainer .webcam-video {
+  width: 100%;
+  max-width: 100%;
+  max-height: 450px;
+}
+#webcamStep.visible #webcamContainer #meshCanvas {
+  width: 100%;
+  max-width: calc(100% - 24px);
 }
 
 .step-complete {
@@ -1387,7 +1415,6 @@ input[type=file] {
 .webcam-video {
   max-width: 100%;
   max-height: 400px;
-  border: 1px solid #000;
   border-radius: 4px;
 }
 
@@ -1982,5 +2009,69 @@ input[type=file] {
 .container.sidebar-open {
   margin-left: 260px;
   max-width: 940px;
-  transition: margin-left 300ms cubic-bezier(0.4, 0, 0.2, 1), max-width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mesh-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+  background: transparent;
+}
+.mesh-canvas.active {
+  display: block;
+}
+
+.webcam-video-container {
+  position: relative;
+  display: inline-block;
+}
+
+#webcamContainer {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 24px;
+  text-align: center;
+  overflow: hidden;
+  padding: 12px;
+  background: rgba(187, 187, 188, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6), inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1), inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 300ms ease;
+  opacity: 0;
+  visibility: hidden;
+}
+#webcamContainer.visible {
+  opacity: 1;
+  visibility: visible;
+}
+#webcamContainer.visible:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), inset 2px 3px 0px -2px rgba(255, 255, 255, 0.9), inset -2.5px -2.5px 0px -2px rgba(255, 255, 255, 0.8), inset -3px -8px 1px -5px rgba(255, 255, 255, 0.6), inset -0.4px -1.5px 3px 0px rgba(0, 0, 0, 0.12), inset -1.5px 2px 0px -1px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+#webcamContainer.hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+#webcamContainer .webcam-video {
+  display: block;
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 16px;
+  object-fit: contain;
+  transform: scaleX(-1);
+}
+#webcamContainer #meshCanvas {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  object-fit: contain;
+  transform: scaleX(-1);
+  pointer-events: none;
 }

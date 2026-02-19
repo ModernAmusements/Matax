@@ -1198,6 +1198,9 @@ function showToast(message, type = 'info') {
 
 // Webcam Functions
 let webcamStream = null;
+let faceMesh = null;
+let meshCamera = null;
+let meshOverlayActive = false;
 
 async function startWebcam() {
     const video = document.getElementById('webcamVideo');
@@ -1211,9 +1214,6 @@ async function startWebcam() {
         logToTerminal('> Starting webcam...', 'info');
         status.textContent = 'Requesting camera access...';
         
-        container.style.display = '';
-        container.style.border = '';
-        video.style.border = '';
         container.classList.remove('hidden');
         
         const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -1226,10 +1226,16 @@ async function startWebcam() {
         webcamStream = stream;
         video.srcObject = stream;
         container.classList.add('visible');
+        document.getElementById('webcamStep').classList.add('visible');
         
         startBtn.disabled = true;
         captureBtn.disabled = false;
         stopBtn.disabled = false;
+        
+        const toggleMeshBtn = document.getElementById('toggleMeshBtn');
+        if (toggleMeshBtn) {
+            toggleMeshBtn.disabled = false;
+        }
         
         status.textContent = 'Webcam active - Click "Capture" to take a photo';
         status.className = 'status status-success';
@@ -1303,18 +1309,201 @@ function stopWebcam() {
     
     video.srcObject = null;
     
-    video.style.border = 'none';
-    container.style.border = 'none';
+    container.classList.remove('visible');
     container.classList.add('hidden');
-    container.style.display = 'none';
+    document.getElementById('webcamStep').classList.remove('visible');
     
     startBtn.disabled = false;
     captureBtn.disabled = true;
     stopBtn.disabled = true;
     
+    const toggleMeshBtn = document.getElementById('toggleMeshBtn');
+    if (toggleMeshBtn) {
+        toggleMeshBtn.disabled = true;
+        toggleMeshBtn.textContent = 'Show Mesh';
+    }
+    
     status.textContent = 'Webcam stopped';
     status.className = 'status';
     logToTerminal('> Webcam stopped', 'info');
+    
+    if (meshOverlayActive) {
+        toggleMeshOverlay();
+    }
+}
+
+// Face Mesh Overlay Functions
+async function initFaceMesh() {
+    faceMesh = new FaceMesh({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+    
+    faceMesh.setOptions({
+        maxNumFaces: 5,
+        refineLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    
+    faceMesh.onResults(onMeshResults);
+}
+
+function onMeshResults(results) {
+    const canvas = document.getElementById('meshCanvas');
+    const ctx = canvas.getContext('2d');
+    const video = document.getElementById('webcamVideo');
+    
+    if (!video.videoWidth || !video.videoHeight) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        for (const landmarks of results.multiFaceLandmarks) {
+            drawMesh(ctx, landmarks, canvas.width, canvas.height);
+        }
+    }
+}
+
+function drawMesh(ctx, landmarks, width, height) {
+    const connections = FaceMesh.FACE_CONNECTIONS || [];
+    
+    // Fallback: draw basic face contour if no connections
+    if (connections.length === 0) {
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.6)';
+        ctx.lineWidth = 1;
+        
+        // Draw simple face oval
+        ctx.beginPath();
+        ctx.ellipse(width/2, height/2, width*0.4, height*0.5, 0, 0, 2 * Math.PI);
+        ctx.stroke();
+    }
+    
+    ctx.lineWidth = 1;
+    
+    for (const [i, j] of connections) {
+        if (i < landmarks.length && j < landmarks.length) {
+            const p1 = landmarks[i];
+            const p2 = landmarks[j];
+            
+            const z1 = p1.z || 0;
+            const z2 = p2.z || 0;
+            const avgZ = (z1 + z2) / 2;
+            
+            const intensity = Math.max(0, Math.min(255, Math.floor(128 + avgZ * 200)));
+            const r = Math.floor(intensity / 2);
+            const g = intensity;
+            const b = 255 - intensity;
+            
+            ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+            ctx.beginPath();
+            ctx.moveTo(p1.x * width, p1.y * height);
+            ctx.lineTo(p2.x * width, p2.y * height);
+            ctx.stroke();
+        }
+    }
+    
+    const keyPoints = [4, 10, 33, 133, 362, 263, 13, 82, 178, 400, 152, 234, 454];
+    
+    for (let i = 0; i < landmarks.length; i++) {
+        const landmark = landmarks[i];
+        const x = landmark.x * width;
+        const y = landmark.y * height;
+        
+        if (keyPoints.includes(i)) {
+            ctx.beginPath();
+            ctx.arc(x, y, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(0, 255, 255, 1)';
+            ctx.fill();
+        } else {
+            ctx.beginPath();
+            ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+            ctx.fill();
+        }
+    }
+    
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = 'rgba(0, 255, 255, 1)';
+    ctx.fillText('3D Face Mesh (MediaPipe - 478 points)', 10, 20);
+}
+
+async function toggleMeshOverlay() {
+    const btn = document.getElementById('toggleMeshBtn');
+    const canvas = document.getElementById('meshCanvas');
+    const video = document.getElementById('webcamVideo');
+    
+    if (!meshOverlayActive) {
+        if (!webcamStream) {
+            showToast('Start webcam first', 'warning');
+            return;
+        }
+        
+        if (!faceMesh) {
+            await initFaceMesh();
+        }
+        
+        // Wait for video to be ready
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            showToast('Webcam not ready', 'warning');
+            return;
+        }
+        
+        // Set canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Position canvas over video
+        const container = document.getElementById('webcamContainer');
+        canvas.style.width = video.offsetWidth + 'px';
+        canvas.style.height = video.offsetHeight + 'px';
+        
+        meshOverlayActive = true;
+        canvas.classList.add('active');
+        btn.textContent = 'Hide Mesh';
+        btn.disabled = false;
+        
+        // Start mesh processing loop
+        processWebcamFrame();
+        
+        logToTerminal('> Mesh overlay enabled', 'success');
+    } else {
+        meshOverlayActive = false;
+        if (meshCamera) {
+            meshCamera.stop();
+            meshCamera = null;
+        }
+        canvas.classList.remove('active');
+        btn.textContent = 'Show Mesh';
+        
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        logToTerminal('> Mesh overlay disabled', 'info');
+    }
+}
+
+async function processWebcamFrame() {
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('meshCanvas');
+    
+    if (!meshOverlayActive || !video || video.paused || video.ended) {
+        return;
+    }
+    
+    if (faceMesh && meshOverlayActive) {
+        try {
+            await faceMesh.send({image: video});
+        } catch (e) {
+            // Ignore processing errors
+        }
+    }
+    
+    // Continue loop
+    if (meshOverlayActive) {
+        requestAnimationFrame(processWebcamFrame);
+    }
 }
 
 // Switcher/Tab Previous Value Tracker for Liquid Glass Animations

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Recognition</title>
     <link rel="stylesheet" href="/styles/design-system.css">
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 </head>
 
 <body>
@@ -157,11 +159,13 @@
                             Webcam</button>
                         <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
                         <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
+                        <button class="btn" onclick="toggleMeshOverlay()" id="toggleMeshBtn" disabled>Show Mesh</button>
                     </div>
                     <p id="webcamStatus" class="status">Click "Start Webcam" to begin</p>
                 </div>
                 <div id="webcamContainer" class="hidden text-center">
                     <video id="webcamVideo" autoplay playsinline class="webcam-video"></video>
+                    <canvas id="meshCanvas" class="mesh-canvas"></canvas>
                     <canvas id="webcamCanvas" class="hidden"></canvas>
                 </div>
             </div>

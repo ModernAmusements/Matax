@@ -350,6 +350,211 @@ def test_clear_endpoint(step_num, total):
     return passed
 
 # =============================================================================
+# FRONTEND MESH TESTS
+# =============================================================================
+
+def test_mesh_html_elements(step_num, total):
+    print_step(step_num, total, "Mesh HTML Elements", "running")
+    time.sleep(0.3)
+    
+    html_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'index.html')
+    
+    if not os.path.exists(html_path):
+        print_step(step_num, total, "Mesh HTML Elements", "fail", "index.html not found")
+        return False
+    
+    with open(html_path, 'r') as f:
+        html_content = f.read()
+    
+    checks = {
+        'meshCanvas': 'meshCanvas' in html_content,
+        'toggleMeshBtn': 'toggleMeshBtn' in html_content,
+        'toggleMeshOverlay': 'toggleMeshOverlay' in html_content,
+        'MediaPipe face_mesh': '@mediapipe/face_mesh' in html_content,
+        'MediaPipe camera_utils': '@mediapipe/camera_utils' in html_content,
+    }
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(checks)} elements found"
+    
+    if passed:
+        print_step(step_num, total, "Mesh HTML Elements", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Mesh HTML Elements", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_mesh_javascript_functions(step_num, total):
+    print_step(step_num, total, "Mesh JavaScript Functions", "running")
+    time.sleep(0.3)
+    
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    if not os.path.exists(js_path):
+        print_step(step_num, total, "Mesh JavaScript Functions", "fail", "app.js not found")
+        return False
+    
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    functions = [
+        'faceMesh',
+        'meshCamera', 
+        'meshOverlayActive',
+        'initFaceMesh',
+        'onMeshResults',
+        'drawMesh',
+        'toggleMeshOverlay',
+    ]
+    
+    checks = {fn: f'function {fn}' in js_content or f'let {fn}' in js_content for fn in functions}
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(functions)} functions/vars defined"
+    
+    if passed:
+        print_step(step_num, total, "Mesh JavaScript Functions", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Mesh JavaScript Functions", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_mesh_css_styles(step_num, total):
+    print_step(step_num, total, "Mesh CSS Styles", "running")
+    time.sleep(0.3)
+    
+    css_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'styles', 'design-system.css')
+    
+    if not os.path.exists(css_path):
+        print_step(step_num, total, "Mesh CSS Styles", "fail", "design-system.css not found")
+        return False
+    
+    with open(css_path, 'r') as f:
+        css_content = f.read()
+    
+    checks = {
+        '.mesh-canvas': '.mesh-canvas' in css_content,
+        'position: absolute': 'position: absolute' in css_content,
+        'z-index': 'z-index' in css_content,
+        'display: block': 'display: block' in css_content,
+    }
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(checks)} CSS rules found"
+    
+    if passed:
+        print_step(step_num, total, "Mesh CSS Styles", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Mesh CSS Styles", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_mesh_mediapipe_cdn(step_num, total):
+    print_step(step_num, total, "MediaPipe CDN Accessibility", "running")
+    time.sleep(0.3)
+    
+    import urllib.request
+    import urllib.error
+    
+    cdns = [
+        'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js',
+        'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
+    ]
+    
+    results = []
+    for url in cdns:
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=5) as response:
+                results.append(response.status == 200)
+        except Exception:
+            results.append(False)
+    
+    passed = all(results)
+    details = f"{sum(results)}/{len(cdns)} CDN resources accessible"
+    
+    if passed:
+        print_step(step_num, total, "MediaPipe CDN Accessibility", "pass", details)
+    else:
+        print_step(step_num, total, "MediaPipe CDN Accessibility", "fail", details)
+    
+    return passed
+
+def test_existing_functions_intact(step_num, total):
+    print_step(step_num, total, "Existing Functions Intact", "running")
+    time.sleep(0.3)
+    
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    critical_functions = [
+        'selectImage',
+        'handleImageSelect',
+        'detectFaces',
+        'extractFeatures',
+        'addReference',
+        'handleReferenceSelect',
+        'compareFaces',
+        'clearAllCache',
+        'startWebcam',
+        'captureWebcam',
+        'stopWebcam',
+        'updateReferenceList',
+        'removeReference',
+        'showReferenceVisualizations',
+    ]
+    
+    checks = {fn: f'function {fn}' in js_content or f'async function {fn}' in js_content for fn in critical_functions}
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(critical_functions)} critical functions present"
+    
+    if passed:
+        print_step(step_num, total, "Existing Functions Intact", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Existing Functions Intact", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_html_js_event_handlers(step_num, total):
+    print_step(step_num, total, "HTML-JS Event Handlers", "running")
+    time.sleep(0.3)
+    
+    html_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'index.html')
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    with open(html_path, 'r') as f:
+        html_content = f.read()
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    import re
+    html_handlers = re.findall(r'onclick="(\w+)\(', html_content)
+    html_handlers += re.findall(r'onchange="(\w+)\(', html_content)
+    html_handlers = list(set(html_handlers))
+    
+    missing = []
+    for handler in html_handlers:
+        if handler not in js_content:
+            missing.append(handler)
+    
+    passed = len(missing) == 0
+    details = f"{len(html_handlers)} handlers, {len(missing)} missing"
+    
+    if passed:
+        print_step(step_num, total, "HTML-JS Event Handlers", "pass", f"All {len(html_handlers)} handlers linked")
+    else:
+        print_step(step_num, total, "HTML-JS Event Handlers", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -374,6 +579,12 @@ def main():
         ("Eyewear Detection", test_eyewear_detection),
         ("Visualization Endpoints", test_visualization_endpoints),
         ("Clear Endpoint", test_clear_endpoint),
+        ("Mesh HTML Elements", test_mesh_html_elements),
+        ("Mesh JavaScript Functions", test_mesh_javascript_functions),
+        ("Mesh CSS Styles", test_mesh_css_styles),
+        ("MediaPipe CDN Accessibility", test_mesh_mediapipe_cdn),
+        ("Existing Functions Intact", test_existing_functions_intact),
+        ("HTML-JS Event Handlers", test_html_js_event_handlers),
     ]
     
     total = len(tests)

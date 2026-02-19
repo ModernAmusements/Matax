@@ -1,0 +1,1 @@
+read the master and system promt .md in this project. follow the steps and instruction. gain a full detailed understanding of this project from the python code over the varios apis over to the frontend. in the subfolders a will find more .md to deeper your understanding of this project. tell me when you are ready
