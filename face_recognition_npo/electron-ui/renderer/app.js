@@ -220,6 +220,8 @@ async function clearAllCache() {
     document.getElementById('selectedImage').src = '';
     document.getElementById('previewContainer').classList.remove('visible');
     document.getElementById('previewContainer').classList.add('hidden');
+    document.getElementById('step1ButtonsInitial').classList.remove('hidden');
+    document.getElementById('step1ButtonsAfter').classList.add('hidden');
     document.getElementById('step1').classList.remove('step-complete');
     document.getElementById('step2').classList.remove('step-complete');
     document.getElementById('step3').classList.remove('step-complete');
@@ -269,6 +271,17 @@ function handleImageSelect(event) {
         event.target.value = '';
         checkLibraryCompareButton();
         checkFindMatchesButton();
+        updateCurrentlyUploaded();
+        
+        // Show after-upload buttons
+        document.getElementById('step1ButtonsInitial').classList.add('hidden');
+        document.getElementById('step1ButtonsAfter').classList.remove('hidden');
+        
+        // Auto-run detection after upload (Option A)
+        detectFaces().then(() => {
+            // Auto-run extraction after detection
+            extractFeatures();
+        });
     };
     reader.onerror = (err) => {
         logToTerminal('> Error reading file', 'error');
@@ -801,6 +814,137 @@ async function switchRefTab(tabId, refId) {
 
 function hideReferenceDetails() {
     document.getElementById('referenceDetails').classList.remove('active');
+}
+
+// Update currently uploaded section in Step 4
+function updateCurrentlyUploaded() {
+    const empty = document.querySelector('.currently-uploaded-empty');
+    const preview = document.getElementById('currentlyUploadedPreview');
+    const img = document.getElementById('currentlyUploadedImage');
+    
+    if (currentImage) {
+        empty.classList.add('hidden');
+        preview.classList.remove('hidden');
+        img.src = currentImage;
+    } else {
+        empty.classList.remove('hidden');
+        preview.classList.add('hidden');
+    }
+}
+
+// Show currently uploaded image in reference details (reuse existing function)
+function showUploadedAsReference() {
+    if (!currentImage) {
+        showToast('No image uploaded', 'warning');
+        return;
+    }
+    
+    // Scroll to reference details section in Step 4
+    const refDetails = document.getElementById('referenceDetails');
+    if (refDetails) {
+        refDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+    // Reuse the reference details panel
+    const details = document.getElementById('referenceDetails');
+    const title = document.getElementById('refDetailsTitle');
+    const vizTabs = document.getElementById('refVizTabs');
+    
+    title.textContent = 'Currently Uploaded - Details';
+    details.classList.remove('hidden');
+    details.classList.add('active');
+    
+    // Use same pattern as reference-details: radio buttons + labels for animation
+    const tabs = [
+        { id: 'detection', label: 'Detection' },
+        { id: 'landmarks', label: 'Landmarks' },
+        { id: 'mesh3d', label: '3D Mesh' },
+        { id: 'alignment', label: 'Pose' },
+        { id: 'embedding', label: 'Embedding' },
+        { id: 'similarity', label: 'Similarity' },
+        { id: 'eyewear', label: 'Eyewear' },
+        { id: 'confidence', label: 'Quality' }
+    ];
+    
+    const tabCount = tabs.length;
+    
+    const radioHtml = tabs.map((t, i) => `
+        <input type="radio" name="uploaded-viz" id="uploaded-tab-${t.id}" 
+               class="ref-viz-input" data-tab="${t.id}" 
+               ${i === 0 ? 'checked' : ''}>
+    `).join('');
+    
+    const labelHtml = tabs.map((t, i) => `
+        <label class="ref-viz-tab ${i === 0 ? 'active' : ''}" 
+               for="uploaded-tab-${t.id}" data-tab="${t.id}">
+            ${t.label}
+        </label>
+    `).join('');
+    
+    vizTabs.innerHTML = radioHtml + labelHtml;
+    vizTabs.style.setProperty('--tab-count', tabCount);
+    
+    // Position indicator based on actual tab positions
+    setTimeout(() => updateRefVizIndicator(vizTabs), 0);
+    setTimeout(() => trackPrevious(vizTabs), 0);
+    
+    // Add change listeners
+    const radios = vizTabs.querySelectorAll('.ref-viz-input');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            const tabId = radio.dataset.tab;
+            showUploadedVizContent(tabId);
+            // Update indicator position
+            setTimeout(() => updateRefVizIndicator(vizTabs), 10);
+        });
+    });
+    
+    // Show initial content
+    showUploadedVizContent('detection');
+    setTimeout(() => updateRefVizIndicator(vizTabs), 10);
+}
+
+function showUploadedVizContent(vizType) {
+    const vizTabs = document.getElementById('refVizTabs');
+    const vizContent = document.getElementById('refVizContent');
+    const infoGrid = document.getElementById('refInfoGrid');
+    
+    // Update active tab styling
+    vizTabs.querySelectorAll('.ref-viz-tab').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.tab === vizType) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Update radio button
+    const radio = vizTabs.querySelector(`#uploaded-tab-${vizType}`);
+    if (radio) {
+        radio.checked = true;
+    }
+    
+    // Check if we have visualization data from detection
+    if (vizType === 'detection' && visualizationData['detection']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['detection']}" alt="Detection" style="max-width:100%">`;
+    } else if (vizType === 'embedding' && visualizationData['embedding']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['embedding']}" alt="Embedding" style="max-width:100%">`;
+    } else if (vizType === 'similarity' && visualizationData['similarity']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['similarity']}" alt="Similarity" style="max-width:100%">`;
+    } else if (vizType === 'landmarks' && visualizationData['landmarks']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['landmarks']}" alt="Landmarks" style="max-width:100%">`;
+    } else if (vizType === 'mesh3d' && visualizationData['mesh3d']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['mesh3d']}" alt="3D Mesh" style="max-width:100%">`;
+    } else if (vizType === 'alignment' && visualizationData['alignment']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['alignment']}" alt="Alignment" style="max-width:100%">`;
+    } else if (vizType === 'eyewear' && visualizationData['eyewear']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['eyewear']}" alt="Eyewear" style="max-width:100%">`;
+    } else if (vizType === 'confidence' && visualizationData['confidence']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['confidence']}" alt="Confidence" style="max-width:100%">`;
+    } else {
+        vizContent.innerHTML = '<div class="viz-placeholder"><p>Run detection first to see visualizations</p></div>';
+    }
+    
+    infoGrid.innerHTML = '';
 }
 
 function updateReferenceList() {
@@ -1697,6 +1841,20 @@ function jumpToStep(stepNum) {
     }
 }
 
+// Scroll to section with active highlight
+function scrollToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        // Remove active-section from all steps
+        document.querySelectorAll('.step').forEach(el => el.classList.remove('active-section'));
+        // Add active-section to target
+        section.classList.add('active-section');
+        // Scroll with offset
+        section.scrollIntoView({behavior: 'smooth', block: 'start'});
+        logToTerminal(`> Scrolled to ${sectionId}`, 'info');
+    }
+}
+
 // Traffic light handlers (Electron only)
 function closeWindow() {
     if (window.electronAPI) {
@@ -2066,6 +2224,30 @@ async function startWebcamForLibrary() {
     currentWebcamActive = false;
 }
 
+// Compare with library from Step 1 - scroll to compare section first
+async function compareWithUploadedImage() {
+    scrollToSection('step4');
+    // Wait a bit for scroll, then compare
+    setTimeout(() => {
+        compareWithLibrary();
+    }, 300);
+}
+
+// Add currently uploaded image to library
+function addUploadedToLibrary() {
+    if (!currentImage) {
+        showToast('No image uploaded', 'warning');
+        return;
+    }
+    
+    // Use current image as library image
+    libraryImageData = currentImage;
+    librarySource = 'upload';
+    
+    // Show library modal with the current image
+    showLibraryModal();
+}
+
 // Compare with library
 async function compareWithLibrary() {
     if (!currentImage) {
@@ -2093,6 +2275,8 @@ async function compareWithLibrary() {
             // Update comparison result display
             document.getElementById('matchStatus').textContent = best.person_name;
             document.getElementById('matchScore').textContent = `${(best.score * 100).toFixed(1)}%`;
+            document.getElementById('comparisonResult').classList.remove('hidden');
+            document.getElementById('comparisonResult').classList.add('visible');
             
             // Show thumbnail if available
             if (best.best_image && best.best_image.thumbnail) {

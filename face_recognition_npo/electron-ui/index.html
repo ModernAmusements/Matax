@@ -147,6 +147,74 @@
             </div>
         </div>
 
+        <!-- Choose Workflow Section -->
+        <div class="step" id="workflowsSection">
+            <div class="step-header">
+                <div>
+                    <span class="step-number">Workflows</span>
+                    <h2>Choose Your Workflow</h2>
+                    <p>Select a workflow below - any workflow can be used independently</p>
+                </div>
+            </div>
+            <div class="steps-row">
+                <div class="step">
+                    <div class="step-checkmark">✓</div>
+                    <div class="step-header">
+                        <div>
+                            <span class="step-number">Analyze</span>
+                            <h2>Analyze Photo</h2>
+                            <p>Upload a photo to detect faces and extract embeddings</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="scrollToSection('step1')">Choose Photo</button>
+                            <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-checkmark">✓</div>
+                    <div class="step-header">
+                        <div>
+                            <span class="step-number">Capture</span>
+                            <h2>Live Capture</h2>
+                            <p>Use webcam to capture a face for matching</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn" onclick="scrollToSection('webcamStep')">Start Webcam</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-checkmark">✓</div>
+                    <div class="step-header">
+                        <div>
+                            <span class="step-number">Compare</span>
+                            <h2>Quick Compare</h2>
+                            <p>Upload a photo and compare against library</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn" onclick="scrollToSection('step4')">Upload & Match</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-checkmark">✓</div>
+                    <div class="step-header">
+                        <div>
+                            <span class="step-number">Library</span>
+                            <h2>Manage Library</h2>
+                            <p>Add, search, and manage reference persons</p>
+                        </div>
+                        <div class="button-group">
+                            <button class="btn btn-primary" onclick="scrollToSection('step6')">+ Add Person</button>
+                            <button class="btn" onclick="scrollToSection('step6')">Batch</button>
+                            <input type="file" id="libraryBatchInput" accept="image/*" multiple style="display:none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Reference Library Section -->
         <div class="step" id="step6">
             <div class="step-checkmark">✓</div>
@@ -195,10 +263,15 @@
                         <h2>Choose Your Photo</h2>
                         <p>Select a photo containing faces you want to analyze.</p>
                     </div>
-                    <div class="button-group">
+                    <div class="button-group" id="step1ButtonsInitial">
                         <button class="btn" onclick="clearAllCache()">Clear Cache</button>
                         <button class="btn btn-primary" onclick="selectImage()">Choose Photo</button>
                         <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
+                    </div>
+                    <div class="button-group hidden" id="step1ButtonsAfter">
+                        <button class="btn btn-primary" onclick="selectImage()">Upload Another</button>
+                        <button class="btn btn-success" onclick="compareWithUploadedImage()">Compare with Library</button>
+                        <input type="file" id="imageInputAfter" accept="image/*" onchange="handleImageSelect(event)">
                     </div>
                 </div>
                 <div class="preview-container hidden" id="previewContainer">
@@ -251,7 +324,6 @@
                         <p>The AI will automatically detect all faces in your photo.</p>
                         <p id="detectStatus" class="status">Waiting for image...</p>
                     </div>
-                    <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
                 </div>
                 <div id="facesContainer" class="hidden">
                     <div class="gallery" id="facesGallery"></div>
@@ -267,8 +339,6 @@
                         <p>Convert each face into a unique mathematical signature.</p>
                         <p id="extractStatus" class="status">Waiting for detection...</p>
                     </div>
-                    <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>Create
-                        Signature</button>
                 </div>
             </div>
         </div>
@@ -293,6 +363,21 @@
                     <p class="empty-hint">No library persons. Add persons in Step 6.</p>
                 </div>
                 
+                <!-- Currently Uploaded Section -->
+                <div class="step-section-title">Currently Uploaded</div>
+                <div class="currently-uploaded" id="currentlyUploaded">
+                    <div class="currently-uploaded-empty">
+                        <p>No image uploaded. Upload in Step 1 (Analyze).</p>
+                    </div>
+                    <div class="currently-uploaded-preview hidden" id="currentlyUploadedPreview">
+                        <img id="currentlyUploadedImage" src="" alt="Uploaded" onclick="showUploadedAsReference()" style="cursor:pointer">
+                        <div class="currently-uploaded-actions">
+                            <button class="btn btn-sm btn-primary" onclick="showUploadedAsReference()">View Details</button>
+                            <button class="btn btn-sm" onclick="addUploadedToLibrary()">Add to Library</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Temporary Upload Section -->
                 <div class="step-section-title">Or Upload Temporary Reference</div>
                 <button class="btn" onclick="addReference()">+ Upload Reference</button>
@@ -301,7 +386,7 @@
                 <div class="reference-list" id="referenceList"></div>
 
                 <div class="reference-details" id="referenceDetails">
-                    <div class="ref-details-header">
+                    <div class="ref-details-header" onclick="document.getElementById('referenceDetails').scrollIntoView({behavior: 'smooth', block: 'start'})">
                         <h3 id="refDetailsTitle">Reference Details</h3>
                         <button class="btn-close-liquid" onclick="hideReferenceDetails()" title="Close">
                             <svg viewBox="0 0 15.7716 15.7715" fill="none" xmlns="http://www.w3.org/2000/svg">

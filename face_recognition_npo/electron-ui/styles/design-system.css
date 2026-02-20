@@ -447,6 +447,15 @@ p {
   line-height: 1.5;
 }
 
+#step1, #step2, #step3, #step4, #step6, #webcamStep, #workflowsSection {
+  scroll-margin-top: 90px;
+}
+
+.step.active-section {
+  border: 2px solid rgba(0, 122, 255, 0.5) !important;
+  background: rgba(0, 122, 255, 0.08) !important;
+}
+
 #webcamStep {
   min-height: auto;
   width: auto;
@@ -609,7 +618,6 @@ p {
 }
 .preview-box img {
   max-width: 100%;
-  max-height: 300px;
   display: block;
   margin: 0 auto 8px;
   border-radius: 16px;
@@ -716,6 +724,63 @@ p {
   color: #666;
   cursor: not-allowed;
   transform: none;
+}
+
+.currently-uploaded {
+  margin-top: 16px;
+  padding: 16px;
+  background: rgba(187, 187, 188, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.currently-uploaded-empty {
+  text-align: center;
+  color: rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+  padding: 12px;
+}
+.currently-uploaded-empty p {
+  margin: 0;
+}
+
+.currently-uploaded-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.currently-uploaded-preview img {
+  max-width: 150px;
+  max-height: 150px;
+  border-radius: 16px;
+  object-fit: cover;
+}
+
+.currently-uploaded-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.currently-uploaded-actions .btn-icon {
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms ease;
+}
+.currently-uploaded-actions .btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.currently-uploaded-actions .btn-icon:hover {
+  background: rgba(0, 122, 255, 0.2);
 }
 
 .ref-details-btn {
@@ -1307,6 +1372,8 @@ input[type=file] {
 .viz-tab.active {
   color: #000;
   transform: scale(1.02);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .viz-content {
@@ -1341,7 +1408,9 @@ input[type=file] {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   align-items: center;
   justify-content: center;
   z-index: 1000;
@@ -1352,6 +1421,53 @@ input[type=file] {
 
 .loading-content {
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.loading-logo {
+  width: 80px;
+  height: 80px;
+  filter: blur(0.5px);
+}
+.loading-logo .footer-logo-ring {
+  width: 80px;
+  height: 80px;
+  filter: blur(1px);
+}
+.loading-logo .footer-logo-ring-2 {
+  width: 66px;
+  height: 66px;
+  top: 7px;
+  left: 7px;
+  filter: blur(1px);
+}
+.loading-logo .footer-logo-face {
+  width: 40px;
+  height: 44px;
+  filter: blur(0.5px);
+}
+.loading-logo .footer-logo-face::before, .loading-logo .footer-logo-face::after {
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  filter: blur(0.5px);
+}
+.loading-logo .footer-logo-face::before {
+  left: 9px;
+}
+.loading-logo .footer-logo-face::after {
+  right: 9px;
+}
+
+.loading-text {
+  font-size: 16px;
+  color: rgba(0, 0, 0, 0.7);
+  font-weight: 500;
+  text-align: center;
+  margin: 0;
 }
 
 .loading-spinner {
@@ -1608,6 +1724,17 @@ input[type=file] {
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+.workflow-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.workflow-buttons .btn {
+  flex: 1 1 auto;
+  min-width: 140px;
 }
 
 .text-error {
@@ -1955,6 +2082,41 @@ input[type=file] {
   flex: 1;
   min-width: 0;
   border-radius: 24px;
+}
+
+#workflowsSection {
+  padding-bottom: 16px;
+}
+#workflowsSection .step-header {
+  margin-bottom: 12px;
+}
+#workflowsSection .steps-row {
+  margin-bottom: 0;
+}
+#workflowsSection .steps-row .step {
+  padding: 16px;
+}
+#workflowsSection .steps-row .step .step-header {
+  margin-bottom: 0;
+}
+#workflowsSection .steps-row .step h2 {
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+#workflowsSection .steps-row .step p {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+#workflowsSection .steps-row .step .button-group {
+  flex-direction: column;
+  gap: 6px;
+}
+#workflowsSection .steps-row .step .button-group .btn {
+  width: 100%;
+  text-align: center;
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
 @media (max-width: 900px) {
