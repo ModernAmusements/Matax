@@ -100,8 +100,174 @@ p {
 .container {
   margin: 0 auto;
   padding: 24px;
-  padding-bottom: 160px;
+  padding-bottom: 35px;
   padding-top: 75px;
+}
+
+.app-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 20px;
+  background: rgba(187, 187, 188, 0.12);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), inset 1.5px 2.5px 0px -2px rgba(255, 255, 255, 0.9), inset -2px -2px 0px -2px rgba(255, 255, 255, 0.8), inset -2px -6px 1px -4px rgba(255, 255, 255, 0.6), inset -0.3px -1px 2px 0px rgba(0, 0, 0, 0.1), inset -1px 1.5px 0px -1px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 100;
+}
+
+.footer-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer-logo-container {
+  position: relative;
+  width: 36px;
+  height: 36px;
+}
+
+.footer-logo-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: rgba(59, 130, 246, 0.7);
+  border-right-color: rgba(139, 92, 246, 0.7);
+  filter: blur(1px);
+  animation: footer-rotate 2s linear infinite;
+}
+
+.footer-logo-ring-2 {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-bottom-color: rgba(236, 72, 153, 0.6);
+  border-left-color: rgba(236, 72, 153, 0.6);
+  filter: blur(1px);
+  animation: footer-rotate 1.5s linear infinite reverse;
+}
+
+.footer-logo-face {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 20px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 50% 50% 45% 45%;
+  opacity: 0.9;
+}
+.footer-logo-face::before, .footer-logo-face::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  width: 3px;
+  height: 3px;
+  background: #fff;
+  border-radius: 50%;
+  animation: footer-blink 2s ease-in-out infinite;
+}
+.footer-logo-face::before {
+  left: 4px;
+}
+.footer-logo-face::after {
+  right: 4px;
+}
+
+@keyframes footer-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+@keyframes footer-blink {
+  0%, 90%, 100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+.footer-logo {
+  font-weight: 700;
+  font-size: 14px;
+  color: #1a1a2e;
+  letter-spacing: 1px;
+}
+
+.footer-tagline {
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+}
+
+.footer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.footer-legal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+}
+
+.footer-item {
+  color: inherit;
+}
+
+.footer-separator {
+  color: rgba(0, 0, 0, 0.2);
+}
+
+.footer-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.footer-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.footer-status-dot.connected {
+  background: #30d158;
+  box-shadow: 0 0 10px rgba(48, 209, 88, 0.6), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.footer-status-dot.error {
+  background: #ff453a;
+  box-shadow: 0 0 10px rgba(255, 69, 58, 0.6), 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.footer-status-dot.loading {
+  background: #ffd60a;
+  box-shadow: 0 0 10px rgba(255, 214, 10, 0.6), 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
 .btn {
@@ -2346,7 +2512,6 @@ input[type=file] {
 
 .library-card-image-container {
   position: relative;
-  width: 100%;
   aspect-ratio: 1;
   border-radius: 6px;
   overflow: hidden;
@@ -2358,11 +2523,6 @@ input[type=file] {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-.library-card-thumb.loaded {
-  opacity: 1;
 }
 
 .library-card-loading {
