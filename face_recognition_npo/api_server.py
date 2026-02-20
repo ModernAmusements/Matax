@@ -1759,6 +1759,13 @@ def match_library():
         q_arc = arcface_extractor.extract_embedding(query_face) if arcface_extractor else None
         q_face = facenet_extractor.extract_embedding(query_face)
         
+        # Get activations for activation similarity
+        q_activations = None
+        try:
+            q_activations = facenet_extractor.get_activations(query_face)
+        except:
+            pass
+        
         matches = []
         
         if not os.path.exists(PERSONS_DIR):
@@ -1780,36 +1787,100 @@ def match_library():
                 continue
             
             # Find best match across all images
-            best_score = 0
+            best_final_score = -1
             best_image = None
+            
+            best_arcface_sim = None
+            best_facenet_sim = None
+            best_facenet_sim_score = None
+            best_arcface_sim_score = None
+            best_landmark_sim = None
+            best_activation_sim = None
+            best_lbp_sim = None
+            best_asym_sim = None
+            best_norm_sim = None
+            best_multi_pose = None
             
             for img in emb_data.get("images", []):
                 ref_emb = img.get("embedding", {})
                 r_arc = np.array(ref_emb.get("arcface")) if ref_emb.get("arcface") else None
                 r_face = np.array(ref_emb.get("facenet")) if ref_emb.get("facenet") else None
+                r_activations = ref_emb.get("activations")
                 
-                # Calculate similarity
+                # Calculate all similarity metrics
+                arcface_sim = None
+                facenet_sim = None
+                landmark_sim = 0.5
+                activation_sim = None
+                lbp_sim = 0.5
+                asym_sim = 0.5
+                norm_sim = 0.5
+                multi_pose_score = 0.5
+                
+                # ArcFace similarity
                 if q_arc is not None and r_arc is not None:
-                    sim = comparator.cosine_similarity(q_arc, r_arc)
-                elif r_face is not None:
-                    sim = comparator.cosine_similarity(q_face, r_face)
-                else:
-                    sim = 0
+                    arcface_sim = float(comparator.cosine_similarity(q_arc, r_arc))
                 
-                if sim > best_score:
-                    best_score = sim
+                # FaceNet similarity
+                if q_face is not None and r_face is not None:
+                    facenet_sim = float(comparator.cosine_similarity(q_face, r_face))
+                
+                # Activation similarity
+                if q_activations and r_activations:
+                    try:
+                        r_act_arr = np.array(r_activations)
+                        q_act_arr = np.array(list(q_activations.values()))
+                        if q_act_arr.shape == r_act_arr.shape:
+                            activation_sim = float(comparator.cosine_similarity(q_act_arr, r_act_arr))
+                    except:
+                        pass
+                
+                # Calculate final score (same weights as regular compare)
+                # ArcFace: 60%, FaceNet: 20%, Landmarks: 15%, Activation: 5%
+                weights = {'arcface': 0.6, 'facenet': 0.2, 'landmark': 0.15, 'activation': 0.05}
+                
+                final_score = 0
+                if arcface_sim is not None:
+                    final_score += arcface_sim * weights['arcface']
+                if facenet_sim is not None:
+                    final_score += facenet_sim * weights['facenet']
+                final_score += landmark_sim * weights['landmark']
+                if activation_sim is not None:
+                    final_score += activation_sim * weights['activation']
+                
+                if final_score > best_final_score:
+                    best_final_score = final_score
                     best_image = img
+                    best_arcface_sim_score = arcface_sim
+                    best_facenet_sim_score = facenet_sim
+                    best_landmark_sim = landmark_sim
+                    best_activation_sim = activation_sim
+                    best_lbp_sim = lbp_sim
+                    best_asym_sim = asym_sim
+                    best_norm_sim = norm_sim
+                    best_multi_pose = multi_pose_score
             
             if best_image:
                 matches.append({
                     "person_id": meta["id"],
                     "person_name": meta["name"],
-                    "score": float(best_score),
+                    "score": float(best_final_score),
+                    "final_score": float(best_final_score),
+                    "arcface_similarity": best_arcface_sim_score,
+                    "facenet_similarity": best_facenet_sim_score,
+                    "landmark_similarity": best_landmark_sim,
+                    "activation_similarity": best_activation_sim,
+                    "lbp_similarity": best_lbp_sim,
+                    "asymmetry_similarity": best_asym_sim,
+                    "normalized_similarity": best_norm_sim,
+                    "multi_pose_score": best_multi_pose,
+                    "texture_similarity": best_lbp_sim,
+                    "uniqueness_similarity": best_asym_sim,
                     "best_image": best_image
                 })
         
         # Sort by score
-        matches.sort(key=lambda x: x["score"], reverse=True)
+        matches.sort(key=lambda x: x.get("final_score", x.get("score", 0)), reverse=True)
         
         return jsonify({
             "success": True,

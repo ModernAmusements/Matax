@@ -716,6 +716,8 @@ class SimilarityComparator:
         """
         if score >= 0.70:
             return ('match', 'Full Match', 'High confidence - likely the same person')
+        elif score >= 0.60:
+            return ('match', 'Match', 'Good confidence - likely the same person')
         elif score >= 0.45:
             return ('possible', 'Possible Match', 'Medium confidence - human review recommended')
         else:

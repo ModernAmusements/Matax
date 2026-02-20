@@ -166,8 +166,8 @@
                             <p>Upload a photo to detect faces and extract embeddings</p>
                         </div>
                         <div class="button-group">
-                            <button class="btn btn-primary" onclick="scrollToSection('step1')">Choose Photo</button>
-                            <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)">
+                            <button class="btn btn-primary" onclick="scrollToStep1()">Choose Photo</button>
+                        <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)" style="display:none">
                         </div>
                     </div>
                 </div>
@@ -220,7 +220,7 @@
             <div class="step-checkmark">✓</div>
             <div class="step-header">
                 <div>
-                    <span class="step-number">Step 6</span>
+                    <span class="step-number">Manage</span>
                     <h2>Reference Library</h2>
                     <p>Manage your saved reference persons. Upload images or capture from webcam to add to the library.</p>
                     <p id="libraryStatus" class="status">Loading library...</p>
@@ -256,7 +256,7 @@
                 <div class="step-checkmark">✓</div>
                 <div class="step-header">
                     <div>
-                        <span class="step-number">Step 1</span>
+                        <span class="step-number">Analyze</span>
                         <button class="step-nav-icon-mini">
                             <img src="/styles/sf_icons/person.fill.svg" alt="">
                         </button>
@@ -271,7 +271,7 @@
                     <div class="button-group hidden" id="step1ButtonsAfter">
                         <button class="btn btn-primary" onclick="selectImage()">Upload Another</button>
                         <button class="btn btn-success" onclick="compareWithUploadedImage()">Compare with Library</button>
-                        <input type="file" id="imageInputAfter" accept="image/*" onchange="handleImageSelect(event)">
+                        <input type="file" id="imageInputAfter" accept="image/*" onchange="handleImageSelect(event)" style="display:none">
                     </div>
                 </div>
                 <div class="preview-container hidden" id="previewContainer">
@@ -313,36 +313,6 @@
             </div>
         </div>
 
-        <!-- Step 2 & 3 -->
-        <div class="steps-row">
-            <div class="step" id="step2">
-                <div class="step-checkmark">✓</div>
-                <div class="step-header">
-                    <div>
-                        <span class="step-number">Step 2</span>
-                        <h2>Find Faces</h2>
-                        <p>The AI will automatically detect all faces in your photo.</p>
-                        <p id="detectStatus" class="status">Waiting for image...</p>
-                    </div>
-                </div>
-                <div id="facesContainer" class="hidden">
-                    <div class="gallery" id="facesGallery"></div>
-                </div>
-            </div>
-
-            <div class="step" id="step3">
-                <div class="step-checkmark">✓</div>
-                <div class="step-header">
-                    <div>
-                        <span class="step-number">Step 3</span>
-                        <h2>Create Signature</h2>
-                        <p>Convert each face into a unique mathematical signature.</p>
-                        <p id="extractStatus" class="status">Waiting for detection...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Step 4 + Comparison Result (side by side) -->
         <div class="steps-row">
             <!-- Step 4 -->
@@ -350,7 +320,7 @@
                 <div class="step-checkmark">✓</div>
                 <div class="step-header">
                     <div>
-                        <span class="step-number">Step 4</span>
+                        <span class="step-number">References</span>
                         <h2>Compare</h2>
                         <p>Match extracted features against your reference library or upload temporary references.</p>
                         <p id="compareStatus" class="status">Waiting for extraction...</p>
@@ -413,7 +383,7 @@
                         <div class="comparison-status" id="matchStatus">--</div>
                         <h4 class="comparison-label">Similarity</h4>
                         <div class="comparison-scores-dropdown">
-                            <div class="scores-toggle" onclick="this.setAttribute('data-expanded', this.getAttribute('data-expanded') === 'true' ? 'false' : 'true'); this.nextElementSibling.setAttribute('data-visible', this.getAttribute('data-expanded') === 'true' ? 'true' : 'false')">
+                            <div class="scores-toggle" onclick="const isExpanded = this.getAttribute('data-expanded') === 'true'; this.setAttribute('data-expanded', (!isExpanded).toString()); this.nextElementSibling.setAttribute('data-visible', (!isExpanded).toString())">
                                 <span class="toggle-icon">▶</span>
                                 <span>Show scores</span>
                             </div>
@@ -474,7 +444,24 @@
                     <span class="step-number">AI Analysis</span>
                     <h2>Visualizations</h2>
                     <p>See how the AI analyzes faces in your images.</p>
+                    <p id="step5Status" class="status">Upload an image to analyze</p>
                 </div>
+                <div class="button-group" id="step5Buttons">
+                    <button class="btn" onclick="clearAllCache()">Clear</button>
+                    <button class="btn btn-primary" onclick="selectImageForStep5()">Upload</button>
+                    <button class="btn" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
+                    <button class="btn" onclick="extractFeatures()" id="extractBtn" disabled>Create Signature</button>
+                    <input type="file" id="step5ImageInput" accept="image/*" onchange="handleImageSelect(event)" style="display:none">
+                </div>
+            </div>
+            <div class="preview-container hidden" id="step5PreviewContainer">
+                <div class="preview-box">
+                    <img id="step5SelectedImage" src="" alt="Selected">
+                    <p class="preview-label">Selected Image</p>
+                </div>
+            </div>
+            <div id="step5FacesContainer" class="hidden">
+                <div class="gallery" id="step5FacesGallery"></div>
             </div>
             <div class="viz-tabs" id="vizTabs">
                 <button class="viz-tab active" data-viz="detection">Detection</button>

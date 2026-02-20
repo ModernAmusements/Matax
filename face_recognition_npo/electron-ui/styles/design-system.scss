@@ -767,10 +767,13 @@ p {
   scroll-margin-top: 90px;
 }
 
-// Active section highlight
+// Active section highlight - liquid style
 .step.active-section {
-  border: 2px solid rgba(0, 122, 255, 0.5) !important;
-  background: rgba(0, 122, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  background: var(--liquid-bg) !important;
+  backdrop-filter: blur(var(--liquid-blur));
+  -webkit-backdrop-filter: blur(var(--liquid-blur));
+  box-shadow: var(--liquid-shadow);
 }
 
 #webcamStep {
@@ -971,6 +974,7 @@ p {
 
   img {
     max-width: 100%;
+    max-height: 300px;
     display: block;
     margin: 0 auto 8px;
     border-radius: 16px;
@@ -1361,18 +1365,18 @@ p {
 
 .comparison-result {
   display: none;
-  background: $glass-bg;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid $glass-border;
+  background: var(--liquid-bg);
+  backdrop-filter: blur(var(--liquid-blur));
+  -webkit-backdrop-filter: blur(var(--liquid-blur));
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 24px;
   padding: 20px 24px;
   margin-bottom: 20px;
-  box-shadow: 0 4px 24px $glass-shadow;
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: var(--liquid-shadow);
+  transition: var(--liquid-transition);
   position: relative;
 
-  &.active {
+  &.active, &.visible {
     display: block;
     margin-bottom: 20px;
   }
@@ -1833,7 +1837,13 @@ input[type="file"] {
 
   img {
     max-width: 100%;
-    max-height: 400px;
+    max-height: 600px;
+    width: auto;
+    height: auto;
+    background: #000;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
   }
 }
 

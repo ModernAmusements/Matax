@@ -217,20 +217,68 @@ async function clearAllCache() {
     references = [];
     visualizationData = {};
     
-    document.getElementById('selectedImage').src = '';
-    document.getElementById('previewContainer').classList.remove('visible');
-    document.getElementById('previewContainer').classList.add('hidden');
-    document.getElementById('step1ButtonsInitial').classList.remove('hidden');
-    document.getElementById('step1ButtonsAfter').classList.add('hidden');
-    document.getElementById('step1').classList.remove('step-complete');
-    document.getElementById('step2').classList.remove('step-complete');
-    document.getElementById('step3').classList.remove('step-complete');
-    document.getElementById('step4').classList.remove('step-complete');
-    document.getElementById('webcamStep').classList.remove('step-complete');
-    document.getElementById('detectBtn').classList.remove('btn-success');
-    document.getElementById('detectBtn').classList.add('btn-primary');
-    document.getElementById('extractBtn').classList.remove('btn-success');
-    document.getElementById('extractBtn').classList.add('btn-primary');
+    const selectedImageEl = document.getElementById('selectedImage');
+    if (selectedImageEl) selectedImageEl.src = '';
+    const previewContainerEl = document.getElementById('previewContainer');
+    if (previewContainerEl) {
+        previewContainerEl.classList.remove('visible');
+        previewContainerEl.classList.add('hidden');
+    }
+    const step1ButtonsInitialEl = document.getElementById('step1ButtonsInitial');
+    if (step1ButtonsInitialEl) step1ButtonsInitialEl.classList.remove('hidden');
+    const step1ButtonsAfterEl = document.getElementById('step1ButtonsAfter');
+    if (step1ButtonsAfterEl) step1ButtonsAfterEl.classList.add('hidden');
+    const step1El = document.getElementById('step1');
+    if (step1El) step1El.classList.remove('step-complete');
+    const step2El = document.getElementById('step2');
+    if (step2El) step2El.classList.remove('step-complete');
+    const step3El = document.getElementById('step3');
+    if (step3El) step3El.classList.remove('step-complete');
+    const step4El = document.getElementById('step4');
+    if (step4El) step4El.classList.remove('step-complete');
+    const webcamStepEl = document.getElementById('webcamStep');
+    if (webcamStepEl) webcamStepEl.classList.remove('step-complete');
+    
+    const detectBtn = document.getElementById('detectBtn');
+    const extractBtn = document.getElementById('extractBtn');
+    if (detectBtn) {
+        detectBtn.classList.remove('btn-success');
+        detectBtn.classList.add('btn-primary');
+    }
+    if (extractBtn) {
+        extractBtn.classList.remove('btn-success');
+        extractBtn.classList.add('btn-primary');
+    }
+    
+    // Clear Step 5 preview
+    const step5PreviewEl = document.getElementById('step5PreviewContainer');
+    if (step5PreviewEl) {
+        step5PreviewEl.classList.add('hidden');
+        step5PreviewEl.classList.remove('visible');
+    }
+    const step5ImageEl = document.getElementById('step5SelectedImage');
+    if (step5ImageEl) step5ImageEl.src = '';
+    
+    // Clear Step 5 faces
+    const step5FacesEl = document.getElementById('step5FacesContainer');
+    if (step5FacesEl) {
+        step5FacesEl.classList.add('hidden');
+        step5FacesEl.classList.remove('visible');
+    }
+    const step5GalleryEl = document.getElementById('step5FacesGallery');
+    if (step5GalleryEl) step5GalleryEl.innerHTML = '';
+    
+    // Clear Step 5 status
+    const step5StatusEl = document.getElementById('step5Status');
+    if (step5StatusEl) {
+        step5StatusEl.textContent = 'Upload an image to analyze';
+        step5StatusEl.className = 'status';
+    }
+    
+    // Clear currently uploaded section
+    updateCurrentlyUploaded();
+    
+    showToast('Cache cleared', 'success');
 }
 
 function handleImageSelect(event) {
@@ -261,26 +309,64 @@ function handleImageSelect(event) {
         });
         
         currentImage = e.target.result;
-        document.getElementById('selectedImage').src = currentImage;
-        document.getElementById('previewContainer').classList.add('visible');
-        document.getElementById('detectBtn').disabled = false;
-        document.getElementById('detectStatus').textContent = 'Ready to detect';
-        document.getElementById('detectStatus').className = 'status status-info';
+        
+        // Update preview - with null checks
+        const selectedImageEl = document.getElementById('selectedImage');
+        if (selectedImageEl) selectedImageEl.src = currentImage;
+        const previewContainerEl = document.getElementById('previewContainer');
+        if (previewContainerEl) {
+            previewContainerEl.classList.add('visible');
+            previewContainerEl.classList.remove('hidden');
+        }
+        
+        // Also show in Step 5 - with null checks
+        const step5SelectedImageEl = document.getElementById('step5SelectedImage');
+        if (step5SelectedImageEl) step5SelectedImageEl.src = currentImage;
+        const step5PreviewContainerEl = document.getElementById('step5PreviewContainer');
+        if (step5PreviewContainerEl) {
+            step5PreviewContainerEl.classList.remove('hidden');
+            step5PreviewContainerEl.classList.add('visible');
+        }
+        
+        // Update status (handle if element doesn't exist)
+        const detectStatusEl = document.getElementById('detectStatus');
+        if (detectStatusEl) {
+            detectStatusEl.textContent = 'Ready - auto-detecting...';
+            detectStatusEl.className = 'status status-info';
+        }
+        
+        const step5StatusEl = document.getElementById('step5Status');
+        if (step5StatusEl) {
+            step5StatusEl.textContent = 'Ready - auto-detecting...';
+            step5StatusEl.className = 'status status-info';
+        }
+        
         resetSteps();
-        markStepComplete('step1', 'detectBtn');
+        markStepComplete('step1');
         event.target.value = '';
+        
+        // Update UI sections
         checkLibraryCompareButton();
         checkFindMatchesButton();
         updateCurrentlyUploaded();
         
-        // Show after-upload buttons
-        document.getElementById('step1ButtonsInitial').classList.add('hidden');
-        document.getElementById('step1ButtonsAfter').classList.remove('hidden');
+        // Show success notification
+        showToast('Image uploaded successfully', 'success');
+        
+        // Show after-upload buttons - with null checks
+        const step1ButtonsInitialEl = document.getElementById('step1ButtonsInitial');
+        if (step1ButtonsInitialEl) step1ButtonsInitialEl.classList.add('hidden');
+        const step1ButtonsAfterEl = document.getElementById('step1ButtonsAfter');
+        if (step1ButtonsAfterEl) step1ButtonsAfterEl.classList.remove('hidden');
         
         // Auto-run detection after upload (Option A)
         detectFaces().then(() => {
             // Auto-run extraction after detection
             extractFeatures();
+            // Scroll to visualization section
+            setTimeout(() => {
+                scrollToSection('step5');
+            }, 500);
         });
     };
     reader.onerror = (err) => {
@@ -293,41 +379,82 @@ function handleImageSelect(event) {
 function resetSteps() {
     currentFaceThumbnails = [];
     currentQueryEmbedding = null;
-    document.getElementById('facesContainer').classList.add('hidden');
-    document.getElementById('extractBtn').disabled = true;
-    document.getElementById('extractStatus').textContent = 'Waiting for detection...';
-    document.getElementById('compareStatus').textContent = 'Step 1: Detect faces first';
-    document.getElementById('compareBtn').disabled = true;
-    document.getElementById('comparisonResult').classList.add('hidden');
+    
+    const facesContainerEl = document.getElementById('facesContainer');
+    if (facesContainerEl) facesContainerEl.classList.add('hidden');
+    const extractBtnEl = document.getElementById('extractBtn');
+    if (extractBtnEl) extractBtnEl.disabled = true;
+    const extractStatusEl = document.getElementById('extractStatus');
+    if (extractStatusEl) extractStatusEl.textContent = 'Waiting for detection...';
+    const compareStatusEl = document.getElementById('compareStatus');
+    if (compareStatusEl) compareStatusEl.textContent = 'Step 1: Detect faces first';
+    const compareBtnEl = document.getElementById('compareBtn');
+    if (compareBtnEl) compareBtnEl.disabled = true;
+    const comparisonResultEl = document.getElementById('comparisonResult');
+    if (comparisonResultEl) comparisonResultEl.classList.add('hidden');
     visualizationData = {};
     showVisualizationPlaceholder();
     
     // Reset step states
-    document.getElementById('step1').classList.remove('step-complete');
-    document.getElementById('step2').classList.remove('step-complete');
-    document.getElementById('step3').classList.remove('step-complete');
-    document.getElementById('step4').classList.remove('step-complete');
-    document.getElementById('webcamStep').classList.remove('step-complete');
+    const step1El = document.getElementById('step1');
+    if (step1El) step1El.classList.remove('step-complete');
+    const step2El = document.getElementById('step2');
+    if (step2El) step2El.classList.remove('step-complete');
+    const step3El = document.getElementById('step3');
+    if (step3El) step3El.classList.remove('step-complete');
+    const step4El = document.getElementById('step4');
+    if (step4El) step4El.classList.remove('step-complete');
+    const webcamStepEl = document.getElementById('webcamStep');
+    if (webcamStepEl) webcamStepEl.classList.remove('step-complete');
     
     // Reset button states
-    document.getElementById('detectBtn').classList.remove('btn-success');
-    document.getElementById('extractBtn').classList.remove('btn-success');
+    const detectBtnEl = document.getElementById('detectBtn');
+    if (detectBtnEl) detectBtnEl.classList.remove('btn-success');
+    if (extractBtnEl) extractBtnEl.classList.remove('btn-success');
 }
 
 function markStepComplete(stepId, btnId) {
-    document.getElementById(stepId).classList.add('step-complete');
-    if (btnId && document.getElementById(btnId)) {
-        document.getElementById(btnId).classList.remove('btn-primary');
-        document.getElementById(btnId).classList.add('btn-success');
+    const stepEl = document.getElementById(stepId);
+    if (stepEl) stepEl.classList.add('step-complete');
+    if (btnId) {
+        const btnEl = document.getElementById(btnId);
+        if (btnEl) {
+            btnEl.classList.remove('btn-primary');
+            btnEl.classList.add('btn-success');
+        }
     }
 }
 
 function selectImage() {
-    document.getElementById('imageInput').click();
+    // Use imageInputAfter if it exists and is visible (after first upload)
+    const imageInputAfter = document.getElementById('imageInputAfter');
+    if (imageInputAfter && !imageInputAfter.parentElement.classList.contains('hidden')) {
+        imageInputAfter.click();
+    } else {
+        document.getElementById('imageInput').click();
+    }
+}
+
+function selectImageForStep5() {
+    document.getElementById('step5ImageInput').click();
+}
+
+// Scroll to Step 1 then open file dialog
+function scrollToStep1() {
+    scrollToSection('step1');
+    setTimeout(() => {
+        selectImage();
+    }, 300);
 }
 
 function addReference() {
-    document.getElementById('refInput').click();
+    const refInputEl = document.getElementById('refInput');
+    if (refInputEl) {
+        refInputEl.click();
+    } else {
+        showToast('Reference input not found', 'error');
+        logToTerminal('> Error: refInput element not found', 'error');
+    }
 }
 
 function handleReferenceSelect(event) {
@@ -401,13 +528,20 @@ async function detectFaces() {
         });
 
         const data = await response.json();
-
+ 
         if (data.success) {
             logToTerminal(`> Found ${data.count} face(s) in image`, 'success');
-            document.getElementById('detectStatus').textContent = `Found ${data.count} face(s)!`;
-            document.getElementById('detectStatus').className = 'status status-success';
-            document.getElementById('extractBtn').disabled = false;
-            markStepComplete('step2', 'extractBtn');
+            
+            // Update Step 5 status
+            const step5Status = document.getElementById('step5Status');
+            if (step5Status) {
+                step5Status.textContent = `Found ${data.count} face(s)!`;
+                step5Status.className = 'status status-success';
+            }
+            
+            const extractBtnEl = document.getElementById('extractBtn');
+            if (extractBtnEl) extractBtnEl.disabled = false;
+            markStepComplete('step2', 'detectBtn');
 
             // Display preprocessing info
             if (data.preprocessing) {
@@ -415,7 +549,7 @@ async function detectFaces() {
                 if (prep.was_enhanced) {
                     const msg = `Image enhanced: ${prep.method.toUpperCase()} (quality: ${(prep.enhanced_quality.overall * 100).toFixed(0)}%)`;
                     logToTerminal('> ' + msg, 'info');
-                    document.getElementById('detectStatus').textContent = `Found ${data.count} face(s) - ${prep.method} enhanced`;
+                    if (step5Status) step5Status.textContent = `Found ${data.count} face(s) - ${prep.method} enhanced`;
                 } else {
                     logToTerminal('> Image quality OK (no enhancement needed)', 'info');
                 }
@@ -429,8 +563,10 @@ async function detectFaces() {
                     const ew = eyewearData.eyewear;
                     const warningMsg = `⚠️ ${ew.type.toUpperCase()} detected (${Math.round(ew.confidence * 100)}% confidence) - may affect accuracy`;
                     logToTerminal('> ' + warningMsg, 'warning');
-                    document.getElementById('detectStatus').textContent = `Found ${data.count} face(s) - ${ew.type} detected!`;
-                    document.getElementById('detectStatus').className = 'status status-warning';
+                    if (step5Status) {
+                        step5Status.textContent = `Found ${data.count} face(s) - ${ew.type} detected!`;
+                        step5Status.className = 'status status-warning';
+                    }
                     showToast(warningMsg, 'warning');
                 }
             } catch (ewErr) {
@@ -438,8 +574,12 @@ async function detectFaces() {
             }
 
             const gallery = document.getElementById('facesGallery');
-            gallery.innerHTML = '';
+            if (gallery) gallery.innerHTML = '';
             currentFaceThumbnails = data.faces;
+
+            // Also show in Step 5
+            const step5Gallery = document.getElementById('step5FacesGallery');
+            if (step5Gallery) step5Gallery.innerHTML = '';
 
             data.faces.forEach((face, i) => {
                 logToTerminal(`> Face ${i + 1}: bbox=[${face.bbox.join(', ')}]`, 'info');
@@ -449,10 +589,25 @@ async function detectFaces() {
                     <img src="data:image/png;base64,${face.thumbnail}" alt="Face ${i + 1}">
                     <span>Face ${i + 1}</span>
                 `;
-                gallery.appendChild(div);
+                if (gallery) gallery.appendChild(div);
+                
+                // Add to Step 5 gallery too
+                const step5Div = document.createElement('div');
+                step5Div.className = 'gallery-item';
+                step5Div.innerHTML = `
+                    <img src="data:image/png;base64,${face.thumbnail}" alt="Face ${i + 1}">
+                    <span>Face ${i + 1}</span>
+                `;
+                if (step5Gallery) step5Gallery.appendChild(step5Div);
             });
 
-            document.getElementById('facesContainer').classList.add('visible');
+            const facesContainerEl = document.getElementById('facesContainer');
+            if (facesContainerEl) facesContainerEl.classList.add('visible');
+            const step5FacesContainerEl = document.getElementById('step5FacesContainer');
+            if (step5FacesContainerEl) {
+                step5FacesContainerEl.classList.remove('hidden');
+                step5FacesContainerEl.classList.add('visible');
+            }
 
             Object.keys(data.visualizations).forEach(key => {
                 visualizationData[key] = data.visualizations[key];
@@ -462,14 +617,30 @@ async function detectFaces() {
             showToast(`Found ${data.count} face(s)`, 'success');
         } else {
             logToTerminal('> No faces detected', 'error');
-            document.getElementById('detectStatus').textContent = 'No faces detected';
-            document.getElementById('detectStatus').className = 'status status-warning';
+            const detectStatusEl = document.getElementById('detectStatus');
+            if (detectStatusEl) {
+                detectStatusEl.textContent = 'No faces detected';
+                detectStatusEl.className = 'status status-warning';
+            }
+            const step5StatusEl = document.getElementById('step5Status');
+            if (step5StatusEl) {
+                step5StatusEl.textContent = 'No faces detected';
+                step5StatusEl.className = 'status status-warning';
+            }
             showToast(data.error || 'No faces detected', 'warning');
         }
     } catch (err) {
         logToTerminal(`> Error: ${err.message}`, 'error');
-        document.getElementById('detectStatus').textContent = 'Error detecting faces';
-        document.getElementById('detectStatus').className = 'status status-error';
+        const detectStatusEl = document.getElementById('detectStatus');
+        if (detectStatusEl) {
+            detectStatusEl.textContent = 'Error detecting faces';
+            detectStatusEl.className = 'status status-error';
+        }
+        const step5StatusEl = document.getElementById('step5Status');
+        if (step5StatusEl) {
+            step5StatusEl.textContent = 'Error detecting faces';
+            step5StatusEl.className = 'status status-error';
+        }
         showToast('Error: ' + err.message, 'error');
     } finally {
         hideLoading();
@@ -511,33 +682,88 @@ async function extractFeatures() {
             
             logToTerminal(`> Embedding vector: ${data.embedding_size} dimensions`, 'success');
             logToTerminal(`> Mean: ${data.embedding_mean.toFixed(6)}, Std: ${data.embedding_std.toFixed(6)}`, 'info');
-            document.getElementById('extractStatus').textContent = `Features extracted (${data.embedding_size}-dim)`;
-            document.getElementById('extractStatus').className = 'status status-success';
+            const extractStatusEl = document.getElementById('extractStatus');
+            if (extractStatusEl) {
+                extractStatusEl.textContent = `Features extracted (${data.embedding_size}-dim)`;
+                extractStatusEl.className = 'status status-success';
+            }
+            const step5StatusEl = document.getElementById('step5Status');
+            if (step5StatusEl) {
+                step5StatusEl.textContent = `Signature created (${data.embedding_size}-dim)`;
+                step5StatusEl.className = 'status status-success';
+            }
             markStepComplete('step3', null);
+            
+            // Pre-fetch all visualization types in background
+            const vizTypes = ['detection', 'extraction', 'preprocessing', 'landmarks', 'mesh3d', 'alignment', 'saliency', 'activations', 'features', 'multiscale', 'confidence', 'eyewear', 'embedding', 'similarity', 'robustness', 'biometric', 'asymmetry', 'texture', 'normalized'];
+            logToTerminal('> Pre-caching all visualizations...', 'info');
+            vizTypes.forEach(vizType => {
+                if (!visualizationData[vizType]) {
+                    fetch(`${API_BASE}/visualizations/${vizType}`)
+                        .then(r => r.json())
+                        .then(vizData => {
+                            if (vizData.success && vizData.visualization) {
+                                visualizationData[vizType] = vizData.visualization;
+                                if (vizData.data) {
+                                    visualizationData[vizType + '_data'] = vizData.data;
+                                }
+                                console.log('[CACHE] Cached:', vizType);
+                            }
+                        })
+                        .catch(err => console.log('[CACHE] Failed:', vizType, err.message));
+                }
+            });
             
             // Enable compare button only if we have both embedding AND references
             const hasReferences = references && references.length > 0;
-            document.getElementById('compareBtn').disabled = !hasReferences;
-            if (hasReferences) {
-                document.getElementById('compareStatus').textContent = 'Step 4: Click "Compare" to find matches';
-            } else {
-                document.getElementById('compareStatus').textContent = 'Step 3b: Add a reference image to compare';
+            const compareBtnEl = document.getElementById('compareBtn');
+            if (compareBtnEl) {
+                compareBtnEl.disabled = !hasReferences;
+            }
+            const compareStatusEl = document.getElementById('compareStatus');
+            if (compareStatusEl) {
+                if (hasReferences) {
+                    compareStatusEl.textContent = 'Step 4: Click "Compare" to find matches';
+                } else {
+                    compareStatusEl.textContent = 'Step 3b: Add a reference image to compare';
+                }
             }
 
             console.log('[EXTRACT] Cached visualizations:', Object.keys(visualizationData));
             
             showVisualization('embedding');
             showToast('Features extracted successfully', 'success');
+            
+            // Scroll to visualization section
+            setTimeout(() => {
+                scrollToSection('step5');
+            }, 500);
         } else {
             logToTerminal('> Feature extraction failed', 'error');
-            document.getElementById('extractStatus').textContent = 'Extraction failed';
-            document.getElementById('extractStatus').className = 'status status-error';
+            const extractStatusEl = document.getElementById('extractStatus');
+            if (extractStatusEl) {
+                extractStatusEl.textContent = 'Extraction failed';
+                extractStatusEl.className = 'status status-error';
+            }
+            const step5StatusEl = document.getElementById('step5Status');
+            if (step5StatusEl) {
+                step5StatusEl.textContent = 'Failed to create signature';
+                step5StatusEl.className = 'status status-error';
+            }
             showToast(data.error || 'Extraction failed', 'error');
         }
     } catch (err) {
         logToTerminal(`> Error: ${err.message}`, 'error');
-        document.getElementById('extractStatus').textContent = 'Error extracting features';
-        document.getElementById('extractStatus').className = 'status status-error';
+        const extractStatusEl = document.getElementById('extractStatus');
+        if (extractStatusEl) {
+            extractStatusEl.textContent = 'Error extracting features';
+            extractStatusEl.className = 'status status-error';
+        }
+        const step5StatusEl = document.getElementById('step5Status');
+        if (step5StatusEl) {
+            step5StatusEl.textContent = 'Error creating signature';
+            step5StatusEl.className = 'status status-error';
+        }
         showToast('Error: ' + err.message, 'error');
     } finally {
         hideLoading();
@@ -546,8 +772,21 @@ async function extractFeatures() {
     }
 }
 
-async function removeReference(index, event) {
+async function removeReference(index, btnOrEvent) {
+    let btn = null;
+    let event = null;
+    
+    if (btnOrEvent && btnOrEvent.target) {
+        // It's an event object
+        event = btnOrEvent;
+        btn = btnOrEvent.target;
+    } else if (btnOrEvent) {
+        // It's a DOM element (this)
+        btn = btnOrEvent;
+    }
+    
     if (event) {
+        event.preventDefault();
         event.stopPropagation();
     }
     
@@ -631,8 +870,15 @@ async function showReferenceVisualizations(refId) {
     }
 }
 
-function showReferenceDetailsOnly(refIndex, event) {
-    event.stopPropagation();
+function showReferenceDetailsOnly(refIndex, btnOrEvent) {
+    let event = null;
+    if (btnOrEvent && btnOrEvent.target) {
+        event = btnOrEvent;
+    }
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
     const ref = references[refIndex];
     if (!ref) return;
     showReferenceDetails(refIndex, ref);
@@ -822,13 +1068,17 @@ function updateCurrentlyUploaded() {
     const preview = document.getElementById('currentlyUploadedPreview');
     const img = document.getElementById('currentlyUploadedImage');
     
-    if (currentImage) {
-        empty.classList.add('hidden');
-        preview.classList.remove('hidden');
-        img.src = currentImage;
-    } else {
-        empty.classList.remove('hidden');
-        preview.classList.add('hidden');
+    if (empty && preview && img) {
+        if (currentImage) {
+            empty.style.display = 'none';
+            preview.classList.remove('hidden');
+            preview.style.display = 'flex';
+            img.src = currentImage;
+        } else {
+            empty.style.display = 'block';
+            preview.classList.add('hidden');
+            preview.style.display = 'none';
+        }
     }
 }
 
@@ -969,8 +1219,8 @@ function updateReferenceList() {
         const name = ref.name || `Reference ${i + 1}`;
         
         div.innerHTML = `
-            <div class="ref-remove-btn" onclick="removeReference(${i}, event)">×</div>
-            <div class="ref-details-btn" onclick="showReferenceDetailsOnly(${i}, event)" title="View Details">i</div>
+            <div class="ref-remove-btn" data-index="${i}" onclick="removeReference(${i}, this)">×</div>
+            <div class="ref-details-btn" data-index="${i}" onclick="showReferenceDetailsOnly(${i}, this)" title="View Details">i</div>
             <img src="data:image/png;base64,${ref.thumbnail}" alt="${name}">
             <span>${name}</span>
         `;
@@ -1150,95 +1400,133 @@ async function compareFaces() {
                 logToTerminal(`> FaceNet: ${(best.facenet_similarity * 100).toFixed(1)}%`, 'info');
             }
 
-            document.getElementById('queryImage').src = `data:image/png;base64,${currentFaceThumbnails[0]?.thumbnail || ''}`;
-            document.getElementById('refImage').src = `data:image/png;base64,${best.thumbnail}`;
-            document.getElementById('refLabel').textContent = best.name;
+            // Update comparison result - with null checks
+            const queryImageEl = document.getElementById('queryImage');
+            const refImageEl = document.getElementById('refImage');
+            const refLabelEl = document.getElementById('refLabel');
+            const statusEl = document.getElementById('matchStatus');
+            const comparisonResultEl = document.getElementById('comparisonResult');
+            
+            if (queryImageEl && currentFaceThumbnails[0]) {
+                queryImageEl.src = `data:image/png;base64,${currentFaceThumbnails[0].thumbnail || ''}`;
+            }
+            if (refImageEl && best.thumbnail) {
+                refImageEl.src = `data:image/png;base64,${best.thumbnail}`;
+            }
+            if (refLabelEl) refLabelEl.textContent = best.name;
             
             // Display match status
-            const statusEl = document.getElementById('matchStatus');
-            statusEl.textContent = best.match_label;
-            statusEl.className = `comparison-status ${best.status}`;
+            if (statusEl) {
+                statusEl.textContent = best.match_label;
+                statusEl.className = `comparison-status ${best.status}`;
+            }
             
             // Display ArcFace score
             const arcfaceEl = document.getElementById('arcfaceScore');
-            if (best.arcface_similarity !== null && best.arcface_similarity !== undefined) {
-                arcfaceEl.textContent = `${Math.round(best.arcface_similarity * 100)}%`;
-            } else {
-                arcfaceEl.textContent = 'N/A';
+            console.log('[COMPARE] best.arcface_similarity:', best.arcface_similarity, 'type:', typeof best.arcface_similarity);
+            if (arcfaceEl && best.arcface_similarity != null) {
+                const score = parseFloat(best.arcface_similarity);
+                if (!isNaN(score)) {
+                    arcfaceEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    arcfaceEl.textContent = 'N/A';
+                }
             }
             
             // Display FaceNet score
             const facenetEl = document.getElementById('facenetScore');
-            if (best.facenet_similarity !== null && best.facenet_similarity !== undefined) {
-                facenetEl.textContent = `${Math.round(best.facenet_similarity * 100)}%`;
-            } else {
-                facenetEl.textContent = 'N/A';
+            if (facenetEl && best.facenet_similarity != null) {
+                const score = parseFloat(best.facenet_similarity);
+                if (!isNaN(score)) {
+                    facenetEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    facenetEl.textContent = 'N/A';
+                }
             }
             
             // Display Activation similarity score
             const activationEl = document.getElementById('activationScore');
-            if (best.activation_similarity !== null && best.activation_similarity !== undefined) {
-                activationEl.textContent = `${Math.round(best.activation_similarity * 100)}%`;
-            } else {
-                activationEl.textContent = 'N/A';
+            if (activationEl && best.activation_similarity != null) {
+                const score = parseFloat(best.activation_similarity);
+                if (!isNaN(score)) {
+                    activationEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    activationEl.textContent = 'N/A';
+                }
             }
             
             // Display 3D Normalized score
             const normEl = document.getElementById('normScore');
-            if (best.normalized_similarity !== null && best.normalized_similarity !== undefined) {
-                normEl.textContent = `${Math.round(best.normalized_similarity * 100)}%`;
-            } else {
-                normEl.textContent = 'N/A';
+            if (normEl && best.normalized_similarity != null) {
+                const score = parseFloat(best.normalized_similarity);
+                if (!isNaN(score)) {
+                    normEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    normEl.textContent = 'N/A';
+                }
             }
             
             // Display Multi-Pose score
             const multiPoseEl = document.getElementById('multiPoseScore');
-            if (best.multi_pose_score !== null && best.multi_pose_score !== undefined) {
-                multiPoseEl.textContent = `${Math.round(best.multi_pose_score * 100)}%`;
-            } else {
-                multiPoseEl.textContent = 'N/A';
+            if (multiPoseEl && best.multi_pose_score != null) {
+                const score = parseFloat(best.multi_pose_score);
+                if (!isNaN(score)) {
+                    multiPoseEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    multiPoseEl.textContent = 'N/A';
+                }
             }
             
             // Display Texture (LBP) score
             const lbpEl = document.getElementById('lbpScore');
-            if (best.lbp_similarity !== null && best.lbp_similarity !== undefined) {
-                lbpEl.textContent = `${Math.round(best.lbp_similarity * 100)}%`;
-            } else {
-                lbpEl.textContent = 'N/A';
+            if (lbpEl && best.lbp_similarity != null) {
+                const score = parseFloat(best.lbp_similarity);
+                if (!isNaN(score)) {
+                    lbpEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    lbpEl.textContent = 'N/A';
+                }
             }
             
             // Display Uniqueness (Asymmetry) score
             const asymEl = document.getElementById('asymScore');
-            if (best.asymmetry_similarity !== null && best.asymmetry_similarity !== undefined) {
-                asymEl.textContent = `${Math.round(best.asymmetry_similarity * 100)}%`;
-            } else {
-                asymEl.textContent = 'N/A';
+            if (asymEl && best.asymmetry_similarity != null) {
+                const score = parseFloat(best.asymmetry_similarity);
+                if (!isNaN(score)) {
+                    asymEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    asymEl.textContent = 'N/A';
+                }
             }
-            
-            // Display final combined score
-            document.getElementById('matchScore').textContent = `${Math.round(best.final_score * 100)}%`;
             
             // Display reasons
             const reasonsEl = document.getElementById('matchReasons');
-            if (best.reasons && best.reasons.length > 0) {
-                reasonsEl.innerHTML = `
-                    <div class="match-reasons-toggle" onclick="this.setAttribute('data-expanded', this.getAttribute('data-expanded') === 'true' ? 'false' : 'true'); this.nextElementSibling.setAttribute('data-visible', this.getAttribute('data-expanded') === 'true' ? 'true' : 'false')">
-                        <span class="toggle-icon">▶</span>
-                        <span>Show details (${best.reasons.length})</span>
-                    </div>
-                    <div class="match-reasons-content">
-                        <ul>${best.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
-                    </div>
-                `;
-            } else {
-                reasonsEl.innerHTML = '';
+            if (reasonsEl) {
+                if (best.reasons && best.reasons.length > 0) {
+                    reasonsEl.innerHTML = `
+                        <div class="match-reasons-toggle" onclick="const isExpanded = this.getAttribute('data-expanded') === 'true'; this.setAttribute('data-expanded', (!isExpanded).toString()); this.nextElementSibling.setAttribute('data-visible', (!isExpanded).toString())">
+                            <span class="toggle-icon">▶</span>
+                            <span>Show details (${best.reasons.length})</span>
+                        </div>
+                        <div class="match-reasons-content">
+                            <ul>${best.reasons.map(r => `<li>${r}</li>`).join('')}</ul>
+                        </div>
+                    `;
+                } else {
+                        reasonsEl.innerHTML = '';
+                }
             }
 
-            const comparisonResult = document.getElementById('comparisonResult');
-            comparisonResult.classList.add('visible');
-            comparisonResult.classList.add('active');
-            document.getElementById('compareStatus').textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
-            document.getElementById('compareStatus').className = 'status status-success';
+            // Show comparison result container
+            if (comparisonResultEl) {
+                comparisonResultEl.classList.remove('hidden');
+                comparisonResultEl.classList.add('visible');
+                comparisonResultEl.classList.add('active');
+            }
+            if (compareStatusEl) {
+                compareStatusEl.textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
+                compareStatusEl.className = 'status status-success';
+            }
 
             // Store similarity visualization
             visualizationData['similarity'] = data.similarity_viz;
@@ -1253,14 +1541,20 @@ async function compareFaces() {
         } else {
             const errorMsg = data.error || 'No match found';
             logToTerminal(`> ${errorMsg}`, 'warning');
-            document.getElementById('compareStatus').textContent = errorMsg;
-            document.getElementById('compareStatus').className = 'status status-warning';
+            const compareStatusEl = document.getElementById('compareStatus');
+            if (compareStatusEl) {
+                compareStatusEl.textContent = errorMsg;
+                compareStatusEl.className = 'status status-warning';
+            }
             showToast(errorMsg, 'warning');
         }
     } catch (err) {
         logToTerminal(`> Error: ${err.message}`, 'error');
-        document.getElementById('compareStatus').textContent = 'Error comparing';
-        document.getElementById('compareStatus').className = 'status status-error';
+        const compareStatusEl = document.getElementById('compareStatus');
+        if (compareStatusEl) {
+            compareStatusEl.textContent = 'Error comparing';
+            compareStatusEl.className = 'status status-error';
+        }
         showToast('Error: ' + err.message, 'error');
     } finally {
         hideLoading();
@@ -1270,8 +1564,13 @@ async function compareFaces() {
 // Visualization
 async function showVisualization(vizType) {
     const content = document.getElementById('vizContent');
+    if (!content) {
+        console.error('[VIZ] vizContent element not found');
+        return;
+    }
     
-    console.log('[VIZ] Requested:', vizType);
+    console.log('[VIZ] Requested:', vizType, 'currentFaceThumbnails:', currentFaceThumbnails?.length, 'currentQueryEmbedding:', currentQueryEmbedding ? 'yes' : 'no');
+    console.log('[VIZ] Available in cache:', Object.keys(visualizationData));
     
     // Check if we have the required data
     if (!currentFaceThumbnails || currentFaceThumbnails.length === 0) {
@@ -2270,13 +2569,82 @@ async function compareWithLibrary() {
         if (data.success && data.matches.length > 0) {
             const best = data.matches[0];
             logToTerminal(`> Best match: ${best.person_name} (${(best.score * 100).toFixed(1)}%)`, 'success');
-            showToast(`Best match: ${best.person_name}`, 'success');
             
             // Update comparison result display
-            document.getElementById('matchStatus').textContent = best.person_name;
-            document.getElementById('matchScore').textContent = `${(best.score * 100).toFixed(1)}%`;
-            document.getElementById('comparisonResult').classList.remove('hidden');
-            document.getElementById('comparisonResult').classList.add('visible');
+            const matchStatusEl = document.getElementById('matchStatus');
+            const matchScoreEl = document.getElementById('matchScore');
+            const comparisonResultEl = document.getElementById('comparisonResult');
+            
+            // Show name only if score >= 60%
+            const scorePercent = best.score * 100;
+            if (scorePercent >= 60) {
+                if (matchStatusEl) matchStatusEl.textContent = best.person_name;
+                showToast(`Best match: ${best.person_name}`, 'success');
+            } else {
+                if (matchStatusEl) matchStatusEl.textContent = 'No Match';
+                showToast('No match found (below 60%)', 'info');
+            }
+            
+            if (matchScoreEl) matchScoreEl.textContent = `${scorePercent.toFixed(1)}%`;
+            if (comparisonResultEl) {
+                comparisonResultEl.classList.remove('hidden');
+                comparisonResultEl.classList.add('visible');
+            }
+            
+            // Display detailed scores from library match
+            const arcfaceEl = document.getElementById('arcfaceScore');
+            if (arcfaceEl && best.arcface_similarity != null) {
+                arcfaceEl.textContent = `${Math.round(best.arcface_similarity * 100)}%`;
+            } else if (arcfaceEl) {
+                arcfaceEl.textContent = '--%';
+            }
+            
+            const facenetEl = document.getElementById('facenetScore');
+            if (facenetEl && best.facenet_similarity != null) {
+                facenetEl.textContent = `${Math.round(best.facenet_similarity * 100)}%`;
+            } else if (facenetEl) {
+                facenetEl.textContent = '--%';
+            }
+            
+            // Display all other scores
+            const normEl = document.getElementById('normScore');
+            if (normEl && best.normalized_similarity != null) {
+                normEl.textContent = `${Math.round(best.normalized_similarity * 100)}%`;
+            } else if (normEl) {
+                normEl.textContent = '--%';
+            }
+            
+            const multiPoseEl = document.getElementById('multiPoseScore');
+            if (multiPoseEl && best.multi_pose_score != null) {
+                multiPoseEl.textContent = `${Math.round(best.multi_pose_score * 100)}%`;
+            } else if (multiPoseEl) {
+                multiPoseEl.textContent = '--%';
+            }
+            
+            const textureEl = document.getElementById('textureScore');
+            if (textureEl && best.texture_similarity != null) {
+                textureEl.textContent = `${Math.round(best.texture_similarity * 100)}%`;
+            } else if (textureEl && best.lbp_similarity != null) {
+                textureEl.textContent = `${Math.round(best.lbp_similarity * 100)}%`;
+            } else if (textureEl) {
+                textureEl.textContent = '--%';
+            }
+            
+            const uniquenessEl = document.getElementById('uniquenessScore');
+            if (uniquenessEl && best.uniqueness_similarity != null) {
+                uniquenessEl.textContent = `${Math.round(best.uniqueness_similarity * 100)}%`;
+            } else if (uniquenessEl && best.asymmetry_similarity != null) {
+                uniquenessEl.textContent = `${Math.round(best.asymmetry_similarity * 100)}%`;
+            } else if (uniquenessEl) {
+                uniquenessEl.textContent = '--%';
+            }
+            
+            const activationEl = document.getElementById('activationScore');
+            if (activationEl && best.activation_similarity != null) {
+                activationEl.textContent = `${Math.round(best.activation_similarity * 100)}%`;
+            } else if (activationEl) {
+                activationEl.textContent = '--%';
+            }
             
             // Show thumbnail if available
             if (best.best_image && best.best_image.thumbnail) {

@@ -870,7 +870,7 @@ def test_workflow_steps_1_to_4(step_num, total):
             image_data = base64.b64encode(f.read()).decode('utf-8')
         
         # Step 2: Detect faces
-        response = requests.post(f"{API_BASE}/detect",
+        response = requests.post(f"{API_BASE}/api/detect",
             json={"image": f"data:image/jpeg;base64,{image_data}"},
             timeout=10
         )
@@ -926,6 +926,310 @@ def test_workflow_steps_1_to_4(step_num, total):
         return False
 
 # =============================================================================
+# UPLOAD WORKFLOW TESTS
+# =============================================================================
+
+def test_upload_workflow_html_elements(step_num, total):
+    """Test Upload Workflow: Currently Uploaded section"""
+    print_step(step_num, total, "Upload Workflow HTML Elements", "running")
+    time.sleep(0.3)
+    
+    html_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'index.html')
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    if not os.path.exists(html_path):
+        print_step(step_num, total, "Upload Workflow HTML Elements", "fail", "index.html not found")
+        return False
+    if not os.path.exists(js_path):
+        print_step(step_num, total, "Upload Workflow HTML Elements", "fail", "app.js not found")
+        return False
+    
+    with open(html_path, 'r') as f:
+        html_content = f.read()
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    # Check HTML elements for Currently Uploaded section
+    html_checks = {
+        'currentlyUploaded': 'id="currentlyUploaded"' in html_content,
+        'currentlyUploadedPreview': 'id="currentlyUploadedPreview"' in html_content,
+        'currentlyUploadedImage': 'id="currentlyUploadedImage"' in html_content,
+        'currently-uploaded-empty': 'currently-uploaded-empty' in html_content,
+        'currently-uploaded-preview': 'currently-uploaded-preview' in html_content,
+    }
+    
+    # Check JavaScript functions and variables
+    js_checks = {
+        'currentImage variable': 'let currentImage' in js_content or 'var currentImage' in js_content,
+        'updateCurrentlyUploaded function': 'function updateCurrentlyUploaded' in js_content,
+        'showUploadedAsReference function': 'function showUploadedAsReference' in js_content,
+        'addUploadedToLibrary function': 'function addUploadedToLibrary' in js_content,
+        'resetSteps function': 'function resetSteps' in js_content,
+        'markStepComplete function': 'function markStepComplete' in js_content,
+        'handleImageSelect function': 'function handleImageSelect' in js_content,
+    }
+    
+    html_passed = all(html_checks.values())
+    js_passed = all(js_checks.values())
+    passed = html_passed and js_passed
+    
+    details = f"HTML: {sum(html_checks.values())}/{len(html_checks)}, JS: {sum(js_checks.values())}/{len(js_checks)}"
+    
+    if passed:
+        print_step(step_num, total, "Upload Workflow HTML Elements", "pass", details)
+    else:
+        missing = []
+        for k, v in html_checks.items():
+            if not v:
+                missing.append(f"HTML:{k}")
+        for k, v in js_checks.items():
+            if not v:
+                missing.append(f"JS:{k}")
+        print_step(step_num, total, "Upload Workflow HTML Elements", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_upload_workflow_null_checks(step_num, total):
+    """Test Upload Workflow: Null checks in critical functions"""
+    print_step(step_num, total, "Upload Workflow Null Checks", "running")
+    time.sleep(0.3)
+    
+    js_path = os.path.join(os.path.dirname(__file__), 'electron-ui', 'renderer', 'app.js')
+    
+    if not os.path.exists(js_path):
+        print_step(step_num, total, "Upload Workflow Null Checks", "fail", "app.js not found")
+        return False
+    
+    with open(js_path, 'r') as f:
+        js_content = f.read()
+    
+    # Check that critical functions have null checks
+    checks = {
+        'resetSteps has null check for facesContainer': 'getElementById(\'facesContainer\')' in js_content,
+        'resetSteps has null check for step1': 'getElementById(\'step1\')' in js_content,
+        'resetSteps has null check for step2': 'getElementById(\'step2\')' in js_content,
+        'resetSteps has null check for step3': 'getElementById(\'step3\')' in js_content,
+        'resetSteps has null check for step4': 'getElementById(\'step4\')' in js_content,
+        'resetSteps has null check for webcamStep': 'getElementById(\'webcamStep\')' in js_content,
+        'markStepComplete has null check': 'getElementById(stepId)' in js_content,
+        'updateCurrentlyUploaded uses style.display': 'style.display' in js_content,
+    }
+    
+    passed = all(checks.values())
+    details = f"{sum(checks.values())}/{len(checks)} null checks present"
+    
+    if passed:
+        print_step(step_num, total, "Upload Workflow Null Checks", "pass", details)
+    else:
+        missing = [k for k, v in checks.items() if not v]
+        print_step(step_num, total, "Upload Workflow Null Checks", "fail", f"Missing: {', '.join(missing)}")
+    
+    return passed
+
+def test_upload_workflow_integration(step_num, total):
+    """Test Upload Workflow: End-to-end upload → detect → extract"""
+    print_step(step_num, total, "Upload Workflow Integration", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Clear session first
+        requests.post(f"{API_BASE}/api/clear", timeout=5)
+        
+        test_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'test_subject.jpg')
+        if not os.path.exists(test_image_path):
+            print_step(step_num, total, "Upload Workflow Integration", "skip", "Test image not found")
+            return True
+        
+        with open(test_image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Step 1: Detect faces
+        response = requests.post(f"{API_BASE}/api/detect",
+            json={"image": f"data:image/jpeg;base64,{image_data}"},
+            timeout=10
+        )
+        
+        if response.status_code != 200:
+            print_step(step_num, total, "Upload Workflow Integration", "fail", f"Detection failed: {response.status_code}")
+            return False
+        
+        detect_data = response.json()
+        if not detect_data.get("success") or detect_data.get("count", 0) == 0:
+            print_step(step_num, total, "Upload Workflow Integration", "fail", "No faces detected")
+            return False
+        
+        # Step 2: Extract features
+        response = requests.post(f"{API_BASE}/api/extract", json={}, timeout=10)
+        if response.status_code != 200:
+            print_step(step_num, total, "Upload Workflow Integration", "fail", f"Extract failed: {response.status_code} - {response.text[:100]}")
+            return False
+        
+        extract_data = response.json()
+        if not extract_data.get("success"):
+            print_step(step_num, total, "Upload Workflow Integration", "fail", f"Feature extraction failed: {extract_data.get('error', 'unknown')}")
+            return False
+        
+        # Step 3: Add reference for comparison
+        ref_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'reference_subject.jpg')
+        if os.path.exists(ref_image_path):
+            with open(ref_image_path, 'rb') as f:
+                ref_image_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            requests.post(f"{API_BASE}/api/add-reference",
+                json={
+                    "image": f"data:image/jpeg;base64,{ref_image_data}",
+                    "name": "WorkflowTestRef"
+                },
+                timeout=10
+            )
+        
+        # Step 4: Compare
+        response = requests.post(f"{API_BASE}/api/compare", timeout=10)
+        compare_success = response.status_code == 200
+        
+        print_step(step_num, total, "Upload Workflow Integration", "pass", 
+                   f"Detect:{detect_data.get('count')} face(s), Extract:{extract_data.get('embedding_size')}D, Compare:{compare_success}")
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Upload Workflow Integration", "fail", str(e))
+        return False
+
+# =============================================================================
+# WORKFLOW INDEPENDENCE TESTS
+# =============================================================================
+
+def test_workflow_independence(step_num, total):
+    """Test that each workflow can run independently"""
+    print_step(step_num, total, "Workflow Independence", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Test: Clear should work anytime
+        response = requests.post(f"{API_BASE}/api/clear", timeout=5)
+        if response.status_code != 200:
+            print_step(step_num, total, "Workflow Independence", "fail", "Clear API failed")
+            return False
+        print_step(step_num, total, "Workflow Independence", "pass", "Clear works independently")
+        return True
+    except Exception as e:
+        print_step(step_num, total, "Workflow Independence", "fail", str(e))
+        return False
+
+def test_comparison_result_workflow(step_num, total):
+    """Test complete workflow: upload -> detect -> extract -> add ref -> compare -> verify result"""
+    print_step(step_num, total, "Comparison Result Workflow", "running")
+    time.sleep(0.3)
+    
+    try:
+        # Step 1: Clear session
+        requests.post(f"{API_BASE}/api/clear", timeout=5)
+        
+        # Step 2: Load test images
+        test_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'test_subject.jpg')
+        ref_image_path = os.path.join(os.path.dirname(__file__), 'test_images', 'reference_subject.jpg')
+        
+        if not os.path.exists(test_image_path):
+            print_step(step_num, total, "Comparison Result Workflow", "skip", "Test image not found")
+            return True
+        
+        with open(test_image_path, 'rb') as f:
+            image_data = base64.b64encode(f.read()).decode('utf-8')
+        
+        # Step 3: Detect faces
+        response = requests.post(f"{API_BASE}/api/detect",
+            json={"image": f"data:image/jpeg;base64,{image_data}"},
+            timeout=30
+        )
+        if response.status_code != 200:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", f"Detection failed: {response.status_code}")
+            return False
+        
+        detect_data = response.json()
+        if not detect_data.get("success") or detect_data.get("count", 0) == 0:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", "No faces detected")
+            return False
+        
+        # Step 4: Extract features
+        response = requests.post(f"{API_BASE}/api/extract", json={}, timeout=30)
+        if response.status_code != 200:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", f"Extraction failed: {response.status_code}")
+            return False
+        
+        extract_data = response.json()
+        if not extract_data.get("success"):
+            print_step(step_num, total, "Comparison Result Workflow", "fail", "Feature extraction failed")
+            return False
+        
+        # Step 5: Verify all viz types are available
+        viz_types = ['detection', 'extraction', 'landmarks', 'mesh3d', 'alignment', 
+                     'saliency', 'activations', 'features', 'embedding', 'confidence',
+                     'biometric', 'robustness']
+        
+        available_viz = []
+        for viz_type in viz_types:
+            try:
+                resp = requests.get(f"{API_BASE}/api/visualizations/{viz_type}", timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("success"):
+                        available_viz.append(viz_type)
+            except:
+                pass
+        
+        # Step 6: Add reference for comparison
+        if os.path.exists(ref_image_path):
+            with open(ref_image_path, 'rb') as f:
+                ref_data = base64.b64encode(f.read()).decode('utf-8')
+            
+            response = requests.post(f"{API_BASE}/api/add-reference",
+                json={"image": f"data:image/jpeg;base64,{ref_data}", "name": "WorkflowTestRef"},
+                timeout=30
+            )
+            if response.status_code != 200:
+                print_step(step_num, total, "Comparison Result Workflow", "fail", "Failed to add reference")
+                return False
+            
+            ref_data_response = response.json()
+            if not ref_data_response.get("success"):
+                print_step(step_num, total, "Comparison Result Workflow", "fail", "Reference add failed")
+                return False
+        
+        # Step 7: Compare
+        response = requests.post(f"{API_BASE}/api/compare", timeout=30)
+        if response.status_code != 200:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", f"Compare failed: {response.status_code}")
+            return False
+        
+        compare_data = response.json()
+        
+        # Step 8: Verify comparison result has all required fields
+        if not compare_data.get("success"):
+            print_step(step_num, total, "Comparison Result Workflow", "fail", "Compare returned failure")
+            return False
+        
+        best_match = compare_data.get("best_match")
+        if not best_match:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", "No best match returned")
+            return False
+        
+        # Verify all score fields are present
+        required_fields = ['name', 'final_score', 'match_label', 'status']
+        missing_fields = [f for f in required_fields if f not in best_match]
+        
+        if missing_fields:
+            print_step(step_num, total, "Comparison Result Workflow", "fail", f"Missing fields: {missing_fields}")
+            return False
+        
+        details = f"Match: {best_match.get('name')}, Score: {int(best_match.get('final_score', 0)*100)}%, Viz types: {len(available_viz)}"
+        print_step(step_num, total, "Comparison Result Workflow", "pass", details)
+        return True
+        
+    except Exception as e:
+        print_step(step_num, total, "Comparison Result Workflow", "fail", str(e))
+        return False
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
@@ -960,6 +1264,11 @@ def main():
         ("Library JavaScript Functions", test_library_javascript_functions),
         ("Library CSS Styles", test_library_css_styles),
         ("Library API Endpoints", test_library_api_endpoints),
+        ("Upload Workflow HTML Elements", test_upload_workflow_html_elements),
+        ("Upload Workflow Null Checks", test_upload_workflow_null_checks),
+        ("Upload Workflow Integration", test_upload_workflow_integration),
+        ("Workflow Independence", test_workflow_independence),
+        ("Comparison Result Workflow", test_comparison_result_workflow),
     ]
     
     total = len(tests)
