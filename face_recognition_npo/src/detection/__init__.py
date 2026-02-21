@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 
 _MEDIAPIPE_AVAILABLE = False
 _MEDIAPIPE_TASKS_AVAILABLE = False
