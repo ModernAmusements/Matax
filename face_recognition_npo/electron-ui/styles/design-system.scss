@@ -1424,7 +1424,8 @@ p {
   position: relative;
 
   &.active, &.visible {
-    display: block;
+    display: flex;
+    flex-direction: column;
     margin-bottom: 20px;
     background: linear-gradient(135deg, 
       rgba(48, 209, 88, 0.08) 0%, 
@@ -3113,6 +3114,64 @@ $sidebar-width: 260px;
     transform: scaleX(-1);
     pointer-events: none;
   }
+  
+  // Capture flash animation (green border on capture)
+  &.capture-flash {
+    animation: flash-border 0.3s ease-out;
+  }
+}
+
+@keyframes flash-border {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.8), inset 0 0 30px rgba(52, 199, 89, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(52, 199, 89, 0.6), inset 0 0 50px rgba(52, 199, 89, 0.4);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 199, 89, 0), inset 0 0 0 rgba(52, 199, 89, 0);
+  }
+}
+
+// Capture Gallery Modal
+.capture-gallery-modal {
+  max-width: 600px;
+}
+
+.capture-gallery {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: $space-2;
+  margin-bottom: $space-4;
+}
+
+.capture-gallery-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .capture-number {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    font-size: 10px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 // =============================================================================
@@ -3519,6 +3578,22 @@ $sidebar-width: 260px;
 .library-ref-count {
   font-size: $text-xs;
   color: $color-muted;
+}
+
+.library-ref-radio {
+  width: 18px;
+  height: 18px;
+  accent-color: $color-primary;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.library-ref-label {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  cursor: pointer;
+  flex: 1;
 }
 
 // Icon buttons for library cards

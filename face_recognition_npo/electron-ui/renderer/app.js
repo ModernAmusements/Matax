@@ -1298,44 +1298,83 @@ function updateCompareButtons(hasLibraryPersons) {
         compareLibraryBtn.disabled = !hasLibraryPersons;
     }
     
-    // Compare with Selected button - enabled if has references OR selected library refs
+    // Compare with Selected button - enabled if has references OR selected library ref
     if (compareBtn) {
         const hasRefs = references && references.length > 0;
-        const hasSelected = selectedLibraryRefs && selectedLibraryRefs.length > 0;
+        const hasSelected = selectedLibraryRef !== null;
         compareBtn.disabled = !hasRefs && !hasSelected;
     }
 }
 
-// Track selected library refs for comparison
-let selectedLibraryRefs = [];
+// Track selected library ref for comparison (single selection via radio)
+let selectedLibraryRef = null;
+let selectedLibraryRefName = '';
+
+async function loadStep4Library() {
+    const container = document.getElementById('step4LibraryList');
+    if (!container) return;
+    
+    try {
+        const response = await fetch(`${API_BASE}/library`);
+        const data = await response.json();
+        
+        if (!data.persons || data.persons.length === 0) {
+            container.innerHTML = '<p class="empty-hint">No library persons. Add persons in Step 6.</p>';
+            updateCompareButtons(false);
+            return;
+        }
+        
+        container.innerHTML = data.persons.map((person, index) => {
+            const thumbnail = person.first_image_thumbnail || '';
+            const radioId = `lib-ref-${person.id}`;
+            
+            return `
+                <div class="library-ref-item" onclick="selectLibraryRefForCompare('${person.id}', '${person.name}')">
+                    <input type="radio" name="libraryRef" id="${radioId}" value="${person.id}" class="library-ref-radio">
+                    <label for="${radioId}" class="library-ref-label">
+                        <img src="${thumbnail}" class="library-ref-thumb" alt="${person.name}">
+                        <div class="library-ref-info">
+                            <span class="library-ref-name">${person.name}</span>
+                            <span class="library-ref-count">${person.image_count} image(s)</span>
+                        </div>
+                    </label>
+                </div>
+            `;
+        }).join('');
+        
+        // Enable compare buttons since library has persons
+        updateCompareButtons(true);
+        
+    } catch (err) {
+        console.error('Failed to load Step 4 library:', err);
+        container.innerHTML = '<p class="empty-hint">Error loading library</p>';
+        updateCompareButtons(false);
+    }
+}
 
 function selectLibraryRefForCompare(personId, personName) {
-    // Toggle selection
-    const index = selectedLibraryRefs.indexOf(personId);
-    if (index > -1) {
-        selectedLibraryRefs.splice(index, 1);
-    } else {
-        selectedLibraryRefs.push(personId);
-    }
+    // Set single selection
+    selectedLibraryRef = personId;
+    selectedLibraryRefName = personName;
     
-    // Update UI to show selection
+    // Update radio button state
+    const radioId = `lib-ref-${personId}`;
+    const radio = document.getElementById(radioId);
+    if (radio) radio.checked = true;
+    
+    // Update UI to show selection highlight
     const items = document.querySelectorAll('.library-ref-item');
     items.forEach(item => {
-        const onclickAttr = item.getAttribute('onclick');
-        if (onclickAttr && onclickAttr.includes(`'${personId}'`)) {
-            item.classList.toggle('selected');
-        }
+        item.classList.remove('selected');
     });
+    const selectedItem = document.querySelector(`[onclick*="'${personId}'"]`);
+    if (selectedItem) selectedItem.classList.add('selected');
     
-    // Enable/disable compare button
+    // Enable compare button
     const compareBtn = document.getElementById('compareBtn');
     if (compareBtn) {
-        compareBtn.disabled = selectedLibraryRefs.length === 0 && (!references || references.length === 0);
-        if (selectedLibraryRefs.length > 0) {
-            compareBtn.textContent = `Compare with Selected (${selectedLibraryRefs.length})`;
-        } else {
-            compareBtn.textContent = 'Compare with Selected';
-        }
+        compareBtn.disabled = false;
+        compareBtn.textContent = `Compare with ${personName}`;
     }
     
     logToTerminal(`> Selected library ref: ${personName}`, 'info');
@@ -1395,14 +1434,12 @@ function clearComparisonResults() {
         resultEl.classList.remove('visible', 'active');
     }
     
-    // Reset images
+    // Reset images (clear src but keep visible for flex layout)
     if (queryEl) {
-        queryEl.src = '';
-        queryEl.style.display = 'none';
+        queryEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     }
     if (refEl) {
-        refEl.src = '';
-        refEl.style.display = 'none';
+        refEl.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     }
     if (refLabelEl) refLabelEl.textContent = '';
     if (statusEl) {
@@ -1425,32 +1462,50 @@ async function compareFaces() {
     // Clear previous results
     clearComparisonResults();
     
-    logToTerminal(`> Compare: currentQueryEmbedding=${currentQueryEmbedding}, references.length=${references.length}`, 'info');
+    console.log('[COMPARE] currentQueryEmbedding:', currentQueryEmbedding ? 'yes' : 'no');
+    console.log('[COMPARE] selectedLibraryRef:', selectedLibraryRef);
+    console.log('[COMPARE] references.length:', references?.length || 0);
+    logToTerminal(`> Compare: embedding=${currentQueryEmbedding ? 'yes' : 'no'}, libraryRef=${selectedLibraryRef || 'none'}, tempRefs=${references?.length || 0}`, 'info');
 
     if (currentQueryEmbedding === null) {
-        logToTerminal('> Error: No embedding extracted. Please click \"Create Signature\" first.', 'error');
+        logToTerminal('> Error: No embedding extracted. Click "Create Signature" first.', 'error');
         showToast('Extract features first!', 'error');
         return;
     }
-    if (references.length === 0) {
-        logToTerminal('> Error: No references added. Add a reference image first.', 'error');
-        showToast('Add at least one reference', 'warning');
+    
+    // Check if we have a library ref selected or temporary refs
+    const hasLibraryRef = selectedLibraryRef !== null;
+    const hasTempRefs = references && references.length > 0;
+    
+    if (!hasLibraryRef && !hasTempRefs) {
+        logToTerminal('> Error: No reference selected. Select a library person or upload a reference.', 'error');
+        showToast('Select a reference to compare', 'warning');
         return;
     }
 
     showLoading('Comparing...');
     logToTerminal('> Initializing similarity comparison...', 'command');
-    logToTerminal(`> Query embedding: ${currentQueryEmbedding?.toFixed(6) || 'null'}`, 'info');
-    logToTerminal(`> Comparing against ${references.length} reference(s)...`, 'info');
-
+    
+    let data;
+    
     try {
-        logToTerminal('> Computing cosine similarities...', 'info');
-        const response = await fetch(`${API_BASE}/compare`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const data = await response.json();
+        // If library ref selected, use the library compare endpoint
+        if (hasLibraryRef) {
+            logToTerminal(`> Comparing against library person: ${selectedLibraryRefName}...`, 'info');
+            const response = await fetch(`${API_BASE}/compare/library/${selectedLibraryRef}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            data = await response.json();
+        } else {
+            // Use temporary references
+            logToTerminal(`> Comparing against ${references.length} temporary reference(s)...`, 'info');
+            const response = await fetch(`${API_BASE}/compare`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            data = await response.json();
+        }
 
         if (data.success && data.best_match) {
             const best = data.best_match;
@@ -1479,14 +1534,16 @@ async function compareFaces() {
                 if (queryThumb) {
                     queryImageEl.src = `data:image/png;base64,${queryThumb}`;
                     queryImageEl.style.display = 'inline-block';
-                } else {
-                    queryImageEl.style.display = 'none';
+                } else if (currentImage) {
+                    queryImageEl.src = currentImage;
+                    queryImageEl.style.display = 'inline-block';
                 }
             } else {
                 console.log('[COMPARE] queryImageEl not found!');
             }
             if (refImageEl && best.thumbnail) {
                 refImageEl.src = `data:image/png;base64,${best.thumbnail}`;
+                refImageEl.style.display = 'inline-block';
             }
             if (refLabelEl) refLabelEl.textContent = best.name;
             
@@ -1619,6 +1676,7 @@ async function compareFaces() {
                 comparisonResultEl.classList.remove('hidden');
                 comparisonResultEl.classList.add('visible');
                 comparisonResultEl.classList.add('active');
+                comparisonResultEl.style.display = 'flex';
             }
             
             // Auto-expand scores dropdown
@@ -1899,6 +1957,11 @@ async function startWebcam() {
             profileBtn.disabled = false;
         }
         
+        const autoCaptureBtn = document.getElementById('autoCaptureBtn');
+        if (autoCaptureBtn) {
+            autoCaptureBtn.disabled = false;
+        }
+        
         status.textContent = 'Webcam active - Click "Capture" to take a photo';
         status.className = 'status status-success';
         logToTerminal('> Webcam started successfully', 'success');
@@ -2113,6 +2176,16 @@ function stopWebcam() {
         toggleMeshBtn.textContent = 'Show Mesh';
     }
     
+    const profileBtn = document.getElementById('profileCaptureBtn');
+    if (profileBtn) {
+        profileBtn.disabled = true;
+    }
+    
+    const autoCaptureBtn = document.getElementById('autoCaptureBtn');
+    if (autoCaptureBtn) {
+        autoCaptureBtn.disabled = true;
+    }
+    
     status.textContent = 'Webcam stopped';
     status.className = 'status';
     logToTerminal('> Webcam stopped', 'info');
@@ -2120,6 +2193,192 @@ function stopWebcam() {
     if (meshOverlayActive) {
         toggleMeshOverlay();
     }
+}
+
+// Auto-Capture Functions
+let autoCapturedFrames = [];
+let autoCaptureInProgress = false;
+
+async function startAutoCapture() {
+    if (autoCaptureInProgress) {
+        showToast('Auto-capture already in progress', 'warning');
+        return;
+    }
+    
+    if (!webcamStream) {
+        showToast('Start webcam first', 'warning');
+        return;
+    }
+    
+    autoCaptureInProgress = true;
+    autoCapturedFrames = [];
+    
+    const status = document.getElementById('webcamStatus');
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('webcamCanvas');
+    const container = document.getElementById('webcamContainer');
+    
+    status.textContent = 'Auto-capturing 5 frames...';
+    logToTerminal('> Starting auto-capture (5 frames)...', 'command');
+    
+    for (let i = 0; i < 5; i++) {
+        // Show green flash
+        showCaptureFlash(container);
+        
+        // Capture frame
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        autoCapturedFrames.push(dataUrl);
+        
+        status.textContent = `Captured ${i + 1}/5 frames...`;
+        logToTerminal(`> Captured frame ${i + 1}/5`, 'info');
+        
+        // Wait 500ms before next capture
+        if (i < 4) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+        }
+    }
+    
+    autoCaptureInProgress = false;
+    status.textContent = `Captured ${autoCapturedFrames.length} frames`;
+    logToTerminal(`> Auto-capture complete: ${autoCapturedFrames.length} frames`, 'success');
+    showToast(`Captured ${autoCapturedFrames.length} frames`, 'success');
+    
+    // Show gallery modal to review and name
+    showCaptureGalleryModal();
+}
+
+function showCaptureFlash(container) {
+    // Add flash class
+    container.classList.add('capture-flash');
+    
+    // Remove after animation
+    setTimeout(() => {
+        container.classList.remove('capture-flash');
+    }, 300);
+}
+
+function showCaptureGalleryModal() {
+    // Create modal if it doesn't exist
+    let modal = document.getElementById('captureGalleryModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'captureGalleryModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content capture-gallery-modal">
+                <div class="modal-header">
+                    <h3>Review Captures</h3>
+                    <button class="btn-close-liquid" onclick="closeCaptureGalleryModal()">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="capture-gallery" id="captureGalleryGrid"></div>
+                    <div class="form-group">
+                        <label>Person Name *</label>
+                        <input type="text" id="captureGalleryName" placeholder="Enter name">
+                    </div>
+                    <div class="form-group">
+                        <label>Notes (optional)</label>
+                        <textarea id="captureGalleryNotes" placeholder="Optional notes"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn" onclick="closeCaptureGalleryModal()">Cancel</button>
+                    <button class="btn" onclick="retakeCaptureGallery()">Retake</button>
+                    <button class="btn btn-primary" onclick="saveCaptureGalleryToLibrary()">Save to Library</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    // Populate gallery
+    const grid = document.getElementById('captureGalleryGrid');
+    grid.innerHTML = autoCapturedFrames.map((frame, i) => `
+        <div class="capture-gallery-item">
+            <img src="${frame}" alt="Capture ${i + 1}">
+            <span class="capture-number">${i + 1}</span>
+        </div>
+    `).join('');
+    
+    // Clear inputs
+    document.getElementById('captureGalleryName').value = '';
+    document.getElementById('captureGalleryNotes').value = '';
+    
+    // Show modal
+    modal.classList.remove('hidden');
+    modal.classList.add('active');
+}
+
+function closeCaptureGalleryModal() {
+    const modal = document.getElementById('captureGalleryModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('active');
+    }
+}
+
+function retakeCaptureGallery() {
+    closeCaptureGalleryModal();
+    autoCapturedFrames = [];
+    startAutoCapture();
+}
+
+async function saveCaptureGalleryToLibrary() {
+    const nameInput = document.getElementById('captureGalleryName');
+    const notesInput = document.getElementById('captureGalleryNotes');
+    const name = nameInput.value.trim();
+    const notes = notesInput.value.trim();
+    
+    if (!name) {
+        showToast('Please enter a name', 'warning');
+        nameInput.focus();
+        return;
+    }
+    
+    showLoading(`Saving ${autoCapturedFrames.length} frames to library...`);
+    
+    try {
+        let successCount = 0;
+        
+        for (let i = 0; i < autoCapturedFrames.length; i++) {
+            const imgData = autoCapturedFrames[i].split(',')[1];
+            
+            const response = await fetch(`${API_BASE}/library/person`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    image: imgData,
+                    notes: notes || undefined
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                successCount++;
+            }
+        }
+        
+        if (successCount > 0) {
+            showToast(`Saved ${successCount} images for "${name}"`, 'success');
+            logToTerminal(`> Saved ${successCount} images to library for ${name}`, 'success');
+            loadLibrary();
+            closeCaptureGalleryModal();
+            autoCapturedFrames = [];
+        } else {
+            showToast('Failed to save images', 'error');
+        }
+        
+    } catch (err) {
+        logToTerminal(`> Error saving: ${err.message}`, 'error');
+        showToast('Error saving: ' + err.message, 'error');
+    }
+    
+    hideLoading();
 }
 
 // Face Mesh Overlay Functions

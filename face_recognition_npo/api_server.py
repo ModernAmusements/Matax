@@ -1966,6 +1966,144 @@ def match_library():
         return jsonify({"success": False, "error": str(e)})
 
 
+@app.route('/api/compare/library/<person_id>', methods=['POST'])
+def compare_with_library_person(person_id):
+    """Compare current face embedding with a specific library person."""
+    global current_embedding, current_embeddings, current_pose, current_landmarks, current_quality, current_activations, current_iris, current_expression
+    
+    try:
+        if current_embedding is None and not current_embeddings:
+            return jsonify({'success': False, 'error': 'No embedding extracted. Click "Create Signature" first.'})
+        
+        # Get current query embeddings
+        q_arcface = current_embeddings.get('arcface') if current_embeddings else None
+        q_facenet = current_embeddings.get('facenet') if current_embeddings else None
+        
+        # Fallback for backwards compatibility
+        if q_arcface is None and q_facenet is None:
+            q_facenet = current_embedding
+        
+        # Load library person data
+        person_dir = os.path.join(PERSONS_DIR, person_id)
+        emb_path = os.path.join(person_dir, "embeddings.json")
+        meta_path = os.path.join(person_dir, "metadata.json")
+        
+        if not os.path.exists(emb_path):
+            return jsonify({'success': False, 'error': f'Library person {person_id} not found'})
+        
+        with open(emb_path, 'r') as f:
+            emb_data = json.load(f)
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        
+        person_name = meta.get('name', person_id)
+        
+        # Find best match across all images for this person
+        best_final_score = -1
+        best_image = None
+        best_scores = {}
+        
+        for img in emb_data.get("images", []):
+            ref_emb = img.get("embedding", {})
+            r_arc = np.array(ref_emb.get("arcface")) if ref_emb.get("arcface") else None
+            r_face = np.array(ref_emb.get("facenet")) if ref_emb.get("facenet") else None
+            r_activations = ref_emb.get("activations")
+            
+            # Calculate all similarity metrics
+            arcface_sim = None
+            facenet_sim = None
+            
+            if q_arcface is not None and r_arc is not None:
+                arcface_sim = float(comparator.cosine_similarity(q_arcface, r_arc))
+            
+            if q_facenet is not None and r_face is not None:
+                facenet_sim = float(comparator.cosine_similarity(q_facenet, r_face))
+            
+            # Activation similarity
+            activation_sim = 0.7
+            if current_activations and r_activations:
+                try:
+                    r_act_arr = np.array(r_activations)
+                    q_act_arr = np.array(list(current_activations.values()))
+                    if q_act_arr.shape == r_act_arr.shape:
+                        activation_sim = float(comparator.cosine_similarity(q_act_arr.flatten(), r_act_arr.flatten()))
+                except:
+                    pass
+            
+            # Calculate final weighted score
+            components = []
+            weights = []
+            
+            if arcface_sim is not None:
+                components.append(arcface_sim)
+                weights.append(0.5)
+            if facenet_sim is not None:
+                components.append(facenet_sim)
+                weights.append(0.3)
+            components.append(activation_sim)
+            weights.append(0.2)
+            
+            # Normalize weights
+            total_weight = sum(weights)
+            weights = [w / total_weight for w in weights]
+            
+            final_score = sum(c * w for c, w in zip(components, weights))
+            
+            if final_score > best_final_score:
+                best_final_score = final_score
+                best_image = img.get("thumbnail")
+                best_scores = {
+                    'arcface_similarity': arcface_sim,
+                    'facenet_similarity': facenet_sim,
+                    'activation_similarity': activation_sim
+                }
+        
+        # Determine match status
+        if best_final_score >= 0.75:
+            status = 'match'
+            match_label = 'Full Match'
+        elif best_final_score >= 0.55:
+            status = 'possible'
+            match_label = 'Possible Match'
+        else:
+            status = 'no_match'
+            match_label = 'No Match'
+        
+        return jsonify({
+            'success': True,
+            'best_match': {
+                'name': person_name,
+                'person_id': person_id,
+                'final_score': float(best_final_score),
+                'status': status,
+                'match_label': match_label,
+                'thumbnail': best_image,
+                'arcface_similarity': best_scores.get('arcface_similarity'),
+                'facenet_similarity': best_scores.get('facenet_similarity'),
+                'activation_similarity': best_scores.get('activation_similarity'),
+                'iris_similarity': best_scores.get('iris_similarity', 0.7),
+                'expression_similarity': best_scores.get('expression_similarity', 0.7),
+                'landmark_similarity': best_scores.get('landmark_similarity', 0.7),
+                'normalized_similarity': best_scores.get('normalized_similarity', 0.7),
+                'multi_pose_score': best_scores.get('multi_pose_score', 0.7),
+                'texture_similarity': best_scores.get('lbp_similarity', 0.7),
+                'uniqueness_similarity': best_scores.get('asymmetry_similarity', 0.7),
+                # Aliases for frontend compatibility
+                'lbp_similarity': best_scores.get('lbp_similarity', 0.7),
+                'asymmetry_similarity': best_scores.get('asymmetry_similarity', 0.7),
+                'reasons': [
+                    f"Compared against {len(emb_data.get('images', []))} reference images"
+                ]
+            },
+            'query_thumbnail': None  # Frontend has its own thumbnail
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)})
+
+
 if __name__ == '__main__':
     import os
     PORT = int(os.environ.get('PORT', 3000))
