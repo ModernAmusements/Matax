@@ -13,6 +13,7 @@ import threading
 import uuid
 import shutil
 import datetime
+import urllib.parse
 from typing import List, Dict, Tuple, Optional
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
@@ -1983,13 +1984,31 @@ def compare_with_library_person(person_id):
         if q_arcface is None and q_facenet is None:
             q_facenet = current_embedding
         
-        # Load library person data
-        person_dir = os.path.join(PERSONS_DIR, person_id)
+        # Find the person folder - could be full folder name or partial ID
+        person_dir = None
+        person_id_decoded = urllib.parse.unquote(person_id)  # Decode URL encoding
+        
+        # Try exact match first
+        exact_path = os.path.join(PERSONS_DIR, person_id_decoded)
+        if os.path.exists(exact_path):
+            person_dir = exact_path
+        else:
+            # Try partial match (UUID prefix)
+            if not os.path.exists(PERSONS_DIR):
+                return jsonify({'success': False, 'error': 'Library is empty'})
+            for folder in os.listdir(PERSONS_DIR):
+                if folder.startswith(person_id_decoded) or folder.endswith(person_id_decoded):
+                    person_dir = os.path.join(PERSONS_DIR, folder)
+                    break
+        
+        if person_dir is None:
+            return jsonify({'success': False, 'error': f'Library person not found: {person_id}'})
+        
         emb_path = os.path.join(person_dir, "embeddings.json")
         meta_path = os.path.join(person_dir, "metadata.json")
         
         if not os.path.exists(emb_path):
-            return jsonify({'success': False, 'error': f'Library person {person_id} not found'})
+            return jsonify({'success': False, 'error': f'Library person data corrupted: {person_id}'})
         
         with open(emb_path, 'r') as f:
             emb_data = json.load(f)

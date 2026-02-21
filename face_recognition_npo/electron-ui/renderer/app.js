@@ -1298,17 +1298,22 @@ function updateCompareButtons(hasLibraryPersons) {
         compareLibraryBtn.disabled = !hasLibraryPersons;
     }
     
-    // Compare with Selected button - enabled if has references OR selected library ref
+    // Compare with Selected button - enabled if has references OR selected library refs
     if (compareBtn) {
         const hasRefs = references && references.length > 0;
-        const hasSelected = selectedLibraryRef !== null;
+        const hasSelected = selectedLibraryRefs && selectedLibraryRefs.length > 0;
         compareBtn.disabled = !hasRefs && !hasSelected;
+        if (hasSelected) {
+            compareBtn.textContent = `Compare with Selected (${selectedLibraryRefs.length})`;
+        } else if (hasRefs) {
+            compareBtn.textContent = 'Compare with Selected';
+        }
     }
 }
 
-// Track selected library ref for comparison (single selection via radio)
-let selectedLibraryRef = null;
-let selectedLibraryRefName = '';
+// Track selected library refs for comparison (multi-select via checkboxes)
+let selectedLibraryRefs = [];
+let selectedLibraryRefNames = [];
 
 async function loadStep4Library() {
     const container = document.getElementById('step4LibraryList');
@@ -1326,12 +1331,12 @@ async function loadStep4Library() {
         
         container.innerHTML = data.persons.map((person, index) => {
             const thumbnail = person.first_image_thumbnail || '';
-            const radioId = `lib-ref-${person.id}`;
+            const checkboxId = `lib-ref-${person.id}`;
             
             return `
-                <div class="library-ref-item" onclick="selectLibraryRefForCompare('${person.id}', '${person.name}')">
-                    <input type="radio" name="libraryRef" id="${radioId}" value="${person.id}" class="library-ref-radio">
-                    <label for="${radioId}" class="library-ref-label">
+                <div class="library-ref-item" onclick="event.stopPropagation(); toggleLibraryRefForCompare('${person.id}', '${person.name}')">
+                    <input type="checkbox" name="libraryRef" id="${checkboxId}" value="${person.id}" class="library-ref-checkbox" onchange="toggleLibraryRefForCompare('${person.id}', '${person.name}')">
+                    <label for="${checkboxId}" class="library-ref-label">
                         <img src="${thumbnail}" class="library-ref-thumb" alt="${person.name}">
                         <div class="library-ref-info">
                             <span class="library-ref-name">${person.name}</span>
@@ -1352,32 +1357,47 @@ async function loadStep4Library() {
     }
 }
 
-function selectLibraryRefForCompare(personId, personName) {
-    // Set single selection
-    selectedLibraryRef = personId;
-    selectedLibraryRefName = personName;
+function toggleLibraryRefForCompare(personId, personName) {
+    // Toggle selection
+    const index = selectedLibraryRefs.indexOf(personId);
+    if (index > -1) {
+        selectedLibraryRefs.splice(index, 1);
+        selectedLibraryRefNames.splice(index, 1);
+    } else {
+        selectedLibraryRefs.push(personId);
+        selectedLibraryRefNames.push(personName);
+    }
     
-    // Update radio button state
-    const radioId = `lib-ref-${personId}`;
-    const radio = document.getElementById(radioId);
-    if (radio) radio.checked = true;
+    // Update checkbox state
+    const checkboxId = `lib-ref-${personId}`;
+    const checkbox = document.getElementById(checkboxId);
+    if (checkbox) checkbox.checked = index === -1;
     
     // Update UI to show selection highlight
     const items = document.querySelectorAll('.library-ref-item');
     items.forEach(item => {
-        item.classList.remove('selected');
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox && checkbox.checked) {
+            item.classList.add('selected');
+        } else if (checkbox) {
+            item.classList.remove('selected');
+        }
     });
-    const selectedItem = document.querySelector(`[onclick*="'${personId}'"]`);
-    if (selectedItem) selectedItem.classList.add('selected');
     
-    // Enable compare button
+    // Enable/disable compare button
     const compareBtn = document.getElementById('compareBtn');
     if (compareBtn) {
-        compareBtn.disabled = false;
-        compareBtn.textContent = `Compare with ${personName}`;
+        const hasSelected = selectedLibraryRefs.length > 0;
+        const hasTempRefs = references && references.length > 0;
+        compareBtn.disabled = !hasSelected && !hasTempRefs;
+        if (selectedLibraryRefs.length > 0) {
+            compareBtn.textContent = `Compare with Selected (${selectedLibraryRefs.length})`;
+        } else {
+            compareBtn.textContent = 'Compare with Selected';
+        }
     }
     
-    logToTerminal(`> Selected library ref: ${personName}`, 'info');
+    logToTerminal(`> Selected ${selectedLibraryRefs.length} library ref(s): ${selectedLibraryRefNames.join(', ')}`, 'info');
 }
 
 function updateSidebarRefs() {
@@ -1463,9 +1483,9 @@ async function compareFaces() {
     clearComparisonResults();
     
     console.log('[COMPARE] currentQueryEmbedding:', currentQueryEmbedding ? 'yes' : 'no');
-    console.log('[COMPARE] selectedLibraryRef:', selectedLibraryRef);
+    console.log('[COMPARE] selectedLibraryRefs:', selectedLibraryRefs);
     console.log('[COMPARE] references.length:', references?.length || 0);
-    logToTerminal(`> Compare: embedding=${currentQueryEmbedding ? 'yes' : 'no'}, libraryRef=${selectedLibraryRef || 'none'}, tempRefs=${references?.length || 0}`, 'info');
+    logToTerminal(`> Compare: embedding=${currentQueryEmbedding ? 'yes' : 'no'}, libraryRefs=${selectedLibraryRefs?.length || 0}, tempRefs=${references?.length || 0}`, 'info');
 
     if (currentQueryEmbedding === null) {
         logToTerminal('> Error: No embedding extracted. Click "Create Signature" first.', 'error');
@@ -1473,11 +1493,11 @@ async function compareFaces() {
         return;
     }
     
-    // Check if we have a library ref selected or temporary refs
-    const hasLibraryRef = selectedLibraryRef !== null;
+    // Check if we have library refs selected or temporary refs
+    const hasLibraryRefs = selectedLibraryRefs && selectedLibraryRefs.length > 0;
     const hasTempRefs = references && references.length > 0;
     
-    if (!hasLibraryRef && !hasTempRefs) {
+    if (!hasLibraryRefs && !hasTempRefs) {
         logToTerminal('> Error: No reference selected. Select a library person or upload a reference.', 'error');
         showToast('Select a reference to compare', 'warning');
         return;
@@ -1489,14 +1509,41 @@ async function compareFaces() {
     let data;
     
     try {
-        // If library ref selected, use the library compare endpoint
-        if (hasLibraryRef) {
-            logToTerminal(`> Comparing against library person: ${selectedLibraryRefName}...`, 'info');
-            const response = await fetch(`${API_BASE}/compare/library/${selectedLibraryRef}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            data = await response.json();
+        // If library refs selected, use the library compare endpoint
+        if (hasLibraryRefs) {
+            logToTerminal(`> Comparing against ${selectedLibraryRefs.length} library person(s): ${selectedLibraryRefNames.join(', ')}...`, 'info');
+            console.log('[COMPARE] Using library ref IDs:', selectedLibraryRefs);
+            
+            // Compare with each selected library person and get best match
+            let bestOverall = null;
+            let bestScore = -1;
+            
+            for (let i = 0; i < selectedLibraryRefs.length; i++) {
+                const personId = selectedLibraryRefs[i];
+                const personName = selectedLibraryRefNames[i];
+                
+                const response = await fetch(`${API_BASE}/compare/library/${encodeURIComponent(personId)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const personData = await response.json();
+                
+                console.log(`[COMPARE] ${personName} response:`, personData);
+                
+                if (personData.success && personData.best_match) {
+                    const score = personData.best_match.final_score || 0;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestOverall = personData.best_match;
+                    }
+                }
+            }
+            
+            if (bestOverall) {
+                data = { success: true, best_match: bestOverall };
+            } else {
+                data = { success: false, error: 'No matches found' };
+            }
         } else {
             // Use temporary references
             logToTerminal(`> Comparing against ${references.length} temporary reference(s)...`, 'info');
@@ -3104,6 +3151,28 @@ async function compareWithLibrary() {
             if (comparisonResultEl) {
                 comparisonResultEl.classList.remove('hidden');
                 comparisonResultEl.classList.add('visible');
+                comparisonResultEl.classList.add('active');
+                comparisonResultEl.style.display = 'flex';
+            }
+            
+            // Show images in comparison result
+            const queryImageEl = document.getElementById('queryImage');
+            const refImageEl = document.getElementById('refImage');
+            const refLabelEl = document.getElementById('refLabel');
+            
+            // Show query image
+            if (queryImageEl && currentImage) {
+                queryImageEl.src = currentImage;
+                queryImageEl.style.display = 'inline-block';
+            }
+            
+            // Show reference image
+            if (refImageEl && best.best_image && best.best_image.thumbnail) {
+                refImageEl.src = `data:image/jpeg;base64,${best.best_image.thumbnail}`;
+                refImageEl.style.display = 'inline-block';
+            }
+            if (refLabelEl) {
+                refLabelEl.textContent = best.person_name;
             }
             
             // Auto-expand scores dropdown

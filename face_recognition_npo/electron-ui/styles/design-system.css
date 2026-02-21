@@ -2930,6 +2930,14 @@ input[type=file] {
   flex-shrink: 0;
 }
 
+.library-ref-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #007AFF;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .library-ref-label {
   display: flex;
   align-items: center;
