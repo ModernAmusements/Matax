@@ -42,7 +42,7 @@ class FaceDetector:
                     self._mediapipe_available = False
                 else:
                     base_options = python.BaseOptions(model_asset_path=model_path)
-                    options = vision.FaceLandmarkerOptions(base_options=base_options, output_face_blendshapes=False, running_mode=vision.RunningMode.IMAGE, num_faces=1)
+                    options = vision.FaceLandmarkerOptions(base_options=base_options, output_face_blendshapes=True, running_mode=vision.RunningMode.IMAGE, num_faces=1)
                     self.face_landmarker = vision.FaceLandmarker.create_from_options(options)
                     print("MediaPipe Face Landmarker initialized successfully")
             except Exception as e:
@@ -467,6 +467,151 @@ class FaceDetector:
 
         return {'yaw': yaw, 'pitch': pitch, 'roll': roll}
 
+    def detect_expression(self, face_image: np.ndarray) -> Dict[str, Any]:
+        """
+        Detect facial expression using MediaPipe blendshapes.
+        Returns all 52 blendshapes plus categorized expression.
+        """
+        result = {
+            'category': 'neutral',
+            'smile_prob': 0.0,
+            'mouth_open_prob': 0.0,
+            'eye_blink_left': 0.0,
+            'eye_blink_right': 0.0,
+            'brow_position': 0.0,
+            'all_blendshapes': {}
+        }
+        
+        if not self._mediapipe_available or not hasattr(self, 'face_landmarker') or not self.face_landmarker:
+            return result
+        
+        try:
+            from mediapipe import Image, ImageFormat
+            rgb_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+            mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_image)
+            results = self.face_landmarker.detect(mp_image)
+            
+            if hasattr(results, 'face_blendshapes') and results.face_blendshapes:
+                blendshapes = results.face_blendshapes[0]
+                
+                blendshape_dict = {}
+                for bs in blendshapes:
+                    name = bs.category_name if hasattr(bs, 'category_name') else str(bs)
+                    score = bs.score if hasattr(bs, 'score') else 0.0
+                    blendshape_dict[name] = float(score)
+                
+                result['all_blendshapes'] = blendshape_dict
+                
+                result['smile_prob'] = blendshape_dict.get('mouthSmileRight', 0.0) + blendshape_dict.get('mouthSmileLeft', 0.0)
+                result['smile_prob'] = min(1.0, result['smile_prob'])
+                
+                result['mouth_open_prob'] = blendshape_dict.get('jawOpen', 0.0)
+                
+                result['eye_blink_left'] = blendshape_dict.get('eyeBlinkLeft', 0.0)
+                result['eye_blink_right'] = blendshape_dict.get('eyeBlinkRight', 0.0)
+                
+                brow_up = blendshape_dict.get('browInnerUp', 0.0)
+                brow_down = blendshape_dict.get('browDownLeft', 0.0) + blendshape_dict.get('browDownRight', 0.0)
+                result['brow_position'] = brow_up - brow_down
+                
+                if result['smile_prob'] > 0.5:
+                    result['category'] = 'smiling'
+                elif result['mouth_open_prob'] > 0.5:
+                    result['category'] = 'mouth_open'
+                elif result['eye_blink_left'] > 0.5 or result['eye_blink_right'] > 0.5:
+                    result['category'] = 'blinking'
+                elif result['brow_position'] > 0.3:
+                    result['category'] = 'surprised'
+                else:
+                    result['category'] = 'neutral'
+        
+        except Exception as e:
+            print(f"Expression detection failed: {e}")
+        
+        return result
+
+    def detect_iris(self, face_image: np.ndarray) -> Dict[str, Any]:
+        """
+        Detect iris position and eye landmarks using MediaPipe.
+        Returns iris center, radius, eye corners, and gaze direction.
+        """
+        result = {
+            'iris_center': [0.5, 0.5],
+            'iris_radius': 0.05,
+            'gaze_direction': [0.0, 0.0],
+            'left_eye_corner': [0.3, 0.35],
+            'right_eye_corner': [0.7, 0.35],
+            'left_iris_landmarks': [],
+            'right_iris_landmarks': [],
+            'detected': False
+        }
+        
+        if not self._mediapipe_available or not hasattr(self, 'face_landmarker') or not self.face_landmarker:
+            return result
+        
+        try:
+            from mediapipe import Image, ImageFormat
+            rgb_image = cv2.cvtColor(face_image, cv2.COLOR_BGR2RGB)
+            mp_image = Image(image_format=ImageFormat.SRGB, data=rgb_image)
+            results = self.face_landmarker.detect(mp_image)
+            
+            h, w = face_image.shape[:2]
+            
+            if hasattr(results, 'face_landmarks') and results.face_landmarks:
+                face_landmarks = results.face_landmarks[0]
+                
+                iris_landmark_idx = 468
+                left_iris_idx = 469
+                right_iris_idx = 478
+                
+                left_eye_idx = 33
+                right_eye_idx = 263
+                left_eye_corner_idx = 362
+                right_eye_corner_idx = 133
+                
+                if len(face_landmarks) > iris_landmark_idx:
+                    iris = face_landmarks[iris_landmark_idx]
+                    result['iris_center'] = [float(iris.x), float(iris.y)]
+                    result['detected'] = True
+                
+                if len(face_landmarks) > left_iris_idx + 4:
+                    left_iris_pts = []
+                    for i in range(5):
+                        lm = face_landmarks[left_iris_idx + i]
+                        left_iris_pts.append([float(lm.x), float(lm.y)])
+                    result['left_iris_landmarks'] = left_iris_pts
+                    
+                    center = np.mean(left_iris_pts, axis=0)
+                    radius = np.max(np.linalg.norm(left_iris_pts - center, axis=1))
+                    result['iris_center'] = [float(center[0]), float(center[1])]
+                    result['iris_radius'] = float(radius)
+                
+                if len(face_landmarks) > right_iris_idx + 4:
+                    right_iris_pts = []
+                    for i in range(5):
+                        lm = face_landmarks[right_iris_idx + i]
+                        right_iris_pts.append([float(lm.x), float(lm.y)])
+                    result['right_iris_landmarks'] = right_iris_pts
+                
+                if len(face_landmarks) > left_eye_corner_idx and len(face_landmarks) > right_eye_corner_idx:
+                    left_corner = face_landmarks[left_eye_corner_idx]
+                    right_corner = face_landmarks[right_eye_corner_idx]
+                    result['left_eye_corner'] = [float(left_corner.x), float(left_corner.y)]
+                    result['right_eye_corner'] = [float(right_corner.x), float(right_corner.y)]
+                    
+                    if result['detected'] and len(face_landmarks) > left_eye_idx and len(face_landmarks) > right_eye_idx:
+                        left_eye_center = face_landmarks[left_eye_idx]
+                        right_eye_center = face_landmarks[right_eye_idx]
+                        
+                        gaze_x = (float(left_eye_center.x) + float(right_eye_center.x)) / 2 - float(result['iris_center'][0])
+                        gaze_y = (float(left_eye_center.y) + float(right_eye_center.y)) / 2 - float(result['iris_center'][1])
+                        result['gaze_direction'] = [float(gaze_x), float(gaze_y)]
+        
+        except Exception as e:
+            print(f"Iris detection failed: {e}")
+        
+        return result
+
     def compute_saliency(self, face_image: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(face_image, cv2.COLOR_BGR2GRAY)
 
@@ -750,6 +895,107 @@ class FaceDetector:
         alpha = 0.5
         output = cv2.addWeighted(face_image, 1 - alpha, saliency, alpha, 0)
 
+        return output
+
+    def visualize_expression(self, face_image: np.ndarray, expression_data: Optional[Dict] = None) -> np.ndarray:
+        """
+        Create a bar chart visualization of blendshape (expression) values.
+        """
+        if expression_data is None:
+            expression_data = self.detect_expression(face_image)
+        
+        h, w = face_image.shape[:2]
+        canvas_h, canvas_w = h, w
+        canvas = np.ones((canvas_h, canvas_w, 3), dtype=np.uint8) * 255
+        
+        blendshapes = expression_data.get('all_blendshapes', {})
+        
+        if not blendshapes:
+            cv2.putText(canvas, "No expression data available", (50, canvas_h // 2),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+            return canvas
+        
+        key_blendshapes = [
+            'mouthSmileRight', 'mouthSmileLeft', 'jawOpen', 
+            'eyeBlinkLeft', 'eyeBlinkRight',
+            'browInnerUp', 'browOuterUpLeft', 'browOuterUpRight',
+            'cheekPuff', 'mouthDimple'
+        ]
+        
+        available = [bs for bs in key_blendshapes if bs in blendshapes]
+        
+        bar_width = 60
+        gap = 20
+        start_x = 50
+        start_y = canvas_h - 80
+        
+        cv2.putText(canvas, f"Expression: {expression_data.get('category', 'unknown')}", (50, 40),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)
+        
+        for i, bs_name in enumerate(available):
+            score = blendshapes.get(bs_name, 0.0)
+            bar_height = int(score * 150)
+            
+            x1 = start_x + i * (bar_width + gap)
+            y1 = start_y
+            x2 = x1 + bar_width
+            y2 = start_y - bar_height
+            
+            color = (0, int(255 * score), int(255 * (1 - score)))
+            cv2.rectangle(canvas, (x1, y2), (x2, y1), color, -1)
+            cv2.rectangle(canvas, (x1, y2), (x2, y1), (0, 0, 0), 2)
+            
+            short_name = bs_name.replace('mouth', 'M.').replace('eye', 'E.').replace('brow', 'B.')
+            cv2.putText(canvas, short_name[:8], (x1, start_y + 20),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 0), 1)
+        
+        cv2.putText(canvas, f"Smile: {expression_data.get('smile_prob', 0):.2f}", (50, canvas_h - 20),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 1)
+        
+        return canvas
+
+    def visualize_iris(self, face_image: np.ndarray, iris_data: Optional[Dict] = None) -> np.ndarray:
+        """
+        Visualize iris position and eye landmarks on the face.
+        """
+        if iris_data is None:
+            iris_data = self.detect_iris(face_image)
+        
+        output = face_image.copy()
+        h, w = face_image.shape[:2]
+        
+        iris_center = iris_data.get('iris_center', [0.5, 0.5])
+        iris_x = int(iris_center[0] * w)
+        iris_y = int(iris_center[1] * h)
+        iris_radius = int(iris_data.get('iris_radius', 0.05) * min(w, h))
+        
+        cv2.circle(output, (iris_x, iris_y), max(iris_radius, 5), (0, 255, 255), 2)
+        cv2.circle(output, (iris_x, iris_y), 2, (0, 0, 255), -1)
+        
+        left_corner = iris_data.get('left_eye_corner', [0.3, 0.35])
+        right_corner = iris_data.get('right_eye_corner', [0.7, 0.35])
+        
+        left_x = int(left_corner[0] * w)
+        left_y = int(left_corner[1] * h)
+        right_x = int(right_corner[0] * w)
+        right_y = int(right_corner[1] * h)
+        
+        cv2.line(output, (left_x, left_y), (iris_x, iris_y), (0, 255, 0), 1)
+        cv2.line(output, (right_x, right_y), (iris_x, iris_y), (0, 255, 0), 1)
+        
+        cv2.circle(output, (left_x, left_y), 3, (255, 0, 0), -1)
+        cv2.circle(output, (right_x, right_y), 3, (255, 0, 0), -1)
+        
+        gaze = iris_data.get('gaze_direction', [0.0, 0.0])
+        gaze_x = int(gaze[0] * 100)
+        gaze_y = int(gaze[1] * 100)
+        
+        cv2.arrowedLine(output, (iris_x, iris_y), (iris_x + gaze_x, iris_y + gaze_y), (255, 0, 255), 2)
+        
+        status = "Iris Detected" if iris_data.get('detected', False) else "Iris Not Detected"
+        cv2.putText(output, status, (10, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0) if iris_data.get('detected', False) else (0, 0, 255), 2)
+        
         return output
 
     def visualize_biometric_capture(self, image: np.ndarray, faces: List[Tuple[int, int, int, int]]) -> np.ndarray:

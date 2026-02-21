@@ -725,22 +725,27 @@ class SimilarityComparator:
     
     def compute_dual_match_score(self, arcface_sim: Optional[float], facenet_sim: Optional[float],
                                   landmark_sim: float = 0.5, quality: Optional[Dict] = None,
-                                  activation_sim: Optional[float] = None) -> Dict:
+                                  activation_sim: Optional[float] = None,
+                                  iris_sim: Optional[float] = None,
+                                  expression_sim: Optional[float] = None) -> Dict:
         """
         Compute final match score using BOTH ArcFace and FaceNet embeddings.
         
         Weights:
-        - ArcFace: 60% (best discrimination)
-        - FaceNet: 20% (additional signal)
-        - Landmark geometry: 15% (geometric consistency)
-        - Activation: 1% (neural activation similarity)
-        - Quality: 1% (reliability factor)
+        - ArcFace: 40% (reduced - sensitive to pose/expression)
+        - FaceNet: 25% (additional signal)
+        - Landmark geometry: 10% (geometric consistency)
+        - Activation: 15% (neural activation similarity - robust to pose)
+        - Iris: +5% bonus (unique iris pattern)
+        - Expression: +10% bonus (same expression = bonus)
         """
-        ARCFACE_WEIGHT = 0.60
-        FACENET_WEIGHT = 0.20
-        LANDMARK_WEIGHT = 0.15
-        ACTIVATION_WEIGHT = 0.01
+        ARCFACE_WEIGHT = 0.40
+        FACENET_WEIGHT = 0.25
+        LANDMARK_WEIGHT = 0.10
+        ACTIVATION_WEIGHT = 0.15
         QUALITY_WEIGHT = 0.01
+        IRIS_BONUS = 0.05
+        EXPRESSION_BONUS = 0.10
         
         reasons = []
         
@@ -800,8 +805,22 @@ class SimilarityComparator:
         else:
             reasons.append("Low image quality - may affect accuracy")
         
+        # Calculate iris bonus
+        iris_bonus = 0.0
+        if iris_sim is not None:
+            iris_bonus = iris_sim * IRIS_BONUS
+            if iris_sim >= 0.8:
+                reasons.append("Iris patterns match")
+        
+        # Calculate expression bonus
+        expression_bonus = 0.0
+        if expression_sim is not None:
+            expression_bonus = expression_sim * EXPRESSION_BONUS
+            if expression_sim >= 0.8:
+                reasons.append("Similar facial expression")
+        
         # Calculate final score
-        final_score = arcface_contribution + facenet_contribution + landmark_contribution + activation_contribution + quality_contribution
+        final_score = arcface_contribution + facenet_contribution + landmark_contribution + activation_contribution + quality_contribution + iris_bonus + expression_bonus
         final_score = min(1.0, max(0.0, final_score))
         
         return {
@@ -810,6 +829,8 @@ class SimilarityComparator:
             'facenet_similarity': facenet_sim,
             'landmark_similarity': landmark_sim,
             'activation_similarity': activation_sim,
+            'iris_similarity': iris_sim,
+            'expression_similarity': expression_sim,
             'quality_factor': quality_factor,
             'reasons': reasons
         }
@@ -856,6 +877,57 @@ class SimilarityComparator:
                 diffs.append(1.0 - min(abs(v1 - v2) / v1, 1.0))
         
         return float(np.mean(diffs)) if diffs else 0.5
+
+    def expression_similarity(self, expr1: Optional[Dict], expr2: Optional[Dict]) -> float:
+        """
+        Compare expressions between two faces.
+        
+        SAME expression = +10% bonus
+        DIFFERENT expression = +0% (NO penalty!)
+        
+        Returns: 0.0-1.0 (1.0 = same expression)
+        """
+        if not expr1 or not expr2:
+            return 0.5
+        
+        cat1 = expr1.get('category', 'unknown')
+        cat2 = expr2.get('category', 'unknown')
+        
+        if cat1 == cat2:
+            return 1.0
+        
+        smile_diff = abs(expr1.get('smile_prob', 0.0) - expr2.get('smile_prob', 0.0))
+        if smile_diff < 0.3:
+            return 0.8
+        
+        return 0.5
+
+    def iris_similarity(self, iris1: Optional[Dict], iris2: Optional[Dict]) -> float:
+        """
+        Compare iris positions between two faces.
+        
+        Iris position is unique to each person - for matching we compare
+        iris position relative to eye corners.
+        
+        Returns: 0.0-1.0 similarity score
+        """
+        if not iris1 or not iris2:
+            return 0.5
+        
+        if not iris1.get('detected', False) or not iris2.get('detected', False):
+            return 0.5
+        
+        center1 = iris1.get('iris_center', [0.5, 0.5])
+        center2 = iris2.get('iris_center', [0.5, 0.5])
+        
+        diff_x = abs(center1[0] - center2[0])
+        diff_y = abs(center1[1] - center2[1])
+        
+        diff = np.sqrt(diff_x**2 + diff_y**2)
+        
+        similarity = max(0.0, 1.0 - diff * 2)
+        
+        return float(similarity)
 
     def compute_multi_pose_score(self, query_emb: np.ndarray, 
                                 pose_embeddings: List[Dict]) -> Tuple[float, Optional[Dict]]:

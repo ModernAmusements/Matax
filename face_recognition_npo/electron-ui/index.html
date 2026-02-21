@@ -123,28 +123,15 @@
     <div class="container">
         <!-- Title moved to titlebar -->
 
-        <!-- General App Info Section -->
-        <div class="step section-header" id="section-intro">
-            <div class="section-header-content">
-                <span class="section-number">About</span>
-                <h1>MANTAX Reference Library</h1>
-                <p class="app-description">
-                    <strong>MANTAX</strong> is a privacy-focused facial recognition system designed for ethical use cases 
-                    such as missing persons identification, documentation verification, and consented identity matching.
-                </p>
-                <p class="ethics-notice">
-                    <strong>Ethical Use Only:</strong> This tool must only be used with explicit consent and for legitimate, 
-                    legal purposes. All data is stored locally and never transmitted to external servers. Users are 
-                    responsible for complying with privacy laws (GDPR, CCPA) and obtaining proper authorization 
-                    before processing biometric data.
-                </p>
-                <p class="scientific-note">
-                    <strong>Scientific & Safety Information:</strong> MANTAX uses state-of-the-art neural networks 
-                    (ArcFace, FaceNet) with confidence scoring. Match results include probability bands, not binary 
-                    yes/no answers. Always verify matches with additional evidence. Human-in-the-loop review is 
-                    mandatory for all critical decisions. False positives and false negatives are possible.
-                </p>
-            </div>
+        <!-- Brand Header -->
+        <div class="footer-brand" id="section-intro">
+            <!-- <div class="footer-logo-container">
+                <div class="footer-logo-ring"></div>
+                <div class="footer-logo-ring-2"></div>
+                <div class="footer-logo-face"></div>
+            </div> -->
+            <span class="footer-logo">MANTAX</span>
+            <span class="footer-tagline">Facial Recognition System</span>
         </div>
 
         <!-- Choose Workflow Section -->
@@ -298,6 +285,7 @@
                         <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
                         <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
                         <button class="btn" onclick="toggleMeshOverlay()" id="toggleMeshBtn" disabled>Show Mesh</button>
+                        <button class="btn" onclick="startProfileCapture()" id="profileCaptureBtn" disabled>Capture Profile</button>
                     </div>
                     <p id="webcamStatus" class="status">Click "Start Webcam" to begin</p>
                 </div>
@@ -383,7 +371,7 @@
                         <div class="comparison-status" id="matchStatus">--</div>
                         <h4 class="comparison-label">Similarity</h4>
                         <div class="comparison-scores-dropdown">
-                            <div class="scores-toggle" onclick="const isExpanded = this.getAttribute('data-expanded') === 'true'; this.setAttribute('data-expanded', (!isExpanded).toString()); this.nextElementSibling.setAttribute('data-visible', (!isExpanded).toString())">
+                            <div class="scores-toggle" data-expanded="false" onclick="const isExpanded = this.getAttribute('data-expanded') === 'true'; this.setAttribute('data-expanded', (!isExpanded).toString()); this.nextElementSibling.setAttribute('data-visible', (!isExpanded).toString()); this.querySelector('.toggle-icon').textContent = isExpanded ? '▶' : '▼'">
                                 <span class="toggle-icon">▶</span>
                                 <span>Show scores</span>
                             </div>
@@ -416,6 +404,14 @@
                                     <span class="score-label">Activation:</span>
                                     <span class="score-value" id="activationScore">--%</span>
                                 </div>
+                                <div class="score-row">
+                                    <span class="score-label">Iris:</span>
+                                    <span class="score-value" id="irisScore">--%</span>
+                                </div>
+                                <div class="score-row">
+                                    <span class="score-label">Expression:</span>
+                                    <span class="score-value" id="expressionScore">--%</span>
+                                </div>
                                 <div class="score-row final">
                                     <span class="score-label">Combined:</span>
                                     <span class="score-value" id="matchScore">--%</span>
@@ -425,7 +421,7 @@
                         <div class="match-reasons" id="matchReasons"></div>
                     </div>
                     <div class="comparison-side">
-                        <img id="queryImage" src="" alt="Query">
+                        <img id="queryImage" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Query">
                         <p class="preview-label">Your Image</p>
                     </div>
                     <div class="comparison-side">
@@ -460,9 +456,6 @@
                     <p class="preview-label">Selected Image</p>
                 </div>
             </div>
-            <div id="step5FacesContainer" class="hidden">
-                <div class="gallery" id="step5FacesGallery"></div>
-            </div>
             <div class="viz-tabs" id="vizTabs">
                 <button class="viz-tab active" data-viz="detection">Detection</button>
                 <button class="viz-tab" data-viz="extraction">Extraction</button>
@@ -476,6 +469,8 @@
                 <button class="viz-tab" data-viz="multiscale">Multi-Scale</button>
                 <button class="viz-tab" data-viz="confidence">Confidence</button>
                 <button class="viz-tab" data-viz="eyewear">Eyewear</button>
+                <button class="viz-tab" data-viz="iris">Iris</button>
+                <button class="viz-tab" data-viz="expression">Expression</button>
                 <button class="viz-tab" data-viz="embedding">Embedding</button>
                 <button class="viz-tab" data-viz="similarity">Similarity</button>
                 <button class="viz-tab" data-viz="robustness">Robustness</button>

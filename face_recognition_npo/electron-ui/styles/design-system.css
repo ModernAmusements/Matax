@@ -275,7 +275,7 @@ p {
   padding: 10px 20px;
   background: rgba(255, 255, 255, 0.05);
   border: none;
-  border-radius: 15px;
+  border-radius: 999px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 500;
@@ -453,10 +453,44 @@ p {
 
 .step.active-section {
   border: 1px solid rgba(255, 255, 255, 0.3) !important;
-  background: var(--liquid-bg) !important;
+  background: linear-gradient(135deg, rgba(48, 209, 88, 0.06) 0%, rgba(48, 209, 88, 0.02) 50%, rgba(255, 255, 255, 0.6) 100%) !important;
   backdrop-filter: blur(var(--liquid-blur));
   -webkit-backdrop-filter: blur(var(--liquid-blur));
-  box-shadow: var(--liquid-shadow);
+  box-shadow: var(--liquid-shadow), 0 0 12px rgba(48, 209, 88, 0.08);
+}
+
+#sidebar-step-1 {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+#sidebar-step-1 .step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 6px;
+}
+
+#section-intro {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 20px 24px;
+  margin: 0 !important;
+}
+#section-intro .footer-logo-container {
+  width: 48px;
+  height: 48px;
+}
+#section-intro .footer-logo {
+  font-size: 28px;
+}
+#section-intro .footer-tagline {
+  font-size: 14px;
+  opacity: 0.7;
 }
 
 #webcamStep {
@@ -484,8 +518,8 @@ p {
 }
 
 .step-complete {
-  border-color: rgba(48, 209, 88, 0.5);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 0 0 2px rgba(48, 209, 88, 0.2);
+  border-color: rgba(48, 209, 88, 0.3);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(48, 209, 88, 0.1);
 }
 
 .step-checkmark {
@@ -536,6 +570,10 @@ p {
   padding: 2px 8px;
   border-radius: 10px;
   font-size: 10px;
+}
+
+.step-section-title {
+  padding: 1rem 0;
 }
 
 .step-number {
@@ -593,6 +631,7 @@ p {
   font-size: 12px;
   color: #666;
   margin: 8px 0 16px 0;
+  padding: 1rem 0;
 }
 
 .preview-container {
@@ -755,8 +794,7 @@ p {
   gap: 12px;
 }
 .currently-uploaded-preview img {
-  max-width: 150px;
-  max-height: 150px;
+  max-width: 350px;
   border-radius: 16px;
   object-fit: cover;
 }
@@ -976,6 +1014,8 @@ p {
 .comparison-result.active, .comparison-result.visible {
   display: block;
   margin-bottom: 20px;
+  background: linear-gradient(135deg, rgba(48, 209, 88, 0.08) 0%, rgba(48, 209, 88, 0.04) 50%, rgba(255, 255, 255, 0.6) 100%);
+  box-shadow: var(--liquid-shadow), 0 0 12px rgba(48, 209, 88, 0.08);
 }
 
 .comparison-viz-tabs {

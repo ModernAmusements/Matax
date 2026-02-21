@@ -362,11 +362,10 @@ function handleImageSelect(event) {
         // Auto-run detection after upload (Option A)
         detectFaces().then(() => {
             // Auto-run extraction after detection
-            extractFeatures();
-            // Scroll to visualization section
-            setTimeout(() => {
-                scrollToSection('step5');
-            }, 500);
+            extractFeatures().then(() => {
+                // Scroll to compare section after extraction completes
+                scrollToSection('step4');
+            });
         });
     };
     reader.onerror = (err) => {
@@ -695,7 +694,7 @@ async function extractFeatures() {
             markStepComplete('step3', null);
             
             // Pre-fetch all visualization types in background
-            const vizTypes = ['detection', 'extraction', 'preprocessing', 'landmarks', 'mesh3d', 'alignment', 'saliency', 'activations', 'features', 'multiscale', 'confidence', 'eyewear', 'embedding', 'similarity', 'robustness', 'biometric', 'asymmetry', 'texture', 'normalized'];
+            const vizTypes = ['detection', 'extraction', 'preprocessing', 'landmarks', 'mesh3d', 'alignment', 'saliency', 'activations', 'features', 'multiscale', 'confidence', 'eyewear', 'iris', 'expression', 'embedding', 'similarity', 'robustness', 'biometric', 'asymmetry', 'texture', 'normalized'];
             logToTerminal('> Pre-caching all visualizations...', 'info');
             vizTypes.forEach(vizType => {
                 if (!visualizationData[vizType]) {
@@ -734,9 +733,9 @@ async function extractFeatures() {
             showVisualization('embedding');
             showToast('Features extracted successfully', 'success');
             
-            // Scroll to visualization section
+            // Scroll to compare section
             setTimeout(() => {
-                scrollToSection('step5');
+                scrollToSection('step4');
             }, 500);
         } else {
             logToTerminal('> Feature extraction failed', 'error');
@@ -800,7 +799,6 @@ async function removeReference(index, btnOrEvent) {
     const refName = ref.name || `Reference ${index + 1}`;
     logToTerminal(`> Removing: ${refName}`, 'info');
     
-    const btn = event?.target;
     if (btn) {
         btn.disabled = true;
         btn.style.opacity = '0.5';
@@ -814,14 +812,23 @@ async function removeReference(index, btnOrEvent) {
             references = references.filter((_, i) => i !== index);
             references.forEach((ref, i) => ref.id = i);
             updateReferenceList();
+            
+            // Close details modal if open
+            const detailsPanel = document.getElementById('referenceDetails');
+            if (detailsPanel && detailsPanel.classList.contains('active')) {
+                detailsPanel.classList.remove('active');
+            }
+            
             logToTerminal(`> Removed: ${refName}`, 'success');
             showToast('Reference removed', 'success');
         } else {
-            throw new Error(data.error || 'Unknown error');
+            console.error('[REMOVE REF] API error:', data);
+            throw new Error(data.error || 'Unknown error: ' + JSON.stringify(data));
         }
     } catch (err) {
+        console.error('[REMOVE REF] Exception:', err);
         logToTerminal(`> Error removing ${refName}: ${err.message}`, 'error');
-        showToast('Failed to remove reference', 'error');
+        showToast('Failed to remove reference: ' + err.message, 'error');
         if (btn) {
             btn.disabled = false;
             btn.style.opacity = '1';
@@ -898,6 +905,8 @@ function showReferenceDetails(refId, ref) {
         { id: 'info', label: 'Info' },
         { id: 'detection', label: 'Face' },
         { id: 'landmarks', label: 'Landmarks' },
+        { id: 'iris', label: 'Iris' },
+        { id: 'expression', label: 'Expression' },
         { id: 'embedding', label: 'Embedding' },
         { id: 'alignment', label: 'Pose' },
         { id: 'saliency', label: 'Attention' }
@@ -1109,6 +1118,8 @@ function showUploadedAsReference() {
         { id: 'detection', label: 'Detection' },
         { id: 'landmarks', label: 'Landmarks' },
         { id: 'mesh3d', label: '3D Mesh' },
+        { id: 'iris', label: 'Iris' },
+        { id: 'expression', label: 'Expression' },
         { id: 'alignment', label: 'Pose' },
         { id: 'embedding', label: 'Embedding' },
         { id: 'similarity', label: 'Similarity' },
@@ -1190,6 +1201,10 @@ function showUploadedVizContent(vizType) {
         vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['eyewear']}" alt="Eyewear" style="max-width:100%">`;
     } else if (vizType === 'confidence' && visualizationData['confidence']) {
         vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['confidence']}" alt="Confidence" style="max-width:100%">`;
+    } else if (vizType === 'iris' && visualizationData['iris']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['iris']}" alt="Iris" style="max-width:100%">`;
+    } else if (vizType === 'expression' && visualizationData['expression']) {
+        vizContent.innerHTML = `<img src="data:image/png;base64,${visualizationData['expression']}" alt="Expression" style="max-width:100%">`;
     } else {
         vizContent.innerHTML = '<div class="viz-placeholder"><p>Run detection first to see visualizations</p></div>';
     }
@@ -1358,8 +1373,58 @@ function selectReference(index) {
     selectedReferenceId = index;
 }
 
+// Clear comparison results
+function clearComparisonResults() {
+    const resultEl = document.getElementById('comparisonResult');
+    const statusEl = document.getElementById('matchStatus');
+    const queryEl = document.getElementById('queryImage');
+    const refEl = document.getElementById('refImage');
+    const refLabelEl = document.getElementById('refLabel');
+    
+    // Reset all score displays
+    const scoreIds = ['arcfaceScore', 'facenetScore', 'normScore', 'multiPoseScore', 
+                      'lbpScore', 'asymScore', 'activationScore', 'irisScore', 
+                      'expressionScore', 'matchScore'];
+    scoreIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '--%';
+    });
+    
+    // Hide result container
+    if (resultEl) {
+        resultEl.classList.remove('visible', 'active');
+    }
+    
+    // Reset images
+    if (queryEl) {
+        queryEl.src = '';
+        queryEl.style.display = 'none';
+    }
+    if (refEl) {
+        refEl.src = '';
+        refEl.style.display = 'none';
+    }
+    if (refLabelEl) refLabelEl.textContent = '';
+    if (statusEl) {
+        statusEl.textContent = '--';
+        statusEl.className = 'comparison-status';
+    }
+    
+    // Collapse scores dropdown
+    const toggle = document.querySelector('.scores-toggle');
+    const scores = document.querySelector('.comparison-scores');
+    if (toggle && scores) {
+        toggle.setAttribute('data-expanded', 'false');
+        scores.setAttribute('data-visible', 'false');
+        toggle.querySelector('.toggle-icon').textContent = '▶';
+    }
+}
+
 // Compare Faces
 async function compareFaces() {
+    // Clear previous results
+    clearComparisonResults();
+    
     logToTerminal(`> Compare: currentQueryEmbedding=${currentQueryEmbedding}, references.length=${references.length}`, 'info');
 
     if (currentQueryEmbedding === null) {
@@ -1407,8 +1472,18 @@ async function compareFaces() {
             const statusEl = document.getElementById('matchStatus');
             const comparisonResultEl = document.getElementById('comparisonResult');
             
-            if (queryImageEl && currentFaceThumbnails[0]) {
-                queryImageEl.src = `data:image/png;base64,${currentFaceThumbnails[0].thumbnail || ''}`;
+            // Use query_thumbnail from compare response, fallback to currentFaceThumbnails
+            const queryThumb = data.query_thumbnail || (currentFaceThumbnails[0] && currentFaceThumbnails[0].thumbnail);
+            console.log('[COMPARE] queryThumb:', queryThumb ? 'has value' : 'empty', '| currentFaceThumbnails:', currentFaceThumbnails?.length);
+            if (queryImageEl) {
+                if (queryThumb) {
+                    queryImageEl.src = `data:image/png;base64,${queryThumb}`;
+                    queryImageEl.style.display = 'inline-block';
+                } else {
+                    queryImageEl.style.display = 'none';
+                }
+            } else {
+                console.log('[COMPARE] queryImageEl not found!');
             }
             if (refImageEl && best.thumbnail) {
                 refImageEl.src = `data:image/png;base64,${best.thumbnail}`;
@@ -1452,6 +1527,28 @@ async function compareFaces() {
                     activationEl.textContent = `${Math.round(score * 100)}%`;
                 } else {
                     activationEl.textContent = 'N/A';
+                }
+            }
+            
+            // Display Iris similarity score
+            const irisEl = document.getElementById('irisScore');
+            if (irisEl && best.iris_similarity != null) {
+                const score = parseFloat(best.iris_similarity);
+                if (!isNaN(score)) {
+                    irisEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    irisEl.textContent = 'N/A';
+                }
+            }
+            
+            // Display Expression similarity score
+            const exprEl = document.getElementById('expressionScore');
+            if (exprEl && best.expression_similarity != null) {
+                const score = parseFloat(best.expression_similarity);
+                if (!isNaN(score)) {
+                    exprEl.textContent = `${Math.round(score * 100)}%`;
+                } else {
+                    exprEl.textContent = 'N/A';
                 }
             }
             
@@ -1523,6 +1620,10 @@ async function compareFaces() {
                 comparisonResultEl.classList.add('visible');
                 comparisonResultEl.classList.add('active');
             }
+            
+            // Auto-expand scores dropdown
+            expandScoresDropdown();
+            
             if (compareStatusEl) {
                 compareStatusEl.textContent = `Best match: ${best.name} (${Math.round(best.final_score * 100)}%)`;
                 compareStatusEl.className = 'status status-success';
@@ -1723,6 +1824,17 @@ function hideLoading() {
     document.getElementById('loadingOverlay').classList.remove('active');
 }
 
+// Expand scores dropdown
+function expandScoresDropdown() {
+    const toggle = document.querySelector('.scores-toggle');
+    const scores = document.querySelector('.comparison-scores');
+    if (toggle && scores) {
+        toggle.setAttribute('data-expanded', 'true');
+        scores.setAttribute('data-visible', 'true');
+        toggle.querySelector('.toggle-icon').textContent = '▼';
+    }
+}
+
 // Toast
 function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
@@ -1770,6 +1882,9 @@ async function startWebcam() {
         container.classList.add('visible');
         document.getElementById('webcamStep').classList.add('visible');
         
+        // Set webcam active flag
+        currentWebcamActive = true;
+        
         startBtn.disabled = true;
         captureBtn.disabled = false;
         stopBtn.disabled = false;
@@ -1777,6 +1892,11 @@ async function startWebcam() {
         const toggleMeshBtn = document.getElementById('toggleMeshBtn');
         if (toggleMeshBtn) {
             toggleMeshBtn.disabled = false;
+        }
+        
+        const profileBtn = document.getElementById('profileCaptureBtn');
+        if (profileBtn) {
+            profileBtn.disabled = false;
         }
         
         status.textContent = 'Webcam active - Click "Capture" to take a photo';
@@ -1790,6 +1910,129 @@ async function startWebcam() {
         status.className = 'status status-error';
         showToast('Failed to start webcam: ' + err.message, 'error');
     }
+}
+
+// Profile capture - capture multiple angles and save as one person
+let profileCaptures = [];
+
+function startProfileCapture() {
+    profileCaptures = [];
+    const status = document.getElementById('webcamStatus');
+    const btn = document.getElementById('profileCaptureBtn');
+    
+    if (!currentWebcamActive) {
+        showToast('Start webcam first', 'warning');
+        return;
+    }
+    
+    logToTerminal('> Starting profile capture mode...', 'info');
+    status.textContent = 'Profile Mode: Capturing 5 angles...';
+    btn.disabled = true;
+    btn.textContent = 'Capturing...';
+    
+    // Capture 5 images with 2 second intervals
+    const captureInterval = setInterval(() => {
+        if (profileCaptures.length >= 5) {
+            clearInterval(captureInterval);
+            finishProfileCapture();
+            return;
+        }
+        
+        captureWebcamForProfile();
+    }, 2000);
+    
+    // Capture first one immediately
+    captureWebcamForProfile();
+}
+
+function captureWebcamForProfile() {
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.createElement('canvas');
+    
+    if (!video.srcObject) return;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    profileCaptures.push(dataUrl);
+    
+    const status = document.getElementById('webcamStatus');
+    status.textContent = `Profile: Captured ${profileCaptures.length}/5 angles`;
+    logToTerminal(`> Captured angle ${profileCaptures.length}/5`, 'info');
+}
+
+function finishProfileCapture() {
+    const btn = document.getElementById('profileCaptureBtn');
+    const status = document.getElementById('webcamStatus');
+    
+    btn.disabled = false;
+    btn.textContent = 'Capture Profile';
+    
+    if (profileCaptures.length === 0) {
+        showToast('No captures taken', 'warning');
+        return;
+    }
+    
+    logToTerminal(`> Profile capture complete: ${profileCaptures.length} images`, 'success');
+    status.textContent = `Profile captured: ${profileCaptures.length} angles - Opening library...`;
+    
+    // Open library modal to add this profile
+    openProfileCaptureModal();
+}
+
+function openProfileCaptureModal() {
+    // Store captured images globally for the modal to use
+    window.profileCaptureImages = [...profileCaptures];
+    
+    // Show modal with name input
+    const name = prompt('Enter person name for this profile:', 'Person');
+    if (!name) {
+        showToast('Name required', 'warning');
+        return;
+    }
+    
+    // Save to library
+    saveProfileToLibrary(name);
+}
+
+async function saveProfileToLibrary(name) {
+    showLoading('Saving profile to library...');
+    
+    try {
+        // Save the profile images to library one by one
+        for (let i = 0; i < profileCaptures.length; i++) {
+            const imgData = profileCaptures[i];
+            
+            const response = await fetch(`${API_BASE}/library/person`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    image: imgData.split(',')[1]
+                })
+            });
+            
+            const data = await response.json();
+            if (!data.success && i === 0) {
+                throw new Error(data.error || 'Failed to save');
+            }
+        }
+        
+        showToast(`Profile "${name}" saved with ${profileCaptures.length} images`, 'success');
+        logToTerminal(`> Profile saved: ${name} (${profileCaptures.length} angles)`, 'success');
+        loadLibrary();
+        
+    } catch (err) {
+        logToTerminal(`> Error saving profile: ${err.message}`, 'error');
+        showToast('Error saving profile: ' + err.message, 'error');
+    }
+    
+    profileCaptures = [];
+    hideLoading();
 }
 
 function captureWebcam() {
@@ -2476,18 +2719,28 @@ async function deleteLibraryPerson(personId) {
     if (!confirm('Delete this person from library?')) return;
     
     try {
+        console.log('[DELETE LIBRARY] Deleting person:', personId);
         const response = await fetch(`${API_BASE}/library/person/${personId}`, {
             method: 'DELETE'
         });
         const data = await response.json();
+        console.log('[DELETE LIBRARY] Response:', data);
         
         if (data.success) {
-            showToast('Person deleted', 'success');
+            showToast('Person deleted from library', 'success');
+            
+            // Close popup if open
+            const popup = document.getElementById('libraryInfoPopup');
+            const overlay = document.getElementById('libraryPopupOverlay');
+            if (popup) popup.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+            
             loadLibrary();
         } else {
-            showToast(data.error || 'Error deleting', 'error');
+            showToast(data.error || 'Error deleting person', 'error');
         }
     } catch (err) {
+        console.error('[DELETE LIBRARY] Exception:', err);
         showToast('Error: ' + err.message, 'error');
     }
 }
@@ -2554,6 +2807,9 @@ async function compareWithLibrary() {
         return;
     }
     
+    // Clear previous results
+    clearComparisonResults();
+    
     showLoading('Comparing with library...');
     logToTerminal('> Comparing with library...', 'command');
     
@@ -2590,6 +2846,9 @@ async function compareWithLibrary() {
                 comparisonResultEl.classList.remove('hidden');
                 comparisonResultEl.classList.add('visible');
             }
+            
+            // Auto-expand scores dropdown
+            expandScoresDropdown();
             
             // Display detailed scores from library match
             const arcfaceEl = document.getElementById('arcfaceScore');
@@ -2644,6 +2903,22 @@ async function compareWithLibrary() {
                 activationEl.textContent = `${Math.round(best.activation_similarity * 100)}%`;
             } else if (activationEl) {
                 activationEl.textContent = '--%';
+            }
+            
+            // Display Iris score
+            const irisEl = document.getElementById('irisScore');
+            if (irisEl && best.iris_similarity != null) {
+                irisEl.textContent = `${Math.round(best.iris_similarity * 100)}%`;
+            } else if (irisEl) {
+                irisEl.textContent = '--%';
+            }
+            
+            // Display Expression score
+            const exprEl = document.getElementById('expressionScore');
+            if (exprEl && best.expression_similarity != null) {
+                exprEl.textContent = `${Math.round(best.expression_similarity * 100)}%`;
+            } else if (exprEl) {
+                exprEl.textContent = '--%';
             }
             
             // Show thumbnail if available

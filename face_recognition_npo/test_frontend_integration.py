@@ -1161,10 +1161,11 @@ def test_comparison_result_workflow(step_num, total):
             print_step(step_num, total, "Comparison Result Workflow", "fail", "Feature extraction failed")
             return False
         
-        # Step 5: Verify all viz types are available
+        # Step 5: Verify all viz types are available (including new iris and expression)
         viz_types = ['detection', 'extraction', 'landmarks', 'mesh3d', 'alignment', 
                      'saliency', 'activations', 'features', 'embedding', 'confidence',
-                     'biometric', 'robustness']
+                     'biometric', 'robustness', 'iris', 'expression', 'eyewear', 
+                     'normalized', 'asymmetry', 'texture', 'multiscale']
         
         available_viz = []
         for viz_type in viz_types:
@@ -1221,7 +1222,12 @@ def test_comparison_result_workflow(step_num, total):
             print_step(step_num, total, "Comparison Result Workflow", "fail", f"Missing fields: {missing_fields}")
             return False
         
-        details = f"Match: {best_match.get('name')}, Score: {int(best_match.get('final_score', 0)*100)}%, Viz types: {len(available_viz)}"
+        # Verify iris and expression scores are present
+        has_iris = 'iris_similarity' in best_match
+        has_expression = 'expression_similarity' in best_match
+        has_activation = 'activation_similarity' in best_match
+        
+        details = f"Match: {best_match.get('name')}, Score: {int(best_match.get('final_score', 0)*100)}%, Viz: {len(available_viz)}, Iris: {has_iris}, Expr: {has_expression}, Act: {has_activation}"
         print_step(step_num, total, "Comparison Result Workflow", "pass", details)
         return True
         

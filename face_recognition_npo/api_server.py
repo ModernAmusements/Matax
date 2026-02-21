@@ -82,6 +82,8 @@ current_activations = {}
 current_lbp = None
 current_asymmetry = None
 current_normalized_embedding = None
+current_iris = None
+current_expression = None
 references = []
 
 REFERENCES_FILE = os.path.join(os.path.dirname(__file__), 'reference_images', 'embeddings.json')
@@ -94,7 +96,12 @@ def load_references():
         if os.path.exists(REFERENCES_FILE) and os.path.getsize(REFERENCES_FILE) > 0:
             with open(REFERENCES_FILE, 'r') as f:
                 data = json.load(f)
-                references = data.get('references', [])
+                # Handle both old format ({metadata, embeddings}) and new format ({references})
+                if 'references' in data:
+                    references = data.get('references', [])
+                else:
+                    # Old format - reconstruct references
+                    references = []
             print(f"Loaded {len(references)} references from {REFERENCES_FILE}")
     except Exception as e:
         print(f"Error loading references: {e}")
@@ -104,26 +111,8 @@ def load_references():
 def save_references():
     """Save references to JSON file."""
     try:
-        data = {
-            'metadata': [
-                {
-                    'id': r.get('id'),
-                    'name': r.get('name'),
-                    'thumbnail': r.get('thumbnail')[:100] + '...' if r.get('thumbnail') and len(r.get('thumbnail', '')) > 100 else r.get('thumbnail'),
-                    'added_at': r.get('added_at')
-                }
-                for r in references
-            ],
-            'embeddings': [
-                {
-                    'id': r.get('id'),
-                    'embedding': r.get('embedding', [])
-                }
-                for r in references
-            ]
-        }
         with open(REFERENCES_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump({'references': references}, f, indent=2)
         print(f"Saved {len(references)} references to {REFERENCES_FILE}")
     except Exception as e:
         print(f"Error saving references: {e}")
@@ -446,7 +435,7 @@ def detect_faces():
 @app.route('/api/extract', methods=['POST'])
 def extract_embedding():
     """Extract embedding from detected face using both models."""
-    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality, current_activations, current_lbp, current_asymmetry, current_normalized_embedding
+    global current_embedding, current_embeddings, current_face_image, current_faces, current_pose, current_landmarks, current_quality, current_activations, current_lbp, current_asymmetry, current_normalized_embedding, current_iris, current_expression
     
     try:
         data = request.json
@@ -498,6 +487,12 @@ def extract_embedding():
         # NEW: Asymmetry features for uniqueness analysis
         current_asymmetry = detector.compute_facial_asymmetry(landmarks_est)
         
+        # NEW: Iris detection
+        current_iris = detector.detect_iris(current_face_image)
+        
+        # NEW: Expression (blendshapes) detection
+        current_expression = detector.detect_expression(current_face_image)
+        
         # NEW: 3D mesh-based normalized embedding
         mesh_landmarks = detector.estimate_landmarks(current_face_image, (0, 0, current_face_image.shape[1], current_face_image.shape[0]))
         aligned_face = detector.normalize_face_with_mesh(current_face_image, mesh_landmarks)
@@ -534,6 +529,9 @@ def extract_embedding():
             'asymmetry': current_asymmetry,
             'normalized_embedding': current_normalized_embedding.tolist() if current_normalized_embedding is not None else None,
             'was_normalized': True,
+            'iris_detected': current_iris.get('detected', False) if current_iris else False,
+            'iris': current_iris,
+            'expression': current_expression,
             'visualizations': {
                 'embedding': image_to_base64(emb_viz),
                 'activations': image_to_base64(act_viz),
@@ -545,6 +543,8 @@ def extract_embedding():
                 'saliency': image_to_base64(sal_viz),
                 'multiscale': image_to_base64(multi_viz),
                 'confidence': image_to_base64(conf_viz),
+                'iris': image_to_base64(detector.visualize_iris(current_face_image, current_iris)) if current_iris else None,
+                'expression': image_to_base64(detector.visualize_expression(current_face_image, current_expression)) if current_expression else None,
             },
             'visualization_data': {
                 'embedding': emb_data,
@@ -605,6 +605,12 @@ def add_reference():
         # NEW: Asymmetry features
         asymmetry_features = detector.compute_facial_asymmetry(landmarks)
         
+        # NEW: Iris detection
+        iris_data = detector.detect_iris(ref_face)
+        
+        # NEW: Expression (blendshapes) detection
+        expression_data = detector.detect_expression(ref_face)
+        
         # NEW: 3D mesh-based normalized embedding
         mesh_landmarks = detector.estimate_landmarks(ref_face, (0, 0, ref_face.shape[1], ref_face.shape[0]))
         aligned_ref = detector.normalize_face_with_mesh(ref_face, mesh_landmarks)
@@ -630,6 +636,16 @@ def add_reference():
             'quality': {k: float(v) if isinstance(v, (int, float)) else v for k, v in quality.items()} if quality else None,
             'lbp_histogram': lbp_hist.tolist() if lbp_hist is not None else None,
             'asymmetry': asymmetry_features,
+            'iris': iris_data,
+            'expression': {
+                'category': expression_data.get('category'),
+                'smile_prob': expression_data.get('smile_prob'),
+                'mouth_open_prob': expression_data.get('mouth_open_prob'),
+                'eye_blink_left': expression_data.get('eye_blink_left'),
+                'eye_blink_right': expression_data.get('eye_blink_right'),
+                'brow_position': expression_data.get('brow_position'),
+                'all_blendshapes': expression_data.get('all_blendshapes')
+            },
             'normalized_embedding': normalized_emb.tolist() if normalized_emb is not None else None,
             'poses': {
                 pose_category: {
@@ -679,7 +695,19 @@ def get_references():
             {
                 'id': r['id'],
                 'name': r['name'],
-                'thumbnail': r['thumbnail']
+                'thumbnail': r['thumbnail'],
+                'iris': r.get('iris'),
+                'expression': r.get('expression'),
+                'pose': r.get('pose'),
+                'pose_category': r.get('pose_category'),
+                'quality': r.get('quality'),
+                'embedding': r.get('embedding'),
+                'activations': r.get('activations'),
+                'landmarks': r.get('landmarks'),
+                'lbp_histogram': r.get('lbp_histogram'),
+                'asymmetry': r.get('asymmetry'),
+                'normalized_embedding': r.get('normalized_embedding'),
+                'poses': r.get('poses')
             }
             for r in references
         ],
@@ -730,7 +758,7 @@ def remove_reference(ref_id):
 @app.route('/api/compare', methods=['POST'])
 def compare_faces():
     """Compare current face embedding with references using dual-model scoring."""
-    global current_embedding, current_embeddings, references, current_pose, current_landmarks, current_quality, current_activations
+    global current_embedding, current_embeddings, references, current_pose, current_landmarks, current_quality, current_activations, current_iris, current_expression
     
     try:
         if current_embedding is None and not current_embeddings:
@@ -801,13 +829,23 @@ def compare_faces():
                 print(f"Activation comparison error: {e}")
                 activation_sim = 0.7
             
-            # Use dual-model match scoring with activation similarity
+            # NEW: Iris similarity
+            ref_iris = ref.get('iris')
+            iris_sim = comparator.iris_similarity(current_iris, ref_iris) if current_iris and ref_iris else None
+            
+            # NEW: Expression similarity
+            ref_expression = ref.get('expression')
+            expression_sim = comparator.expression_similarity(current_expression, ref_expression) if current_expression and ref_expression else None
+            
+            # Use dual-model match scoring with iris and expression similarity
             match_result = comparator.compute_dual_match_score(
                 arcface_sim,
                 facenet_sim,
                 landmark_sim,
                 query_quality,
-                activation_sim
+                activation_sim,
+                iris_sim,
+                expression_sim
             )
             
             status, label, description = comparator.get_match_verdict(match_result['score'])
@@ -847,6 +885,8 @@ def compare_faces():
                 'facenet_similarity': float(facenet_sim) if facenet_sim is not None else None,
                 'landmark_similarity': float(landmark_sim),
                 'activation_similarity': float(activation_sim) if activation_sim is not None else None,
+                'iris_similarity': float(iris_sim) if iris_sim is not None else None,
+                'expression_similarity': float(expression_sim) if expression_sim is not None else None,
                 'final_score': float(match_result['score']),
                 'status': status,
                 'match_label': label,
@@ -902,7 +942,8 @@ def compare_faces():
             'results': results,
             'best_match': results[0] if results else None,
             'similarity_viz': image_to_base64(sim_viz) if sim_viz is not None else None,
-            'similarity_data': sim_data
+            'similarity_data': sim_data,
+            'query_thumbnail': image_to_base64(current_face_image) if current_face_image is not None else None
         })
         
     except Exception as e:
@@ -1084,6 +1125,24 @@ def get_ref_viz_result(viz_type, face_image, embedding):
             try:
                 vis, data = detector.visualize_quality(face_image, (0, 0, face_image.shape[1], face_image.shape[0]))
                 return vis, data
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        elif viz_type == 'iris':
+            try:
+                iris_data = detector.detect_iris(face_image)
+                vis = detector.visualize_iris(face_image, iris_data)
+                return vis, iris_data
+            except:
+                pass
+            return face_image.copy(), {}
+        
+        elif viz_type == 'expression':
+            try:
+                expression_data = detector.detect_expression(face_image)
+                vis = detector.visualize_expression(face_image, expression_data)
+                return vis, expression_data
             except:
                 pass
             return face_image.copy(), {}
@@ -1293,6 +1352,18 @@ def get_viz_result(viz_type, face_image, embedding):
                 "can_clear": True
             }
             return visualize_test_detail("Clear + Reset", data), data
+        elif viz_type == 'iris':
+            if face_image is None:
+                return None, {}
+            iris_data = detector.detect_iris(face_image)
+            vis = detector.visualize_iris(face_image, iris_data)
+            return vis, iris_data
+        elif viz_type == 'expression':
+            if face_image is None:
+                return None, {}
+            expression_data = detector.detect_expression(face_image)
+            vis = detector.visualize_expression(face_image, expression_data)
+            return vis, expression_data
         return None, {}
     
     viz_result = get_viz_and_data(viz_type, face_image, embedding)
@@ -1876,6 +1947,8 @@ def match_library():
                     "multi_pose_score": best_multi_pose,
                     "texture_similarity": best_lbp_sim,
                     "uniqueness_similarity": best_asym_sim,
+                    "iris_similarity": 0.7,
+                    "expression_similarity": 0.7,
                     "best_image": best_image
                 })
         
