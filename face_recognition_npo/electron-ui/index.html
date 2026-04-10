@@ -581,7 +581,17 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="renderer/app.js"></script>
+    <!-- New Modular JS (loaded in dependency order) -->
+    <script src="renderer/01-api.js"></script>
+    <script src="renderer/02-state.js"></script>
+    <script src="renderer/05-ui.js"></script>
+    <script src="renderer/04-compare.js"></script>
+    <script src="renderer/06-viz.js"></script>
+    <script src="renderer/03-workflows.js"></script>
+    <script src="renderer/07-init.js"></script>
+
+    <!-- Old app.js (disabled during transition) -->
+    <!-- <script src="renderer/app.js"></script> -->
 </body>
 
 </html>
