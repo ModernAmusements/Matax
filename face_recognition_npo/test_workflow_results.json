@@ -1,0 +1,432 @@
+{
+  "total": 53,
+  "passed": 53,
+  "failed": 0,
+  "skipped": 0,
+  "workflows": [
+    {
+      "id": "1.1",
+      "name": "Upload Image \u2192 Match",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "1.2",
+      "name": "Webcam \u2192 Match",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "1.3",
+      "name": "Auto Capture Mode",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "2.1",
+      "name": "Upload \u2192 Save to Library",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "2.2",
+      "name": "Webcam \u2192 Save to Library",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "2.3",
+      "name": "Batch Add to Library",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "2.4",
+      "name": "View Library Person",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Found 10 persons"
+    },
+    {
+      "id": "2.5",
+      "name": "Delete Library Person",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Person deleted"
+    },
+    {
+      "id": "3.1",
+      "name": "Compare with References",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "3.2",
+      "name": "Compare with Library",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "3.3",
+      "name": "Find Matches (Current)",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "3.4",
+      "name": "Upload & Compare",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "3.5",
+      "name": "Add Uploaded as Reference",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "4.1",
+      "name": "Basic Webcam Capture",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "4.2",
+      "name": "Profile/Angle Capture",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "4.3",
+      "name": "Mesh Overlay",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "4.4",
+      "name": "Stop Webcam",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "Detection",
+      "name": "Detection View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: detection"
+    },
+    {
+      "id": "Extraction",
+      "name": "Extraction View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: extraction"
+    },
+    {
+      "id": "Preprocessing",
+      "name": "Preprocessing View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: preprocessing"
+    },
+    {
+      "id": "Landmarks",
+      "name": "Landmarks View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: landmarks"
+    },
+    {
+      "id": "3D",
+      "name": "3D Mesh View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: mesh3d"
+    },
+    {
+      "id": "Alignment",
+      "name": "Alignment View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: alignment"
+    },
+    {
+      "id": "Attention/Saliency",
+      "name": "Attention/Saliency View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: saliency"
+    },
+    {
+      "id": "Neural",
+      "name": "Neural Activations View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: activations"
+    },
+    {
+      "id": "Feature",
+      "name": "Feature Maps View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: features"
+    },
+    {
+      "id": "Multi-Scale",
+      "name": "Multi-Scale View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: multiscale"
+    },
+    {
+      "id": "Confidence/Quality",
+      "name": "Confidence/Quality View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: confidence"
+    },
+    {
+      "id": "Eyewear",
+      "name": "Eyewear Detection View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: eyewear"
+    },
+    {
+      "id": "Iris",
+      "name": "Iris Analysis View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: iris"
+    },
+    {
+      "id": "Expression",
+      "name": "Expression Analysis View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: expression"
+    },
+    {
+      "id": "Embedding",
+      "name": "Embedding View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: embedding"
+    },
+    {
+      "id": "Similarity",
+      "name": "Similarity View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: similarity"
+    },
+    {
+      "id": "Robustness",
+      "name": "Robustness Test View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: robustness"
+    },
+    {
+      "id": "Biometric",
+      "name": "Biometric Overview View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: biometric"
+    },
+    {
+      "id": "Uniqueness/Asymmetry",
+      "name": "Uniqueness/Asymmetry View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: asymmetry"
+    },
+    {
+      "id": "Texture",
+      "name": "Texture Analysis View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: texture"
+    },
+    {
+      "id": "3D",
+      "name": "3D Normalized View",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Viz type: normalized"
+    },
+    {
+      "id": "API",
+      "name": "API Health Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-health"
+    },
+    {
+      "id": "Detection",
+      "name": "Detection Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-detection"
+    },
+    {
+      "id": "Extraction",
+      "name": "Extraction Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-extraction"
+    },
+    {
+      "id": "Reference",
+      "name": "Reference Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-reference"
+    },
+    {
+      "id": "Multi-Match",
+      "name": "Multi-Match Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-multi"
+    },
+    {
+      "id": "Pose",
+      "name": "Pose Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-pose"
+    },
+    {
+      "id": "Eyewear",
+      "name": "Eyewear Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-eyewear"
+    },
+    {
+      "id": "Viz",
+      "name": "Viz Types Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-viz"
+    },
+    {
+      "id": "Session",
+      "name": "Session Test",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Test: test-clear"
+    },
+    {
+      "id": "7.1",
+      "name": "Clear Cache",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Cache cleared via API"
+    },
+    {
+      "id": "7.2",
+      "name": "Clear Terminal",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "7.3",
+      "name": "Toggle Sidebar",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "7.4",
+      "name": "Window Controls",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend functions exist"
+    },
+    {
+      "id": "7.5",
+      "name": "Navigation",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    },
+    {
+      "id": "7.6",
+      "name": "Library Search",
+      "passed": true,
+      "skipped": false,
+      "error": null,
+      "details": "Frontend function exists"
+    }
+  ]
+}
