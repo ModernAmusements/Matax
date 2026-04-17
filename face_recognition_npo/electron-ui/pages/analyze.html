@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANTAX - Analyze</title>
+    <link rel="stylesheet" href="/styles/design-system.css">
+    <script src="./shared-session.js"></script>
+</head>
+
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <div class="sidebar-header">
+                <span class="sidebar-title">MANTAX</span>
+            </div>
+            <div class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/house.fill.svg" class="nav-icon">
+                    <span>Dashboard</span>
+                </a>
+                <a href="analyze.html" class="sidebar-link active">
+                    <img src="/styles/sf_icons/person.fill.svg" class="nav-icon">
+                    <span>Analyze</span>
+                </a>
+                <a href="library.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/person.2.fill.svg" class="nav-icon">
+                    <span>Library</span>
+                </a>
+                <a href="compare.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/arrow.left.arrow.right.svg" class="nav-icon">
+                    <span>Compare</span>
+                </a>
+                <a href="results.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/list.number.svg" class="nav-icon">
+                    <span>Results</span>
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <small>Session Storage (auto-clear)</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="titlebar" id="titlebar">
+        <div class="titlebar-left">
+            <div class="traffic-lights">
+                <div class="light close" onclick="closeWindow()" title="Close"></div>
+                <div class="light minimize" onclick="minimizeWindow()" title="Minimize"></div>
+                <div class="light maximize" onclick="maximizeWindow()" title="Maximize"></div>
+            </div>
+            <button class="sidebar-toggle-icon" onclick="toggleSidebar()">
+                <img src="/styles/sf_icons/sidebar.left.svg" alt="">
+            </button>
+        </div>
+        <div class="titlebar-center">
+            <span class="titlebar-title">MANTAX - Analyze (Session)</span>
+        </div>
+        <div class="titlebar-right">
+            <button class="menu-icon">
+                <img src="/styles/sf_icons/ellipsis.svg" alt="Menu">
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Analyze Photo</h1>
+            <p class="subtitle">Upload a photo to detect faces and extract embeddings</p>
+            <div class="session-warning">
+                <span class="warning-icon">⚠️</span>
+                <span>Data will be lost when tab closes</span>
+            </div>
+        </div>
+
+        <div class="analyze-layout">
+            <div class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">
+                        <img src="/styles/sf_icons/photo.badge.plus.svg" alt="Upload">
+                    </div>
+                    <p>Click to upload or drag and drop</p>
+                    <button class="btn btn-primary" onclick="document.getElementById('imageInput').click()">Choose Photo</button>
+                    <input type="file" id="imageInput" accept="image/*" onchange="handleImageSelect(event)" style="display:none">
+                </div>
+
+                <div class="webcam-section">
+                    <h3>Or use Webcam</h3>
+                    <div class="webcam-controls">
+                        <button class="btn btn-primary" onclick="startWebcam()" id="startWebcamBtn">Start Webcam</button>
+                        <button class="btn" onclick="captureWebcam()" id="captureWebcamBtn" disabled>Capture</button>
+                        <button class="btn" onclick="stopWebcam()" id="stopWebcamBtn" disabled>Stop</button>
+                    </div>
+                    <div id="webcamContainer" class="webcam-container hidden">
+                        <video id="webcamVideo" autoplay playsinline></video>
+                        <canvas id="webcamCanvas" class="hidden"></canvas>
+                    </div>
+                </div>
+
+                <div class="preview-section hidden" id="previewSection">
+                    <h3>Selected Image</h3>
+                    <div class="image-preview">
+                        <img id="selectedImage" src="" alt="Selected">
+                    </div>
+                    <div class="preview-actions">
+                        <button class="btn" onclick="clearImage()">Clear</button>
+                        <button class="btn btn-primary" onclick="document.getElementById('imageInput').click()">Change</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="actions-section">
+                <div class="action-card" id="detectionCard">
+                    <h3>1. Detect Faces</h3>
+                    <p class="action-desc">Find faces in the uploaded image</p>
+                    <button class="btn btn-primary" onclick="detectFaces()" id="detectBtn" disabled>Find Faces</button>
+                    <div class="action-result" id="detectionResult"></div>
+                </div>
+
+                <div class="action-card" id="extractionCard">
+                    <h3>2. Create Signature</h3>
+                    <p class="action-desc">Extract facial embedding for comparison</p>
+                    <button class="btn btn-primary" onclick="extractFeatures()" id="extractBtn" disabled>Create Signature</button>
+                    <div class="action-result" id="extractionResult"></div>
+                </div>
+
+                <div class="action-card continue-card" id="continueCard">
+                    <h3>3. Continue</h3>
+                    <p class="action-desc">Save to session and proceed to comparison</p>
+                    <button class="btn btn-success" onclick="saveAndContinue()" id="continueBtn" disabled>Save & Continue to Compare</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="visualizations-section hidden" id="visualizationsSection">
+            <h3>Visualizations</h3>
+            <div class="viz-tabs">
+                <button class="viz-tab active" data-viz="detection">Detection</button>
+                <button class="viz-tab" data-viz="landmarks">Landmarks</button>
+                <button class="viz-tab" data-viz="mesh3d">3D Mesh</button>
+                <button class="viz-tab" data-viz="embedding">Embedding</button>
+            </div>
+            <div class="viz-content" id="vizContent">
+                <div class="viz-placeholder">Select a visualization tab</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" style="display: none;"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let currentImageData = null;
+        let detectedFaces = null;
+        let extractedEmbedding = null;
+
+        function init() {
+            if (!MantaxSessionState.isStorageAvailable()) {
+                showToast('Session storage not available', 'error');
+            }
+            
+            const state = MantaxSessionState.getQueryState();
+            if (state.image) {
+                currentImageData = state.image;
+                document.getElementById('selectedImage').src = currentImageData;
+                document.getElementById('previewSection').classList.remove('hidden');
+                document.getElementById('uploadBox').classList.add('hidden');
+                document.getElementById('detectBtn').disabled = false;
+            }
+            if (state.faces) {
+                detectedFaces = state.faces;
+                showDetectionResult(state.faces);
+            }
+            if (state.embedding) {
+                extractedEmbedding = state.embedding;
+                showExtractionResult(state.embedding);
+            }
+        }
+
+        function handleImageSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentImageData = e.target.result;
+                document.getElementById('selectedImage').src = currentImageData;
+                document.getElementById('previewSection').classList.remove('hidden');
+                document.getElementById('uploadBox').classList.add('hidden');
+                document.getElementById('detectBtn').disabled = false;
+                
+                MantaxSessionState.set(MantaxSessionState.KEYS.QUERY_IMAGE, currentImageData);
+                detectedFaces = null;
+                extractedEmbedding = null;
+                clearResults();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearImage() {
+            currentImageData = null;
+            detectedFaces = null;
+            extractedEmbedding = null;
+            MantaxSessionState.clearQuery();
+            
+            document.getElementById('imageInput').value = '';
+            document.getElementById('previewSection').classList.add('hidden');
+            document.getElementById('uploadBox').classList.remove('hidden');
+            clearResults();
+        }
+
+        function clearResults() {
+            document.getElementById('detectionResult').innerHTML = '';
+            document.getElementById('extractionResult').innerHTML = '';
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('continueBtn').disabled = true;
+            document.getElementById('visualizationsSection').classList.add('hidden');
+        }
+
+        async function detectFaces() {
+            if (!currentImageData) { showToast('Please select an image first', 'error'); return; }
+
+            const btn = document.getElementById('detectBtn');
+            btn.disabled = true;
+            btn.textContent = 'Detecting...';
+
+            try {
+                const base64 = extractBase64(currentImageData);
+                const response = await fetch(`${API_BASE}/detect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    detectedFaces = data;
+                    showDetectionResult(data);
+                } else {
+                    showToast('Detection failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                showToast('Detection error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Find Faces';
+            }
+        }
+
+        function showDetectionResult(data) {
+            const resultDiv = document.getElementById('detectionResult');
+            const faceCount = data.faces ? data.faces.length : 0;
+            
+            resultDiv.innerHTML = `<div class="result-success"><strong>${faceCount} face(s) detected</strong></div>`;
+            
+            if (faceCount > 0) {
+                document.getElementById('extractBtn').disabled = false;
+            }
+            
+            document.getElementById('visualizationsSection').classList.remove('hidden');
+            loadVisualization('detection');
+        }
+
+        async function extractFeatures() {
+            if (!currentImageData) { showToast('Please select an image first', 'error'); return; }
+
+            const btn = document.getElementById('extractBtn');
+            btn.disabled = true;
+            btn.textContent = 'Extracting...';
+
+            try {
+                const base64 = extractBase64(currentImageData);
+                const response = await fetch(`${API_BASE}/extract`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    extractedEmbedding = data;
+                    showExtractionResult(data);
+                } else {
+                    showToast('Extraction failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                showToast('Extraction error: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Signature';
+            }
+        }
+
+        function showExtractionResult(data) {
+            const resultDiv = document.getElementById('extractionResult');
+            const dim = data.embedding_size || data.embedding?.length || '?';
+            
+            resultDiv.innerHTML = `<div class="result-success"><strong>Embedding extracted</strong><p>${dim} dimensions</p></div>`;
+            document.getElementById('continueBtn').disabled = false;
+        }
+
+        function saveAndContinue() {
+            MantaxSessionState.setQueryState(currentImageData, extractedEmbedding, detectedFaces);
+            showToast('Saved to session! Redirecting...', 'success');
+            setTimeout(() => navigateTo('compare.html'), 1000);
+        }
+
+        let webcamStream = null;
+
+        async function startWebcam() {
+            try {
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('webcamVideo').srcObject = webcamStream;
+                document.getElementById('webcamContainer').classList.remove('hidden');
+                document.getElementById('captureWebcamBtn').disabled = false;
+                document.getElementById('stopWebcamBtn').disabled = false;
+                document.getElementById('startWebcamBtn').disabled = true;
+            } catch (e) {
+                showToast('Webcam error: ' + e.message, 'error');
+            }
+        }
+
+        function captureWebcam() {
+            const video = document.getElementById('webcamVideo');
+            const canvas = document.getElementById('webcamCanvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            currentImageData = canvas.toDataURL('image/jpeg');
+            document.getElementById('selectedImage').src = currentImageData;
+            document.getElementById('previewSection').classList.remove('hidden');
+            document.getElementById('uploadBox').classList.add('hidden');
+            document.getElementById('detectBtn').disabled = false;
+            
+            MantaxSessionState.set(MantaxSessionState.KEYS.QUERY_IMAGE, currentImageData);
+            detectedFaces = null;
+            extractedEmbedding = null;
+            clearResults();
+        }
+
+        function stopWebcam() {
+            if (webcamStream) {
+                webcamStream.getTracks().forEach(track => track.stop());
+                webcamStream = null;
+            }
+            document.getElementById('webcamContainer').classList.add('hidden');
+            document.getElementById('captureWebcamBtn').disabled = true;
+            document.getElementById('stopWebcamBtn').disabled = true;
+            document.getElementById('startWebcamBtn').disabled = false;
+        }
+
+        document.querySelectorAll('.viz-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.viz-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                loadVisualization(tab.dataset.viz);
+            });
+        });
+
+        async function loadVisualization(vizType) {
+            if (!currentImageData) return;
+            
+            const vizContent = document.getElementById('vizContent');
+            vizContent.innerHTML = '<div class="viz-loading">Loading...</div>';
+            
+            try {
+                const base64 = extractBase64(currentImageData);
+                const response = await fetch(`${API_BASE}/visualizations/${vizType}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: base64 })
+                });
+                const data = await response.json();
+                
+                if (data.success && data.visualization) {
+                    vizContent.innerHTML = `<img src="data:image/png;base64,${data.visualization}" alt="${vizType}">`;
+                } else {
+                    vizContent.innerHTML = '<div class="viz-placeholder">No visualization available</div>';
+                }
+            } catch (e) {
+                vizContent.innerHTML = '<div class="viz-placeholder">Error loading visualization</div>';
+            }
+        }
+
+        function closeWindow() {
+            if (window.electronAPI && window.electronAPI.close) window.electronAPI.close();
+            else window.close();
+        }
+        function minimizeWindow() {
+            if (window.electronAPI && window.electronAPI.minimize) window.electronAPI.minimize();
+        }
+        function maximizeWindow() {
+            if (window.electronAPI && window.electronAPI.maximize) window.electronAPI.maximize();
+        }
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.querySelector('.container').classList.toggle('sidebar-open');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .page-header { text-align: center; padding: 30px 20px 20px; }
+        .page-header h1 { margin: 0 0 8px; font-size: 2rem; }
+        .subtitle { color: var(--text-secondary); margin: 0; }
+
+        .session-warning { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 12px; background: rgba(255, 159, 10, 0.1); border-radius: 6px; font-size: 0.75rem; color: #FF9F0A; }
+        .warning-icon { font-size: 1rem; }
+
+        .analyze-layout { display: flex; gap: 24px; padding: 20px; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; }
+        .upload-section { flex: 1; min-width: 300px; }
+        .actions-section { flex: 1; min-width: 300px; }
+
+        .upload-box { border: 2px dashed var(--border-color); border-radius: 16px; padding: 40px; text-align: center; background: var(--surface-secondary); }
+        .upload-icon img { width: 48px; height: 48px; opacity: 0.5; }
+        .upload-box p { margin: 16px 0; color: var(--text-secondary); }
+
+        .webcam-section { margin-top: 20px; }
+        .webcam-section h3 { margin-bottom: 12px; }
+        .webcam-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+        .webcam-container { margin-top: 12px; }
+        .webcam-container video { width: 100%; max-width: 400px; border-radius: 8px; }
+
+        .preview-section { margin-top: 20px; }
+        .preview-section h3 { margin-bottom: 12px; }
+        .image-preview img { max-width: 100%; max-height: 300px; border-radius: 8px; }
+        .preview-actions { margin-top: 12px; display: flex; gap: 8px; }
+
+        .action-card { background: var(--surface-primary); border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .action-card h3 { margin: 0 0 8px; font-size: 1.1rem; }
+        .action-desc { color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 12px; }
+
+        .result-success { margin-top: 12px; padding: 12px; background: rgba(52, 199, 89, 0.1); border-radius: 8px; color: #34C759; }
+        .result-success p { margin: 4px 0 0; font-size: 0.875rem; }
+
+        .continue-card { border-left: 4px solid #34C759; }
+
+        .visualizations-section { padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .visualizations-section h3 { margin-bottom: 16px; }
+        .viz-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .viz-tab { padding: 8px 16px; border: 1px solid var(--border-color); background: var(--surface-primary); border-radius: 8px; cursor: pointer; }
+        .viz-tab.active { background: var(--accent-primary); color: white; border-color: var(--accent-primary); }
+        .viz-content { min-height: 300px; background: var(--surface-secondary); border-radius: 12px; padding: 20px; }
+        .viz-content img { max-width: 100%; }
+        .viz-placeholder, .viz-loading { text-align: center; color: var(--text-secondary); padding: 40px; }
+
+        .hidden { display: none !important; }
+    </style>
+</body>
+
+</html>

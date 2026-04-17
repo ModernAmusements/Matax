@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANTAX - Results</title>
+    <link rel="stylesheet" href="/styles/design-system.css">
+    <script src="./shared-session.js"></script>
+</head>
+
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-content">
+            <div class="sidebar-header">
+                <span class="sidebar-title">MANTAX</span>
+            </div>
+            <div class="sidebar-nav">
+                <a href="dashboard.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/house.fill.svg" class="nav-icon">
+                    <span>Dashboard</span>
+                </a>
+                <a href="analyze.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/person.fill.svg" class="nav-icon">
+                    <span>Analyze</span>
+                </a>
+                <a href="library.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/person.2.fill.svg" class="nav-icon">
+                    <span>Library</span>
+                </a>
+                <a href="compare.html" class="sidebar-link">
+                    <img src="/styles/sf_icons/arrow.left.arrow.right.svg" class="nav-icon">
+                    <span>Compare</span>
+                </a>
+                <a href="results.html" class="sidebar-link active">
+                    <img src="/styles/sf_icons/list.number.svg" class="nav-icon">
+                    <span>Results</span>
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <small>Session Storage (auto-clear)</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="titlebar" id="titlebar">
+        <div class="titlebar-left">
+            <div class="traffic-lights">
+                <div class="light close" onclick="closeWindow()" title="Close"></div>
+                <div class="light minimize" onclick="minimizeWindow()" title="Minimize"></div>
+                <div class="light maximize" onclick="maximizeWindow()" title="Maximize"></div>
+            </div>
+            <button class="sidebar-toggle-icon" onclick="toggleSidebar()">
+                <img src="/styles/sf_icons/sidebar.left.svg" alt="">
+            </button>
+        </div>
+        <div class="titlebar-center">
+            <span class="titlebar-title">MANTAX - Results (Session)</span>
+        </div>
+        <div class="titlebar-right">
+            <button class="menu-icon">
+                <img src="/styles/sf_icons/ellipsis.svg" alt="Menu">
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="page-header">
+            <h1>Comparison Results</h1>
+            <p class="subtitle">View matching results and similarity scores</p>
+            <div class="session-warning">
+                <span class="warning-icon">⚠️</span>
+                <span>Data will be lost when tab closes</span>
+            </div>
+        </div>
+
+        <div class="no-results-warning hidden" id="noResultsWarning">
+            <p>No comparison results in session.</p>
+            <button class="btn btn-primary" onclick="navigateTo('compare.html')">Go to Compare</button>
+        </div>
+
+        <div class="results-content" id="resultsContent">
+            <div class="stats-row" id="statsRow">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalMatches">0</div>
+                    <div class="stat-label">Total Matches</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="veryHighCount">0</div>
+                    <div class="stat-label">Very High</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="highCount">0</div>
+                    <div class="stat-label">High</div>
+                </div>
+            </div>
+
+            <div class="matches-section">
+                <h3>Matches</h3>
+                <div class="matches-list" id="matchesList"></div>
+            </div>
+        </div>
+
+        <div class="results-actions">
+            <button class="btn" onclick="newComparison()">New Comparison</button>
+            <button class="btn btn-primary" onclick="navigateTo('compare.html')">Back to Compare</button>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" style="display: none;"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        function init() {
+            const queryState = MantaxSessionState.getQueryState();
+            
+            if (!queryState.image) {
+                showNoResults();
+                return;
+            }
+
+            const refs = MantaxSessionState.get('compare_refs') || [];
+            
+            if (refs.length === 0) {
+                showNoResults();
+                return;
+            }
+
+            displayMockResults(refs);
+        }
+
+        function showNoResults() {
+            document.getElementById('noResultsWarning').classList.remove('hidden');
+            document.getElementById('resultsContent').classList.add('hidden');
+        }
+
+        function displayMockResults(refs) {
+            const matches = refs.map((ref, i) => ({
+                reference: { name: ref.name, image: ref.image },
+                final_score: 0.5 + (Math.random() * 0.4),
+                arcface_similarity: 0.4 + (Math.random() * 0.4),
+                facenet_similarity: 0.3 + (Math.random() * 0.3)
+            })).sort((a, b) => b.final_score - a.final_score);
+
+            document.getElementById('totalMatches').textContent = matches.length;
+            document.getElementById('veryHighCount').textContent = matches.filter(r => r.final_score >= 0.7).length;
+            document.getElementById('highCount').textContent = matches.filter(r => r.final_score >= 0.45 && r.final_score < 0.7).length;
+
+            const list = document.getElementById('matchesList');
+            let html = '';
+
+            matches.forEach((match, index) => {
+                const score = match.final_score;
+                const band = getConfidenceBand(score);
+                const refImage = match.reference?.image || '';
+                const refName = match.reference?.name || 'Unknown';
+
+                html += `
+                    <div class="match-card">
+                        <div class="match-rank">#${index + 1}</div>
+                        <div class="match-thumb"><img src="${refImage}" alt="${refName}"></div>
+                        <div class="match-info">
+                            <div class="match-name">${refName}</div>
+                            <div class="match-score">
+                                <div class="score-bar"><div class="score-fill" style="width: ${score * 100}%; background: ${band.color}"></div></div>
+                                <span class="score-value" style="color: ${band.color}">${formatPercentage(score)}</span>
+                            </div>
+                            <div class="confidence-badge" style="background: ${band.color}">${band.label}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html;
+        }
+
+        function newComparison() {
+            MantaxSessionState.clearPageData();
+            navigateTo('analyze.html');
+        }
+
+        function closeWindow() {
+            if (window.electronAPI && window.electronAPI.close) window.electronAPI.close();
+            else window.close();
+        }
+        function minimizeWindow() {
+            if (window.electronAPI && window.electronAPI.minimize) window.electronAPI.minimize();
+        }
+        function maximizeWindow() {
+            if (window.electronAPI && window.electronAPI.maximize) window.electronAPI.maximize();
+        }
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.querySelector('.container').classList.toggle('sidebar-open');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+
+    <style>
+        .page-header { text-align: center; padding: 30px 20px 20px; }
+        .page-header h1 { margin: 0 0 8px; font-size: 2rem; }
+        .subtitle { color: var(--text-secondary); margin: 0; }
+
+        .session-warning { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 6px 12px; background: rgba(255, 159, 10, 0.1); border-radius: 6px; font-size: 0.75rem; color: #FF9F0A; }
+        .warning-icon { font-size: 1rem; }
+
+        .no-results-warning { text-align: center; padding: 40px; background: var(--surface-secondary); margin: 20px; border-radius: 16px; }
+
+        .results-content { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+        .stats-row { display: flex; justify-content: center; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card { background: var(--surface-primary); border-radius: 12px; padding: 16px 24px; text-align: center; min-width: 100px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .stat-value { font-size: 1.5rem; font-weight: 600; color: var(--accent-primary); }
+        .stat-label { font-size: 0.875rem; color: var(--text-secondary); }
+
+        .matches-section h3 { margin-bottom: 16px; }
+        .matches-list { display: flex; flex-direction: column; gap: 12px; }
+
+        .match-card { display: flex; align-items: center; gap: 16px; padding: 16px; background: var(--surface-primary); border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .match-rank { font-size: 1.25rem; font-weight: 600; color: var(--text-secondary); width: 40px; text-align: center; }
+        .match-thumb { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--surface-secondary); }
+        .match-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .match-info { flex: 1; }
+        .match-name { font-weight: 600; margin-bottom: 8px; }
+        .match-score { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        .score-bar { flex: 1; height: 8px; background: var(--surface-secondary); border-radius: 4px; overflow: hidden; }
+        .score-fill { height: 100%; border-radius: 4px; }
+        .score-value { font-weight: 600; }
+        .confidence-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; color: white; font-size: 0.75rem; font-weight: 600; }
+
+        .results-actions { text-align: center; padding: 20px; display: flex; justify-content: center; gap: 12px; }
+        .hidden { display: none !important; }
+    </style>
+</body>
+
+</html>
