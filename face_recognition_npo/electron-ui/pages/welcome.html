@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MANTAX</title>
+    <link rel="stylesheet" href="/styles/mantax-design-system.css">
+    <style>
+        body {
+            background: #0a0a14;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background: 
+                radial-gradient(circle at 25% 25%, rgba(138, 96, 223, 1) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(251, 93, 57, 1) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(91, 177, 251, 1) 0%, transparent 55%);
+            filter: blur(80px);
+            animation: move 12s ease-in-out infinite alternate;
+        }
+
+        @keyframes move {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2); }
+        }
+
+        .center {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+
+        .logo {
+            width: 280px;
+            height: auto;
+            margin-bottom: 20px;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px rgba(255,255,255,0.2)); }
+            50% { transform: scale(1.03); filter: drop-shadow(0 0 35px rgba(255,255,255,0.4)); }
+        }
+
+        .tagline {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 28px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg"></div>
+    <div class="center">
+        <img src="/src/logos/Mantax_Logo_Loading.svg" class="logo">
+        <p class="tagline">Ethical Facial Recognition</p>
+        <button class="button-liquid-glass" onclick="go()">
+            <div class="BG"></div>
+            <div class="glass-effect"></div>
+            <div class="text">Get Started</div>
+        </button>
+    </div>
+
+    <script>
+        function go() { location.href = 'onboarding.html'; }
+    </script>
+</body>
+
+</html>

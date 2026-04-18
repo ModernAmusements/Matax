@@ -1,0 +1,404 @@
+/* ========================================
+   MANTAX DESIGN SYSTEM
+   ======================================== */
+
+/* CSS Variables */
+:root {
+  /* Colors - Brand */
+  --color-primary: #8A60DF;
+  --color-primary-light: #9B71EF;
+  --color-secondary: #59B1FB;
+  --color-accent: #FB5D39;
+  --color-warning: #EEBD5B;
+  --color-error: #E44145;
+  --color-success: #34C759;
+
+  /* Colors - Labels */
+  --color-label: #1a1a1a;
+  --color-label-secondary: #666666;
+  --color-label-muted: #999999;
+
+  /* Colors - Background */
+  --color-bg: #0a0a14;
+  --color-bg-light: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f0f0;
+
+  /* Focus outline */
+  --focus-outline: 2px solid #4a90e2;
+  --focus-ring: -webkit-focus-ring-color auto 5px;
+
+  /* Button Font */
+  --btn-font-family: "SF Pro-Medium", Helvetica, sans-serif;
+  --btn-font-weight: 600;
+
+  /* Button Sizes */
+  --btn-sm-padding: 4px 14px;
+  --btn-sm-font-size: 13px;
+  --btn-md-padding: 6px 20px;
+  --btn-md-font-size: 15px;
+  --btn-lg-padding: 10px 28px;
+  --btn-lg-font-size: 17px;
+  --btn-xl-padding: 14px 36px;
+  --btn-xl-font-size: 20px;
+
+  /* Button Default (gray) */
+  --btn-default-bg: rgba(247, 247, 247, 1);
+  --btn-default-color: #1a1a1a;
+  --btn-default-shadow: 0px 8px 40px rgba(0, 0, 0, 0.1);
+  --btn-default-outline: none;
+
+  /* Button Primary (purple) */
+  --btn-primary-bg: #8A60DF;
+  --btn-primary-color: #ffffff;
+  --btn-primary-shadow: 0px 8px 40px rgba(138, 96, 223, 0.3);
+
+  /* Button Secondary */
+  --btn-secondary-bg: #f7f7f7;
+  --btn-secondary-color: #1a1a1a;
+  --btn-secondary-shadow: 0px 8px 40px rgba(0, 0, 0, 0.1);
+
+  /* Button Success */
+  --btn-success-bg: #34C759;
+  --btn-success-color: #ffffff;
+  --btn-success-shadow: 0px 8px 40px rgba(52, 199, 89, 0.3);
+
+  /* Button Error */
+  --btn-error-bg: #E44145;
+  --btn-error-color: #ffffff;
+  --btn-error-shadow: 0px 8px 40px rgba(228, 65, 69, 0.3);
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 2rem;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 50px;
+  --radius-btn: 296px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-base: 250ms ease;
+  --transition-slow: 350ms ease;
+
+  /* Animations */
+  --animate-spin: spin 1s linear infinite;
+  --animate-pulse: pulse 2s ease-in-out infinite;
+  --animate-fade: fade 0.3s ease forwards;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-family);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-label);
+  min-height: 100vh;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+/* Focus style */
+button:focus-visible {
+  outline: var(--focus-outline);
+  outline: var(--focus-ring);
+}
+
+a {
+  text-decoration: none;
+}
+
+/* Container */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+/* Card */
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+}
+
+/* ========================================
+   BUTTONS - Liquid Glass Style
+   ======================================== */
+
+.button-liquid-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--btn-md-padding);
+  position: relative;
+  border-radius: var(--radius-btn);
+  border: var(--btn-default-outline);
+  cursor: pointer;
+  font-family: var(--btn-font-family);
+  font-size: var(--btn-md-font-size);
+  font-weight: var(--btn-font-weight);
+  transition: all var(--transition-base);
+}
+
+.button-liquid-glass .BG {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-btn);
+  box-shadow: var(--btn-default-shadow);
+  background:
+    linear-gradient(0deg, rgba(247, 247, 247, 1) 0%, rgba(247, 247, 247, 1) 100%),
+    linear-gradient(0deg, rgba(221, 221, 221, 1) 0%, rgba(221, 221, 221, 1) 100%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.65) 100%);
+  transition: all var(--transition-base);
+}
+
+.button-liquid-glass .glass-effect {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  border-radius: var(--radius-btn);
+  background-color: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(3.5px) brightness(100%) saturate(105%);
+  -webkit-backdrop-filter: blur(3.5px) brightness(100%) saturate(105%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 1px 0 0 rgba(255, 255, 255, 0.32),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.11),
+    inset -1px 0 2px rgba(0, 0, 0, 0.09);
+  pointer-events: none;
+  transition: all var(--transition-base);
+}
+
+.button-liquid-glass .text {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 36px;
+  color: var(--btn-default-color);
+  white-space: nowrap;
+  z-index: 1;
+}
+
+.button-liquid-glass:hover {
+  transform: translateY(-2px);
+}
+
+.button-liquid-glass:active {
+  transform: translateY(0);
+}
+
+/* Button Sizes */
+
+/* Small */
+.button-liquid-glass.sm {
+  padding: var(--btn-sm-padding);
+  font-size: var(--btn-sm-font-size);
+}
+
+.button-liquid-glass.sm .text {
+  min-height: 28px;
+}
+
+/* Large */
+.button-liquid-glass.lg {
+  padding: var(--btn-lg-padding);
+  font-size: var(--btn-lg-font-size);
+}
+
+.button-liquid-glass.lg .text {
+  min-height: 44px;
+}
+
+/* Extra Large */
+.button-liquid-glass.xl {
+  padding: var(--btn-xl-padding);
+  font-size: var(--btn-xl-font-size);
+}
+
+.button-liquid-glass.xl .text {
+  min-height: 52px;
+}
+
+/* Button Variants */
+
+/* Primary (purple) */
+.button-liquid-glass.primary {
+  --btn-default-bg: var(--btn-primary-bg);
+  --btn-default-color: var(--btn-primary-color);
+  --btn-default-shadow: var(--btn-primary-shadow);
+}
+
+.button-liquid-glass.primary .BG {
+  background: var(--btn-primary-bg);
+}
+
+/* Secondary */
+.button-liquid-glass.secondary {
+  --btn-default-bg: var(--btn-secondary-bg);
+  --btn-default-color: var(--btn-secondary-color);
+  --btn-default-shadow: var(--btn-secondary-shadow);
+}
+
+.button-liquid-glass.secondary .BG {
+  background: var(--btn-secondary-bg);
+}
+
+/* Success */
+.button-liquid-glass.success {
+  --btn-default-bg: var(--btn-success-bg);
+  --btn-default-color: var(--btn-success-color);
+  --btn-default-shadow: var(--btn-success-shadow);
+}
+
+.button-liquid-glass.success .BG {
+  background: var(--btn-success-bg);
+}
+
+/* Error */
+.button-liquid-glass.error {
+  --btn-default-bg: var(--btn-error-bg);
+  --btn-default-color: var(--btn-error-color);
+  --btn-default-shadow: var(--btn-error-shadow);
+}
+
+.button-liquid-glass.error .BG {
+  background: var(--btn-error-bg);
+}
+
+/* ========================================
+   FORM INPUTS
+   ======================================== */
+
+.form-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-base);
+  background: var(--color-surface);
+  border: 1px solid var(--color-label-muted);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+}
+
+/* ========================================
+   BADGE
+   ======================================== */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  background: rgba(138, 96, 223, 0.1);
+  color: var(--color-primary);
+  border-radius: var(--radius-full);
+}
+
+/* ========================================
+   ANIMATIONS
+   ======================================== */
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+
+@keyframes fade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes move {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.2); }
+}
+
+/* ========================================
+   UTILITY CLASSES
+   ======================================== */
+
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.gap-2 { gap: var(--space-2); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+
+.hidden { display: none; }
+.visible { display: block; }
+
+.animate-spin { animation: var(--animate-spin); }
+.animate-pulse { animation: var(--animate-pulse); }
+.animate-fade { animation: var(--animate-fade); }
