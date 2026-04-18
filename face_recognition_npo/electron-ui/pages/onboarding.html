@@ -13,6 +13,24 @@
             min-height: 100vh;
         }
 
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 25% 25%, rgba(138, 96, 223, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 75% 75%, rgba(251, 93, 57, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(91, 177, 251, 0.3) 0%, transparent 55%);
+            filter: blur(60px);
+            animation: bgMove 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgMove {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.2); }
+        }
+
         .icon {
             width: 100px;
             height: 100px;
@@ -80,9 +98,9 @@
                         <path d="M21 15l-5-5L6 21"/>
                     </svg>
                 </div>
-                <p style="font-size:var(--font-size-sm);color:var(--color-label-secondary);text-transform:uppercase;letter-spacing:2px;margin-bottom:var(--space-2)">Step 1 of 3</p>
-                <h2 style="font-size:var(--font-size-2xl);color:var(--color-label);margin-bottom:var(--space-3)">Capture</h2>
-                <p style="font-size:var(--font-size-base);color:var(--color-label-secondary);line-height:1.6">Upload a photo containing faces. The system will detect faces and extract unique signatures for comparison.</p>
+                <p class="text-caption">Step 1 of 3</p>
+                <h2 class="heading-4" style="margin-bottom:var(--space-3)">Capture</h2>
+                <p class="text-body">Upload a photo containing faces. The system will detect faces and extract unique signatures for comparison.</p>
             </div>
 
             <div class="slide" data-slide="2" style="display:none">
@@ -92,9 +110,9 @@
                         <path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
                     </svg>
                 </div>
-                <p style="font-size:var(--font-size-sm);color:var(--color-label-secondary);text-transform:uppercase;letter-spacing:2px;margin-bottom:var(--space-2)">Step 2 of 3</p>
-                <h2 style="font-size:var(--font-size-2xl);color:var(--color-label);margin-bottom:var(--space-3)">Reference</h2>
-                <p style="font-size:var(--font-size-base);color:var(--color-label-secondary);line-height:1.6">Build your reference library by adding known persons with their photos.</p>
+                <p class="text-caption">Step 2 of 3</p>
+                <h2 class="heading-4" style="margin-bottom:var(--space-3)">Reference</h2>
+                <p class="text-body">Build your reference library by adding known persons with their photos.</p>
             </div>
 
             <div class="slide" data-slide="3" style="display:none">
@@ -104,9 +122,9 @@
                         <path d="M9 12l2 2 4-4"/>
                     </svg>
                 </div>
-                <p style="font-size:var(--font-size-sm);color:var(--color-label-secondary);text-transform:uppercase;letter-spacing:2px;margin-bottom:var(--space-2)">Important</p>
-                <h2 style="font-size:var(--font-size-2xl);color:var(--color-label);margin-bottom:var(--space-3)">Ethical Use</h2>
-                <p style="font-size:var(--font-size-base);color:var(--color-label-secondary);line-height:1.6"><strong style="color:var(--color-error)">All data requires documented consent.</strong> Human review required for all results.</p>
+                <p class="text-caption">Important</p>
+                <h2 class="heading-4" style="margin-bottom:var(--space-3)">Ethical Use</h2>
+                <p class="text-body"><strong style="color:var(--color-error)">All data requires documented consent.</strong> Human review required for all results.</p>
             </div>
 
             <div class="dots">
